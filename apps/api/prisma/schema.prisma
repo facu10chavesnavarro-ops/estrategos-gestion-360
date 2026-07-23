@@ -47,6 +47,9 @@ model Company {
   auditLogs     AuditLog[]
   branches      Branch[]
   invitations   Invitation[]
+  parties       Party[]
+  customers     Customer[]
+  suppliers     Supplier[]
 
   @@index([tenantId])
   @@map("companies")
@@ -186,4 +189,76 @@ model AuditLog {
   // docs/ARQUITECTURA.md sección 8).
   @@index([companyId, createdAt])
   @@map("audit_logs")
+}
+
+/// Tercero: persona física o jurídica con la que la empresa opera (M03/M04).
+/// Datos fiscales/legales/de contacto compartidos entre Cliente y Proveedor
+/// para que la misma persona pueda ser ambos sin duplicar información
+/// (decisión de Sprint 2, ver docs/sprint-2/01-clientes-proveedores.md §0.4).
+model Party {
+  id           String   @id @default(uuid())
+  companyId    String   @map("company_id")
+  legalName    String   @map("legal_name")
+  taxId        String?  @map("tax_id")
+  taxCondition String?  @map("tax_condition")
+  email        String?
+  phone        String?
+  address      String?
+  contactName  String?  @map("contact_name")
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  customer Customer?
+  supplier Supplier?
+
+  @@unique([companyId, taxId])
+  @@index([companyId])
+  @@map("parties")
+}
+
+/// Rol de Cliente de un Party (M03). `companyId` duplicado deliberadamente
+/// respecto de Party.companyId — ver decisión de escalabilidad en
+/// docs/sprint-2/01-clientes-proveedores.md §0.5: nunca se edita
+/// independientemente, mantiene el patrón de columna directa de todo el
+/// sistema y deja el terreno listo para Row Level Security.
+model Customer {
+  id              String   @id @default(uuid())
+  partyId         String   @unique @map("party_id")
+  companyId       String   @map("company_id")
+  paymentTermDays Int?     @map("payment_term_days")
+  creditLimit     Decimal? @map("credit_limit") @db.Decimal(14, 2)
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  party   Party   @relation(fields: [partyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("customers")
+}
+
+/// Rol de Proveedor de un Party (M04). Mismas notas que Customer sobre
+/// companyId duplicado. paymentTermDays tiene significado inverso al de
+/// Customer (condición de compra, no de venta) — por eso no se comparte
+/// aunque el tipo sea igual.
+model Supplier {
+  id                String   @id @default(uuid())
+  partyId           String   @unique @map("party_id")
+  companyId         String   @map("company_id")
+  paymentTermDays   Int?     @map("payment_term_days")
+  bankName          String?  @map("bank_name")
+  bankAccountHolder String?  @map("bank_account_holder")
+  bankCbu           String?  @map("bank_cbu")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  party   Party   @relation(fields: [partyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("suppliers")
 }

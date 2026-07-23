@@ -4,7 +4,7 @@ import { AuditLogRepository } from '../../../../common/domain/repositories/audit
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { UpdateCompanyUseCaseInput } from '../dto/company.dto';
 import { InvalidTaxIdError } from '../../domain/errors/company.errors';
-import { isValidTaxId } from '../../domain/rules/tax-id.validator';
+import { isValidTaxId } from '../../../../common/domain/rules/tax-id.validator';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 
