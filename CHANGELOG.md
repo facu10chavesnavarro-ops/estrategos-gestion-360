@@ -6,6 +6,56 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.3.1] - 2026-07-23
+
+Auditoría técnica integral pre-Sprint 3. Correcciones aplicadas sin decisión
+de arquitectura pendiente; ver `docs/AUDITORIA-TECNICA-PRE-SPRINT-3.md` para
+el informe completo, severidad de cada hallazgo, y las decisiones (RLS,
+transacciones, bloqueo de login, upgrade de dependencias) que quedan
+esperando aprobación antes de Sprint 3.
+
+### Agregado
+
+- **`POST /auth/logout`**: revoca el refresh token — M01 pedía "cierre de
+  sesión" explícitamente y solo existía login/refresh hasta ahora.
+- **Documentación de API (Swagger/OpenAPI)**: `GET /api/docs` (UI) y
+  `GET /api/docs-json` (spec crudo) — entregable exigido por el documento
+  fuente que faltaba desde Sprint 0.
+- **`helmet`**: cabeceras de seguridad HTTP básicas.
+- **Índices compuestos `(companyId, isActive)`** en `Branch`, `CompanyUser`,
+  `Customer` y `Supplier` — el patrón de consulta más común del sistema no
+  estaba cubierto por un índice.
+- **`CHECK` constraint** en `customers.credit_limit >= 0` — defensa en
+  profundidad a nivel de base de datos, además de la validación ya existente
+  en el caso de uso.
+- **19 tests unitarios nuevos**: `GetCompanyByIdUseCase`,
+  `GetCustomerByIdUseCase`, `ListCustomersUseCase`, `GetSupplierByIdUseCase`,
+  `ListSuppliersUseCase` (sin cobertura previa), `LogoutUseCase`, y
+  `CsvParseAdapter` (el único punto del sistema que ejercita la librería
+  `csv-parse` real en vez de un mock).
+
+### Corregido
+
+- `GlobalExceptionFilter` no traducía errores conocidos de Prisma (`P2002`
+  conflicto de unicidad, `P2025` registro no encontrado) — una condición de
+  carrera real podía devolver 500 genérico en vez de un 409/404 entendible.
+- Código duplicado: función `pick()` idéntica en `UpdateCustomerUseCase` y
+  `UpdateSupplierUseCase`, unificada en `common/application/pick.ts`.
+- `verifyAccessToken` lanzaba `InvalidRefreshTokenError` (nombre incorrecto,
+  copiado del método vecino) — ahora `InvalidAccessTokenError`.
+- Comentario desactualizado en `CompanyContextGuard` que prometía Row Level
+  Security "en Sprint 1" — nunca se cumplió; corregido para no repetir una
+  promesa de fecha.
+
+### Pendiente de decisión (no corregido, requiere aprobación — ver informe)
+
+- **Crítico**: falta de transacciones de base de datos en operaciones
+  multi-tabla (`CreateCompanyUseCase`, `CreateCustomerUseCase`/
+  `CreateSupplierUseCase`, `AcceptInvitationUseCase`, importaciones CSV).
+- **Alto**: Row Level Security de Postgres todavía no implementado.
+- **Alto**: bloqueo por intentos fallidos de login todavía no implementado.
+- **Medio**: NestJS/Prisma/TypeScript 1-2 versiones mayores atrasadas.
+
 ## [0.3.0] - 2026-07-23
 
 Módulo 1 de Sprint 2 (Clientes y Proveedores / Terceros).
