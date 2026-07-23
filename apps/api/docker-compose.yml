@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: estrategos
+      POSTGRES_PASSWORD: estrategos
+      POSTGRES_DB: estrategos_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - estrategos_pgdata:/var/lib/postgresql/data
+volumes:
+  estrategos_pgdata:

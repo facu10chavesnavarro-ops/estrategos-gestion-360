@@ -1,0 +1,54 @@
+# --- Node.js ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.log
+.npm
+
+# --- Entornos y secretos (nunca commitear) ---
+.env
+.env.*
+!.env.example
+!.env*.example
+
+# --- NestJS / TypeScript build ---
+apps/api/dist/
+dist/
+*.tsbuildinfo
+
+# --- Next.js ---
+apps/web/.next/
+apps/web/out/
+.next/
+out/
+.vercel
+
+# --- Prisma ---
+# El cliente generado se regenera con `prisma generate`; nunca se commitea.
+**/node_modules/.prisma/
+
+# --- Testing / cobertura ---
+coverage/
+.nyc_output/
+
+# --- Windows ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# --- Editores / IDE ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# --- Sistema operativo (macOS/Linux, por si se clona en otra plataforma) ---
+.DS_Store
+*~

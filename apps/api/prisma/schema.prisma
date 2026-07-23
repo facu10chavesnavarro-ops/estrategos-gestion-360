@@ -1,0 +1,157 @@
+// Sprint 0 — solo el modelo core (tenant, empresa, usuario, roles, auth).
+// Las entidades transaccionales (ventas, compras, caja, etc.) se agregan
+// en Sprint 2+ una vez que Sprint 0/1 estén cerrados.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Consultora que administra una o más empresas (RN de la sección 7 del doc fuente).
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  companies Company[]
+
+  @@map("tenants")
+}
+
+/// Empresa (unidad legal/operativa cuyos datos deben aislarse — RN-001, RN-002).
+model Company {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  legalName     String   @map("legal_name")
+  taxId         String?  @map("tax_id") // CUIT
+  taxCondition  String?  @map("tax_condition")
+  activity      String?
+  address       String?
+  contactName   String?  @map("contact_name")
+  contactEmail  String?  @map("contact_email")
+  contactPhone  String?  @map("contact_phone")
+  logoUrl       String?  @map("logo_url")
+  currency      String   @default("ARS")
+  timezone      String   @default("America/Argentina/Jujuy")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant        @relation(fields: [tenantId], references: [id])
+  companyUsers  CompanyUser[]
+  auditLogs     AuditLog[]
+  branches      Branch[]
+
+  @@index([tenantId])
+  @@map("companies")
+}
+
+/// Sucursal o punto operativo de una empresa (M02, RN-EMP-01/09).
+model Branch {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  name      String
+  address   String?
+  phone     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+  @@map("branches")
+}
+
+/// Persona con credenciales de acceso (no lleva rol propio: el rol es por empresa).
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  fullName      String    @map("full_name")
+  isActive      Boolean   @default(true) @map("is_active")
+  lastLoginAt   DateTime? @map("last_login_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  companyUsers  CompanyUser[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+/// Rol asignable por empresa (Superadministrador, Administrador Estrategos,
+/// Consultor, Propietario, Administrador de empresa, Contador externo,
+/// Empleado, Auditor — sección 6.3 del documento fuente).
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  companyUsers CompanyUser[]
+
+  @@map("roles")
+}
+
+/// Tabla puente: un usuario tiene un rol DISTINTO por cada empresa a la que accede.
+model CompanyUser {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  companyId String   @map("company_id")
+  roleId    String   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+  role    Role    @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@map("company_users")
+}
+
+/// Refresh tokens rotables y revocables (nunca se guarda el token en texto plano).
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// Registro inmutable de acciones sensibles (RN-009). No editable por diseño:
+/// no se expone ningún endpoint PATCH/DELETE para este modelo.
+model AuditLog {
+  id         String   @id @default(uuid())
+  companyId  String?  @map("company_id")
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company Company? @relation(fields: [companyId], references: [id])
+  user    User?    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@index([entityType, entityId])
+  // Soporta reportes de auditoría filtrados por empresa y período (R09) sin
+  // table scan a medida que la tabla crece sin límite (ver decisión en
+  // docs/ARQUITECTURA.md sección 8).
+  @@index([companyId, createdAt])
+  @@map("audit_logs")
+}
