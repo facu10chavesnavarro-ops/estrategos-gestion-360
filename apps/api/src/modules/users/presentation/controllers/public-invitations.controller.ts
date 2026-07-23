@@ -4,11 +4,13 @@ import { AcceptInvitationUseCase } from '../../application/use-cases/accept-invi
 import { AcceptInvitationRequestDto } from '../dto/accept-invitation-request.dto';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { mapUserError } from '../map-user-error';
+import { ApiTags } from '@nestjs/swagger';
 
 /**
  * Sin sesión todavía: el usuario invitado no tiene token de acceso hasta
  * aceptar. Mismo patrón que /auth/login y /auth/refresh (@Public()).
  */
+@ApiTags('Invitaciones (publico)')
 @Controller('invitations')
 export class PublicInvitationsController {
   constructor(

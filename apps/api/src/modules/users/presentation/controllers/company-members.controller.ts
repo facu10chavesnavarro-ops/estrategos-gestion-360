@@ -10,7 +10,9 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapUserError } from '../map-user-error';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Miembros de empresa')
 @Controller('companies/:companyId/members')
 @UseGuards(CompanyContextGuard)
 export class CompanyMembersController {

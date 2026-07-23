@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { LoginUseCase } from '../../application/use-cases/login.use-case';
 import { RefreshSessionUseCase } from '../../application/use-cases/refresh-session.use-case';
+import { LogoutUseCase } from '../../application/use-cases/logout.use-case';
 import {
   LoginRequestDto,
   RefreshRequestDto,
@@ -18,12 +19,15 @@ import {
   InvalidRefreshTokenError,
 } from '../../domain/errors/auth.errors';
 import { Public } from '../../../../common/decorators/public.decorator';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly loginUseCase: LoginUseCase,
     private readonly refreshSessionUseCase: RefreshSessionUseCase,
+    private readonly logoutUseCase: LogoutUseCase,
   ) {}
 
   @Public()
@@ -57,5 +61,19 @@ export class AuthController {
       }
       throw error;
     }
+  }
+
+  /**
+   * M01 del documento fuente: "cierre de sesión". Público como /refresh —
+   * el access token puede haber expirado ya cuando el usuario cierra sesión.
+   * Siempre devuelve 200: para quien llama, "cerrar sesión" con un token
+   * viejo o inválido no es un error, es el resultado que ya buscaba.
+   */
+  @Public()
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Body() body: RefreshRequestDto) {
+    await this.logoutUseCase.execute({ refreshToken: body.refreshToken });
+    return { success: true };
   }
 }

@@ -69,6 +69,7 @@ model Branch {
   company Company @relation(fields: [companyId], references: [id])
 
   @@index([companyId])
+  @@index([companyId, isActive])
   @@map("branches")
 }
 
@@ -122,6 +123,7 @@ model CompanyUser {
 
   @@unique([userId, companyId])
   @@index([companyId])
+  @@index([companyId, isActive])
   @@map("company_users")
 }
 
@@ -237,6 +239,7 @@ model Customer {
   company Company @relation(fields: [companyId], references: [id])
 
   @@index([companyId])
+  @@index([companyId, isActive])
   @@map("customers")
 }
 
@@ -260,5 +263,6 @@ model Supplier {
   company Company @relation(fields: [companyId], references: [id])
 
   @@index([companyId])
+  @@index([companyId, isActive])
   @@map("suppliers")
 }

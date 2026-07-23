@@ -8,6 +8,7 @@ import { isValidTaxId } from '../../../../common/domain/rules/tax-id.validator';
 import { SupplierEntity } from '../../domain/entities/supplier.entity';
 import { UpdateSupplierUseCaseInput } from '../dto/supplier.dto';
 import { SupplierNotFoundError, InvalidTaxIdError } from '../../domain/errors/supplier.errors';
+import { pick } from '../../../../common/application/pick';
 
 const PARTY_FIELDS = [
   'legalName',
@@ -70,17 +71,4 @@ export class UpdateSupplierUseCase {
 
     return result!;
   }
-}
-
-function pick<T extends object, K extends keyof T>(
-  obj: T,
-  keys: readonly K[],
-): Partial<T> {
-  const result: Partial<T> = {};
-  for (const key of keys) {
-    if (obj[key] !== undefined) {
-      result[key] = obj[key];
-    }
-  }
-  return result;
 }

@@ -13,7 +13,9 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { mapCompanyError } from '../map-company-error';
 import { assertSameCompany } from '../assert-same-company';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Sucursales')
 @Controller('companies/:companyId/branches')
 @UseGuards(CompanyContextGuard)
 export class BranchesController {

@@ -18,3 +18,10 @@ export class InvalidRefreshTokenError extends Error {
     this.name = 'InvalidRefreshTokenError';
   }
 }
+
+export class InvalidAccessTokenError extends Error {
+  constructor() {
+    super('Token de acceso inválido o expirado');
+    this.name = 'InvalidAccessTokenError';
+  }
+}

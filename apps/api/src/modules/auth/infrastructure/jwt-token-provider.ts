@@ -6,7 +6,10 @@ import {
   TokenProviderPort,
   AccessTokenPayload,
 } from '../domain/repositories/token-provider.port';
-import { InvalidRefreshTokenError } from '../domain/errors/auth.errors';
+import {
+  InvalidRefreshTokenError,
+  InvalidAccessTokenError,
+} from '../domain/errors/auth.errors';
 
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL_DAYS = 30;
@@ -27,7 +30,7 @@ export class JwtTokenProvider extends TokenProviderPort {
     try {
       return jwt.verify(token, this.getSecret()) as AccessTokenPayload;
     } catch {
-      throw new InvalidRefreshTokenError();
+      throw new InvalidAccessTokenError();
     }
   }
 

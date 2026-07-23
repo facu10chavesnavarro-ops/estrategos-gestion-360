@@ -12,9 +12,12 @@ import { PrismaService } from '../persistence/prisma.service';
  *
  * Regla dura (RN-001/RN-002 del documento fuente): ningún endpoint puede
  * devolver datos de una empresa no autorizada. Este guard es la primera de
- * las tres barreras descritas en docs/ARQUITECTURA.md sección 3 — las otras
- * dos (repositorio tipado + RLS de Postgres) se agregan en Sprint 1 junto
- * con las primeras entidades transaccionales.
+ * las tres barreras descritas en docs/ARQUITECTURA.md sección 3. La segunda
+ * (repositorio tipado, filtrando siempre por companyId) ya está en uso en
+ * todos los módulos desde Sprint 1. La tercera (RLS de Postgres) sigue
+ * pendiente al cierre de Sprint 2 — ver auditoría técnica pre-Sprint 3 para
+ * la decisión de cuándo/cómo implementarla; no se promete una fecha aquí
+ * para no repetir el desfasaje de esta misma nota en versiones anteriores.
  */
 @Injectable()
 export class CompanyContextGuard implements CanActivate {

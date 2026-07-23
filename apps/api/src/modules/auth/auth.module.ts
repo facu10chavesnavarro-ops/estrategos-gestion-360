@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AuthController } from './presentation/controllers/auth.controller';
 import { LoginUseCase } from './application/use-cases/login.use-case';
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session.use-case';
+import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { UserRepository } from './domain/repositories/user.repository';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
 import { RefreshTokenRepository } from './domain/repositories/refresh-token.repository';
@@ -20,6 +21,7 @@ import { PrismaAuditLogRepository } from '../../common/infrastructure/persistenc
     PrismaService,
     LoginUseCase,
     RefreshSessionUseCase,
+    LogoutUseCase,
     { provide: UserRepository, useClass: PrismaUserRepository },
     { provide: RefreshTokenRepository, useClass: PrismaRefreshTokenRepository },
     { provide: PasswordHasherPort, useClass: Argon2PasswordHasher },

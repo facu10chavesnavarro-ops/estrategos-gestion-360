@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CustomerRepository } from '../../domain/repositories/customer.repository';
 import { PartyRepository } from '../../../parties/domain/repositories/party.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { pick } from '../../../../common/application/pick';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { isValidTaxId } from '../../../../common/domain/rules/tax-id.validator';
@@ -77,17 +78,4 @@ export class UpdateCustomerUseCase {
 
     return result!;
   }
-}
-
-function pick<T extends object, K extends keyof T>(
-  obj: T,
-  keys: readonly K[],
-): Partial<T> {
-  const result: Partial<T> = {};
-  for (const key of keys) {
-    if (obj[key] !== undefined) {
-      result[key] = obj[key];
-    }
-  }
-  return result;
 }

@@ -15,7 +15,9 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapSupplierError } from '../map-supplier-error';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Proveedores')
 @Controller('companies/:companyId/suppliers')
 @UseGuards(CompanyContextGuard)
 export class SuppliersController {
