@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
 import { CompanyUserRepository } from '../../domain/repositories/company-user.repository';
-import { AuditLogRepository } from '../../domain/repositories/audit-log.repository';
+import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { CreateCompanyUseCaseInput } from '../dto/company.dto';
 import { InvalidTaxIdError } from '../../domain/errors/company.errors';
@@ -9,8 +9,8 @@ import { isValidTaxId } from '../../domain/rules/tax-id.validator';
 import {
   ROLES_THAT_CAN_CREATE_COMPANY,
   DEFAULT_ROLE_FOR_COMPANY_CREATOR,
-} from '../../domain/rules/company-roles';
-import { CompanyRoleNotAuthorizedError } from '../../domain/errors/company.errors';
+} from '../../../../common/domain/rules/company-roles';
+import { RoleNotAuthorizedError } from '../../../../common/domain/errors/authorization.error';
 
 /** RN-EMP-03, RN-EMP-05, RN-EMP-08. */
 @Injectable()
@@ -28,7 +28,7 @@ export class CreateCompanyUseCase {
       ROLES_THAT_CAN_CREATE_COMPANY,
     );
     if (!isAuthorized) {
-      throw new CompanyRoleNotAuthorizedError();
+      throw new RoleNotAuthorizedError();
     }
 
     if (input.taxId && !isValidTaxId(input.taxId)) {

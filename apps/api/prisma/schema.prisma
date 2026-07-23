@@ -46,6 +46,7 @@ model Company {
   companyUsers  CompanyUser[]
   auditLogs     AuditLog[]
   branches      Branch[]
+  invitations   Invitation[]
 
   @@index([tenantId])
   @@map("companies")
@@ -82,6 +83,8 @@ model User {
   companyUsers  CompanyUser[]
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
+  invitationsSent   Invitation[] @relation("InvitationsSent")
+  invitationsRevoked Invitation[] @relation("InvitationsRevoked")
 
   @@map("users")
 }
@@ -96,6 +99,7 @@ model Role {
   createdAt   DateTime @default(now()) @map("created_at")
 
   companyUsers CompanyUser[]
+  invitations  Invitation[]
 
   @@map("roles")
 }
@@ -106,6 +110,7 @@ model CompanyUser {
   userId    String   @map("user_id")
   companyId String   @map("company_id")
   roleId    String   @map("role_id")
+  isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
   user    User    @relation(fields: [userId], references: [id])
@@ -115,6 +120,33 @@ model CompanyUser {
   @@unique([userId, companyId])
   @@index([companyId])
   @@map("company_users")
+}
+
+/// Invitación de un usuario a una empresa con un rol (M01, RN-USR-*).
+/// El token en sí nunca se persiste, solo su hash (tokenHash).
+/// El estado (pendiente/aceptada/revocada/expirada) se calcula a partir de
+/// acceptedAt/revokedAt/expiresAt — no hay columna de estado redundante.
+model Invitation {
+  id              String    @id @default(uuid())
+  companyId       String    @map("company_id")
+  email           String
+  roleId          String    @map("role_id")
+  tokenHash       String    @map("token_hash")
+  invitedByUserId String    @map("invited_by_user_id")
+  revokedByUserId String?   @map("revoked_by_user_id")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  company   Company @relation(fields: [companyId], references: [id])
+  role      Role    @relation(fields: [roleId], references: [id])
+  invitedBy User    @relation("InvitationsSent", fields: [invitedByUserId], references: [id])
+  revokedBy User?   @relation("InvitationsRevoked", fields: [revokedByUserId], references: [id])
+
+  @@index([companyId])
+  @@index([email])
+  @@map("invitations")
 }
 
 /// Refresh tokens rotables y revocables (nunca se guarda el token en texto plano).

@@ -1,10 +1,3 @@
-export class CompanyRoleNotAuthorizedError extends Error {
-  constructor() {
-    super('El rol del usuario no autoriza esta operación.');
-    this.name = 'CompanyRoleNotAuthorizedError';
-  }
-}
-
 export class InvalidTaxIdError extends Error {
   constructor() {
     super('El CUIT no tiene un formato válido (NN-NNNNNNNN-N).');

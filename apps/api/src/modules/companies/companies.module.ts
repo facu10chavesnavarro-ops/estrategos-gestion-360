@@ -20,8 +20,8 @@ import { BranchRepository } from './domain/repositories/branch.repository';
 import { PrismaBranchRepository } from './infrastructure/persistence/prisma-branch.repository';
 import { CompanyUserRepository } from './domain/repositories/company-user.repository';
 import { PrismaCompanyUserRepository } from './infrastructure/persistence/prisma-company-user.repository';
-import { AuditLogRepository } from './domain/repositories/audit-log.repository';
-import { PrismaAuditLogRepository } from './infrastructure/persistence/prisma-audit-log.repository';
+import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
+import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
 

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { CompaniesModule } from './modules/companies/companies.module';
+import { UsersModule } from './modules/users/users.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -10,6 +11,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     CompaniesModule,
+    UsersModule,
   ],
   providers: [
     // Guard global: por defecto TODO endpoint requiere autenticación

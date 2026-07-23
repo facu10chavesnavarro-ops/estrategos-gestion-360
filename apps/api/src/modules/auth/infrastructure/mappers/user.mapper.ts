@@ -9,6 +9,7 @@ export class UserMapper {
       raw.passwordHash,
       raw.fullName,
       raw.isActive,
+      raw.lastLoginAt,
     );
   }
 }

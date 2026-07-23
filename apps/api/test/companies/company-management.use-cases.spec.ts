@@ -5,13 +5,13 @@ import { ActivateCompanyUseCase } from '../../src/modules/companies/application/
 import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { CompanyRepository } from '../../src/modules/companies/domain/repositories/company.repository';
 import { CompanyUserRepository } from '../../src/modules/companies/domain/repositories/company-user.repository';
-import { AuditLogRepository } from '../../src/modules/companies/domain/repositories/audit-log.repository';
+import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import {
-  CompanyRoleNotAuthorizedError,
   InvalidTaxIdError,
   AlreadyInTargetStateError,
   CompanyNotFoundError,
 } from '../../src/modules/companies/domain/errors/company.errors';
+import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 
 function makeCompany(overrides: Partial<CompanyEntity> = {}): CompanyEntity {
   return new CompanyEntity(
@@ -50,6 +50,11 @@ describe('CreateCompanyUseCase', () => {
     companyUserRepository = {
       hasRoleInTenant: jest.fn(),
       addMembership: jest.fn(),
+      hasActiveMembershipByEmail: jest.fn(),
+      findAllByCompanyWithDetails: jest.fn(),
+      findMembership: jest.fn(),
+      updateRole: jest.fn(),
+      setActive: jest.fn(),
     } as jest.Mocked<CompanyUserRepository>;
 
     auditLogRepository = {
@@ -92,7 +97,7 @@ describe('CreateCompanyUseCase', () => {
         tenantId: 'tenant-1',
         legalName: 'Empresa Nueva SRL',
       }),
-    ).rejects.toThrow(CompanyRoleNotAuthorizedError);
+    ).rejects.toThrow(RoleNotAuthorizedError);
 
     expect(companyRepository.create).not.toHaveBeenCalled();
   });
@@ -171,7 +176,7 @@ describe('UpdateCompanyUseCase', () => {
           companyId: 'company-1',
           legalName: 'Actualizada',
         }),
-      ).rejects.toThrow(CompanyRoleNotAuthorizedError);
+      ).rejects.toThrow(RoleNotAuthorizedError);
 
       expect(companyRepository.update).not.toHaveBeenCalled();
     },
@@ -299,7 +304,7 @@ describe('DeactivateCompanyUseCase / ActivateCompanyUseCase', () => {
           companyId: 'company-1',
           reason: 'motivo',
         }),
-      ).rejects.toThrow(CompanyRoleNotAuthorizedError);
+      ).rejects.toThrow(RoleNotAuthorizedError);
     },
   );
 });

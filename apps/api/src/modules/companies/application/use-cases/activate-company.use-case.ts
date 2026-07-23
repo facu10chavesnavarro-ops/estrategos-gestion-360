@@ -1,16 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
-import { AuditLogRepository } from '../../domain/repositories/audit-log.repository';
+import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { ChangeCompanyStateUseCaseInput } from '../dto/company.dto';
 import {
   CompanyNotFoundError,
   AlreadyInTargetStateError,
 } from '../../domain/errors/company.errors';
-import {
-  ROLES_THAT_CAN_MANAGE_COMPANY,
-  assertRoleIn,
-} from '../../domain/rules/company-roles';
+import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
+import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 
 /** RN-EMP-05, RN-EMP-06, RN-EMP-07. */
 @Injectable()

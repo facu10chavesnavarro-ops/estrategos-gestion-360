@@ -3,6 +3,7 @@ import { UserRepository } from '../../domain/repositories/user.repository';
 import { PasswordHasherPort } from '../../domain/repositories/password-hasher.port';
 import { TokenProviderPort } from '../../domain/repositories/token-provider.port';
 import { RefreshTokenRepository } from '../../domain/repositories/refresh-token.repository';
+import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import {
   InvalidCredentialsError,
   UserInactiveError,
@@ -21,6 +22,7 @@ export class LoginUseCase {
     private readonly passwordHasher: PasswordHasherPort,
     private readonly tokenProvider: TokenProviderPort,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly auditLogRepository: AuditLogRepository,
   ) {}
 
   async execute(input: LoginInput): Promise<LoginOutput> {
@@ -56,6 +58,17 @@ export class LoginUseCase {
       tokenHash: refreshTokenHash,
       expiresAt,
     });
+
+    // RN-USR-08: "primer acceso auditado" del flujo de alta de usuario —
+    // se detecta ANTES de actualizar lastLoginAt (que lo pisa a continuación).
+    if (user.lastLoginAt === null) {
+      await this.auditLogRepository.record({
+        userId: user.id,
+        action: 'user.first_access',
+        entityType: 'User',
+        entityId: user.id,
+      });
+    }
 
     await this.userRepository.updateLastLogin(user.id);
 

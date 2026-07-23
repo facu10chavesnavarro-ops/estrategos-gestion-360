@@ -4,16 +4,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
-  CompanyRoleNotAuthorizedError,
   InvalidTaxIdError,
   CompanyNotFoundError,
   BranchNotFoundError,
   AlreadyInTargetStateError,
 } from '../domain/errors/company.errors';
+import { RoleNotAuthorizedError } from '../../../common/domain/errors/authorization.error';
 
 /** Traduce errores de dominio del módulo a excepciones HTTP de Nest. */
 export function mapCompanyError(error: unknown): never {
-  if (error instanceof CompanyRoleNotAuthorizedError) {
+  if (error instanceof RoleNotAuthorizedError) {
     throw new ForbiddenException(error.message);
   }
   if (

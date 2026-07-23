@@ -1,16 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { BranchRepository } from '../../domain/repositories/branch.repository';
-import { AuditLogRepository } from '../../domain/repositories/audit-log.repository';
+import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { BranchEntity } from '../../domain/entities/branch.entity';
 import { ChangeBranchStateUseCaseInput } from '../dto/branch.dto';
 import {
   BranchNotFoundError,
   AlreadyInTargetStateError,
 } from '../../domain/errors/company.errors';
-import {
-  ROLES_THAT_CAN_MANAGE_COMPANY,
-  assertRoleIn,
-} from '../../domain/rules/company-roles';
+import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
+import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 
 /** RN-EMP-04, RN-EMP-05, RN-EMP-06, RN-EMP-07, RN-EMP-09. */
 @Injectable()

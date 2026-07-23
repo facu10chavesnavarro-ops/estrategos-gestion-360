@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../../common/persistence/prisma.service';
-import { CompanyUserRepository } from '../../domain/repositories/company-user.repository';
+import {
+  CompanyUserRepository,
+  CompanyMembership,
+  CompanyMembershipStatus,
+} from '../../domain/repositories/company-user.repository';
 
 @Injectable()
 export class PrismaCompanyUserRepository extends CompanyUserRepository {
@@ -37,6 +41,65 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     }
     await this.prisma.companyUser.create({
       data: { userId, companyId, roleId: role.id },
+    });
+  }
+
+  async hasActiveMembershipByEmail(
+    email: string,
+    companyId: string,
+  ): Promise<boolean> {
+    const membership = await this.prisma.companyUser.findFirst({
+      where: { companyId, isActive: true, user: { email } },
+    });
+    return membership !== null;
+  }
+
+  async findAllByCompanyWithDetails(
+    companyId: string,
+  ): Promise<CompanyMembership[]> {
+    const rows = await this.prisma.companyUser.findMany({
+      where: { companyId },
+      include: { user: true, role: true },
+    });
+    return rows.map((row) => ({
+      userId: row.userId,
+      email: row.user.email,
+      fullName: row.user.fullName,
+      roleId: row.roleId,
+      roleName: row.role.name,
+      isActive: row.isActive,
+    }));
+  }
+
+  async findMembership(
+    userId: string,
+    companyId: string,
+  ): Promise<CompanyMembershipStatus | null> {
+    const row = await this.prisma.companyUser.findUnique({
+      where: { userId_companyId: { userId, companyId } },
+    });
+    return row ? { roleId: row.roleId, isActive: row.isActive } : null;
+  }
+
+  async updateRole(
+    userId: string,
+    companyId: string,
+    roleId: string,
+  ): Promise<void> {
+    await this.prisma.companyUser.update({
+      where: { userId_companyId: { userId, companyId } },
+      data: { roleId },
+    });
+  }
+
+  async setActive(
+    userId: string,
+    companyId: string,
+    isActive: boolean,
+  ): Promise<void> {
+    await this.prisma.companyUser.update({
+      where: { userId_companyId: { userId, companyId } },
+      data: { isActive },
     });
   }
 }

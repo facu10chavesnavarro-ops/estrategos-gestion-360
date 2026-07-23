@@ -37,7 +37,9 @@ export class CompanyContextGuard implements CanActivate {
       include: { role: true },
     });
 
-    if (!membership) {
+    if (!membership || !membership.isActive) {
+      // Una membresía desactivada (RN-USR-09) se trata igual que si no existiera:
+      // no se distingue el motivo para no filtrar información a quien no tiene acceso.
       throw new ForbiddenException('No autorizado para esta empresa');
     }
 

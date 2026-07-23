@@ -5,12 +5,12 @@ import { DeactivateBranchUseCase } from '../../src/modules/companies/application
 import { ActivateBranchUseCase } from '../../src/modules/companies/application/use-cases/activate-branch.use-case';
 import { BranchEntity } from '../../src/modules/companies/domain/entities/branch.entity';
 import { BranchRepository } from '../../src/modules/companies/domain/repositories/branch.repository';
-import { AuditLogRepository } from '../../src/modules/companies/domain/repositories/audit-log.repository';
+import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import {
-  CompanyRoleNotAuthorizedError,
   BranchNotFoundError,
   AlreadyInTargetStateError,
 } from '../../src/modules/companies/domain/errors/company.errors';
+import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 
 function makeBranch(overrides: Partial<BranchEntity> = {}): BranchEntity {
   return new BranchEntity(
@@ -65,7 +65,7 @@ describe('CreateBranchUseCase', () => {
         companyId: 'company-1',
         name: 'Casa Central',
       }),
-    ).rejects.toThrow(CompanyRoleNotAuthorizedError);
+    ).rejects.toThrow(RoleNotAuthorizedError);
 
     expect(branchRepository.create).not.toHaveBeenCalled();
   });

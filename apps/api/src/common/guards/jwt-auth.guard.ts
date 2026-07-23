@@ -36,9 +36,15 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     const token = authHeader.slice('Bearer '.length);
-    const payload = this.tokenProvider.verifyAccessToken(token);
-    request.userId = payload.sub;
-    request.userEmail = payload.email;
+    try {
+      const payload = this.tokenProvider.verifyAccessToken(token);
+      request.userId = payload.sub;
+      request.userEmail = payload.email;
+    } catch {
+      // verifyAccessToken lanza un error de dominio (token inválido/expirado);
+      // sin este catch quedaba sin traducir y devolvía 500 en vez de 401.
+      throw new UnauthorizedException('Token de acceso inválido o expirado');
+    }
     return true;
   }
 }

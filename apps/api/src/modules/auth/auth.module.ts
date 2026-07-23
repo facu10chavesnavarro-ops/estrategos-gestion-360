@@ -11,6 +11,8 @@ import { Argon2PasswordHasher } from './infrastructure/argon2-password-hasher';
 import { TokenProviderPort } from './domain/repositories/token-provider.port';
 import { JwtTokenProvider } from './infrastructure/jwt-token-provider';
 import { PrismaService } from '../../common/persistence/prisma.service';
+import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
+import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
 
 @Module({
   controllers: [AuthController],
@@ -22,6 +24,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: RefreshTokenRepository, useClass: PrismaRefreshTokenRepository },
     { provide: PasswordHasherPort, useClass: Argon2PasswordHasher },
     { provide: TokenProviderPort, useClass: JwtTokenProvider },
+    { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
   ],
   // TokenProviderPort se exporta: el JwtAuthGuard global (en AppModule) lo necesita.
   exports: [TokenProviderPort],

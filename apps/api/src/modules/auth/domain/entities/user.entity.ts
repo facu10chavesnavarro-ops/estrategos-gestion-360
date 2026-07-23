@@ -9,6 +9,7 @@ export class UserEntity {
     public readonly passwordHash: string,
     public readonly fullName: string,
     public readonly isActive: boolean,
+    public readonly lastLoginAt: Date | null = null,
   ) {}
 
   /** Regla de dominio: un usuario inactivo nunca puede autenticarse. */

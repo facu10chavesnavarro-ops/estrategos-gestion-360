@@ -8,6 +8,7 @@ import { UserRepository } from '../../src/modules/auth/domain/repositories/user.
 import { PasswordHasherPort } from '../../src/modules/auth/domain/repositories/password-hasher.port';
 import { TokenProviderPort } from '../../src/modules/auth/domain/repositories/token-provider.port';
 import { RefreshTokenRepository } from '../../src/modules/auth/domain/repositories/refresh-token.repository';
+import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 
 describe('LoginUseCase', () => {
   const activeUser = new UserEntity(
@@ -16,6 +17,7 @@ describe('LoginUseCase', () => {
     'hashed-password',
     'Admin Estrategos',
     true,
+    new Date('2026-01-01'), // ya inició sesión antes
   );
   const inactiveUser = new UserEntity(
     'user-2',
@@ -24,11 +26,20 @@ describe('LoginUseCase', () => {
     'Usuario Inactivo',
     false,
   );
+  const firstTimeUser = new UserEntity(
+    'user-3',
+    'nuevo@estrategos.com',
+    'hashed-password',
+    'Usuario Nuevo',
+    true,
+    null, // nunca inició sesión — RN-USR-08
+  );
 
   let userRepository: jest.Mocked<UserRepository>;
   let passwordHasher: jest.Mocked<PasswordHasherPort>;
   let tokenProvider: jest.Mocked<TokenProviderPort>;
   let refreshTokenRepository: jest.Mocked<RefreshTokenRepository>;
+  let auditLogRepository: jest.Mocked<AuditLogRepository>;
   let useCase: LoginUseCase;
 
   beforeEach(() => {
@@ -36,6 +47,7 @@ describe('LoginUseCase', () => {
       findByEmail: jest.fn(),
       findById: jest.fn(),
       updateLastLogin: jest.fn(),
+      create: jest.fn(),
     } as unknown as jest.Mocked<UserRepository>;
 
     passwordHasher = {
@@ -59,11 +71,16 @@ describe('LoginUseCase', () => {
       revoke: jest.fn(),
     } as jest.Mocked<RefreshTokenRepository>;
 
+    auditLogRepository = {
+      record: jest.fn(),
+    } as jest.Mocked<AuditLogRepository>;
+
     useCase = new LoginUseCase(
       userRepository,
       passwordHasher,
       tokenProvider,
       refreshTokenRepository,
+      auditLogRepository,
     );
   });
 
@@ -110,5 +127,34 @@ describe('LoginUseCase', () => {
     ).rejects.toThrow(UserInactiveError);
 
     expect(passwordHasher.verify).not.toHaveBeenCalled();
+  });
+
+  it('RN-USR-08: audita user.first_access cuando lastLoginAt era null', async () => {
+    userRepository.findByEmail.mockResolvedValue(firstTimeUser);
+    passwordHasher.verify.mockResolvedValue(true);
+
+    await useCase.execute({
+      email: firstTimeUser.email,
+      password: 'plain-password',
+    });
+
+    expect(auditLogRepository.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'user.first_access',
+        userId: firstTimeUser.id,
+      }),
+    );
+  });
+
+  it('RN-USR-08: NO audita user.first_access en un login subsiguiente', async () => {
+    userRepository.findByEmail.mockResolvedValue(activeUser);
+    passwordHasher.verify.mockResolvedValue(true);
+
+    await useCase.execute({
+      email: activeUser.email,
+      password: 'plain-password',
+    });
+
+    expect(auditLogRepository.record).not.toHaveBeenCalled();
   });
 });
