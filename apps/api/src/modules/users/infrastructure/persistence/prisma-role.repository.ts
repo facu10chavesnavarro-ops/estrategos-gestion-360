@@ -3,6 +3,8 @@ import { PrismaService } from '../../../../common/persistence/prisma.service';
 import { RoleRepository } from '../../domain/repositories/role.repository';
 import { RoleEntity } from '../../domain/entities/role.entity';
 import { RoleMapper } from '../mappers/role.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaRoleRepository extends RoleRepository {
@@ -15,8 +17,8 @@ export class PrismaRoleRepository extends RoleRepository {
     return raws.map(RoleMapper.toDomain);
   }
 
-  async findById(id: string): Promise<RoleEntity | null> {
-    const raw = await this.prisma.role.findUnique({ where: { id } });
+  async findById(id: string, ctx?: TransactionContext): Promise<RoleEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).role.findUnique({ where: { id } });
     return raw ? RoleMapper.toDomain(raw) : null;
   }
 }

@@ -1,8 +1,15 @@
+import { TransactionContext } from '../transaction/transaction-context';
+
 /**
  * Puerto que cada entidad importable implementa una sola vez (Clientes,
  * Proveedores y, a futuro, Productos/Servicios/Plan de cuentas/Bancos/Stock).
  * CsvImportEngine no conoce nada de esto — solo llama a estos métodos en
  * orden. Ver docs/sprint-2/01-clientes-proveedores.md §0.6.
+ *
+ * `findExisting`/`create`/`applyUpdate` reciben el `ctx` de la transacción que
+ * CsvImportEngine abre por fila (ver docs/arquitectura/unit-of-work-y-transacciones.md
+ * §2.5) — una fila inválida revierte solo sus propios cambios, nunca los de
+ * las filas ya procesadas.
  */
 export interface ImportRowProcessor<TRow, TEntity> {
   readonly entityType: string;
@@ -11,15 +18,20 @@ export interface ImportRowProcessor<TRow, TEntity> {
   parseRow(rawRow: Record<string, string>, rowNumber: number): TRow;
 
   /** ¿Ya existe un registro equivalente para esta empresa? (define qué es "duplicado"). */
-  findExisting(row: TRow, companyId: string): Promise<TEntity | null>;
+  findExisting(
+    row: TRow,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<TEntity | null>;
 
   /** Crea el registro nuevo (puede reutilizar datos compartidos existentes, ver RN-TER-13). */
-  create(row: TRow, companyId: string): Promise<TEntity>;
+  create(row: TRow, companyId: string, ctx?: TransactionContext): Promise<TEntity>;
 
   /** Actualiza un registro existente; informa qué campos cambiaron para la auditoría. */
   applyUpdate(
     existing: TEntity,
     row: TRow,
+    ctx?: TransactionContext,
   ): Promise<{ entity: TEntity; changedFields: string[] }>;
 
   getEntityId(entity: TEntity): string;

@@ -3,6 +3,8 @@ import { CsvParserPort } from '../domain/import/csv-parser.port';
 import { ImportRowProcessor } from '../domain/import/import-row-processor';
 import { ImportMode, ImportRowResult } from '../domain/import/import.types';
 import { ImportRowValidationError } from '../domain/import/import-row-validation.error';
+import { UnitOfWork } from '../domain/transaction/unit-of-work.port';
+import { TransactionContext } from '../domain/transaction/transaction-context';
 
 /**
  * Motor de importación CSV agnóstico de entidad (Clientes, Proveedores, y a
@@ -10,10 +12,18 @@ import { ImportRowValidationError } from '../domain/import/import-row-validation
  * auditoría ni conoce Prisma — decide qué hacer con cada fila, no ejecuta
  * efectos de negocio más allá de delegarlos al ImportRowProcessor.
  * Ver docs/sprint-2/01-clientes-proveedores.md §0.6.
+ *
+ * Cada fila se procesa dentro de su propia transacción (ver
+ * docs/arquitectura/unit-of-work-y-transacciones.md §2.5): RN-TER-10 exige
+ * procesamiento best-effort por fila, así que la unidad de atomicidad es la
+ * fila, no el archivo completo.
  */
 @Injectable()
 export class CsvImportEngine {
-  constructor(private readonly csvParser: CsvParserPort) {}
+  constructor(
+    private readonly csvParser: CsvParserPort,
+    private readonly unitOfWork: UnitOfWork,
+  ) {}
 
   async run<TRow, TEntity>(
     csvContent: string,
@@ -31,21 +41,23 @@ export class CsvImportEngine {
       const rowNumber = i + 2;
       try {
         const row = processor.parseRow(rawRows[i], rowNumber);
-        const existing = await processor.findExisting(row, companyId);
 
-        if (!existing) {
-          const entity = await processor.create(row, companyId);
-          results.push({
-            row: rowNumber,
-            outcome: 'created',
-            entityId: processor.getEntityId(entity),
-          });
-          continue;
-        }
+        const result = await this.unitOfWork.run(async (ctx) => {
+          const existing = await processor.findExisting(row, companyId, ctx);
 
-        results.push(
-          await this.handleExisting(existing, row, rowNumber, mode, processor),
-        );
+          if (!existing) {
+            const entity = await processor.create(row, companyId, ctx);
+            return {
+              row: rowNumber,
+              outcome: 'created' as const,
+              entityId: processor.getEntityId(entity),
+            };
+          }
+
+          return this.handleExisting(existing, row, rowNumber, mode, processor, ctx);
+        });
+
+        results.push(result);
       } catch (error) {
         const reason =
           error instanceof ImportRowValidationError
@@ -66,6 +78,7 @@ export class CsvImportEngine {
     rowNumber: number,
     mode: ImportMode,
     processor: ImportRowProcessor<TRow, TEntity>,
+    ctx: TransactionContext,
   ): Promise<ImportRowResult> {
     if (mode === 'skip-new-only') {
       return { row: rowNumber, outcome: 'rejected', reason: 'Ya existe (CUIT duplicado)' };
@@ -73,7 +86,7 @@ export class CsvImportEngine {
     if (mode === 'skip-silently') {
       return { row: rowNumber, outcome: 'skipped-duplicate' };
     }
-    const { entity, changedFields } = await processor.applyUpdate(existing, row);
+    const { entity, changedFields } = await processor.applyUpdate(existing, row, ctx);
     return {
       row: rowNumber,
       outcome: 'updated',

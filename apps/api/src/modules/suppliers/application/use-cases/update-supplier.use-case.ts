@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SupplierRepository } from '../../domain/repositories/supplier.repository';
 import { PartyRepository } from '../../../parties/domain/repositories/party.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { isValidTaxId } from '../../../../common/domain/rules/tax-id.validator';
@@ -29,6 +30,7 @@ export class UpdateSupplierUseCase {
     private readonly supplierRepository: SupplierRepository,
     private readonly partyRepository: PartyRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: UpdateSupplierUseCaseInput): Promise<SupplierEntity> {
@@ -48,27 +50,35 @@ export class UpdateSupplierUseCase {
     const partyPatch = pick(input, PARTY_FIELDS);
     const supplierPatch = pick(input, SUPPLIER_FIELDS);
 
-    if (Object.keys(partyPatch).length > 0) {
-      await this.partyRepository.update(supplier.partyId, partyPatch);
-    }
-    if (Object.keys(supplierPatch).length > 0) {
-      await this.supplierRepository.update(supplier.id, supplierPatch);
-    }
+    return this.unitOfWork.run(async (ctx) => {
+      if (Object.keys(partyPatch).length > 0) {
+        await this.partyRepository.update(supplier.partyId, partyPatch, ctx);
+      }
+      if (Object.keys(supplierPatch).length > 0) {
+        await this.supplierRepository.update(supplier.id, supplierPatch, ctx);
+      }
 
-    const result = await this.supplierRepository.findById(
-      supplier.id,
-      input.companyId,
-    );
+      const result = await this.supplierRepository.findById(
+        supplier.id,
+        input.companyId,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: input.requestingUserId,
-      action: 'supplier.update',
-      entityType: 'Supplier',
-      entityId: supplier.id,
-      metadata: { fields: [...Object.keys(partyPatch), ...Object.keys(supplierPatch)] },
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: input.requestingUserId,
+          action: 'supplier.update',
+          entityType: 'Supplier',
+          entityId: supplier.id,
+          metadata: {
+            fields: [...Object.keys(partyPatch), ...Object.keys(supplierPatch)],
+          },
+        },
+        ctx,
+      );
+
+      return result!;
     });
-
-    return result!;
   }
 }

@@ -15,6 +15,10 @@ import {
   CustomerNotFoundError,
   CustomerAlreadyInTargetStateError,
 } from '../../src/modules/customers/domain/errors/customer.errors';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeParty(overrides: Partial<PartyEntity> = {}): PartyEntity {
   return new PartyEntity(
@@ -78,7 +82,12 @@ describe('CreateCustomerUseCase', () => {
     partyRepository.findByTaxId.mockResolvedValue(null);
     partyRepository.create.mockResolvedValue(makeParty());
     customerRepository.create.mockResolvedValue(makeCustomer());
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -91,10 +100,12 @@ describe('CreateCustomerUseCase', () => {
     expect(partyRepository.create).toHaveBeenCalled();
     expect(customerRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ partyId: 'party-1' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
     expect(result.id).toBe('customer-1');
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'customer.create' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -105,7 +116,12 @@ describe('CreateCustomerUseCase', () => {
     partyRepository.findByTaxId.mockResolvedValue(makeParty({ legalName: 'Nombre Original' }));
     customerRepository.findByPartyId.mockResolvedValue(null); // no tiene rol Cliente todavía
     customerRepository.create.mockResolvedValue(makeCustomer());
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await useCase.execute({
       requestingUserId: 'user-1',
@@ -118,6 +134,7 @@ describe('CreateCustomerUseCase', () => {
     expect(partyRepository.create).not.toHaveBeenCalled();
     expect(customerRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ partyId: 'party-1' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -127,7 +144,12 @@ describe('CreateCustomerUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     partyRepository.findByTaxId.mockResolvedValue(makeParty());
     customerRepository.findByPartyId.mockResolvedValue(makeCustomer());
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -144,7 +166,12 @@ describe('CreateCustomerUseCase', () => {
     const customerRepository = makeCustomerRepository();
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -161,7 +188,12 @@ describe('CreateCustomerUseCase', () => {
     const customerRepository = makeCustomerRepository();
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -178,7 +210,12 @@ describe('CreateCustomerUseCase', () => {
     const customerRepository = makeCustomerRepository();
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -199,7 +236,12 @@ describe('UpdateCustomerUseCase', () => {
     customerRepository.findById
       .mockResolvedValueOnce(makeCustomer())
       .mockResolvedValueOnce(makeCustomer({ legalName: 'Actualizado', creditLimit: '5000' }));
-    const useCase = new UpdateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new UpdateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -210,8 +252,16 @@ describe('UpdateCustomerUseCase', () => {
       creditLimit: '5000',
     });
 
-    expect(partyRepository.update).toHaveBeenCalledWith('party-1', { legalName: 'Actualizado' });
-    expect(customerRepository.update).toHaveBeenCalledWith('customer-1', { creditLimit: '5000' });
+    expect(partyRepository.update).toHaveBeenCalledWith(
+      'party-1',
+      { legalName: 'Actualizado' },
+      FAKE_TRANSACTION_CONTEXT,
+    );
+    expect(customerRepository.update).toHaveBeenCalledWith(
+      'customer-1',
+      { creditLimit: '5000' },
+      FAKE_TRANSACTION_CONTEXT,
+    );
     expect(result.legalName).toBe('Actualizado');
   });
 
@@ -220,7 +270,12 @@ describe('UpdateCustomerUseCase', () => {
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     customerRepository.findById.mockResolvedValue(null);
-    const useCase = new UpdateCustomerUseCase(customerRepository, partyRepository, auditLogRepository);
+    const useCase = new UpdateCustomerUseCase(
+      customerRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -240,7 +295,11 @@ describe('DeactivateCustomerUseCase / ActivateCustomerUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     customerRepository.findById.mockResolvedValue(makeCustomer({ isActive: true }));
     customerRepository.setActive.mockResolvedValue(makeCustomer({ isActive: false }));
-    const useCase = new DeactivateCustomerUseCase(customerRepository, auditLogRepository);
+    const useCase = new DeactivateCustomerUseCase(
+      customerRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -256,7 +315,11 @@ describe('DeactivateCustomerUseCase / ActivateCustomerUseCase', () => {
     const customerRepository = makeCustomerRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     customerRepository.findById.mockResolvedValue(makeCustomer({ isActive: false }));
-    const useCase = new DeactivateCustomerUseCase(customerRepository, auditLogRepository);
+    const useCase = new DeactivateCustomerUseCase(
+      customerRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -273,7 +336,11 @@ describe('DeactivateCustomerUseCase / ActivateCustomerUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     customerRepository.findById.mockResolvedValue(makeCustomer({ isActive: false }));
     customerRepository.setActive.mockResolvedValue(makeCustomer({ isActive: true }));
-    const useCase = new ActivateCustomerUseCase(customerRepository, auditLogRepository);
+    const useCase = new ActivateCustomerUseCase(
+      customerRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',

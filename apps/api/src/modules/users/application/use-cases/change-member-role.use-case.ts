@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CompanyUserRepository } from '../../../companies/domain/repositories/company-user.repository';
 import { RoleRepository } from '../../domain/repositories/role.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { ChangeMemberRoleUseCaseInput } from '../dto/member.dto';
@@ -17,6 +18,7 @@ export class ChangeMemberRoleUseCase {
     private readonly companyUserRepository: CompanyUserRepository,
     private readonly roleRepository: RoleRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: ChangeMemberRoleUseCaseInput): Promise<void> {
@@ -39,19 +41,25 @@ export class ChangeMemberRoleUseCase {
       throw new NotFoundException('El rol indicado no existe.');
     }
 
-    await this.companyUserRepository.updateRole(
-      input.targetUserId,
-      input.companyId,
-      input.roleId,
-    );
+    await this.unitOfWork.run(async (ctx) => {
+      await this.companyUserRepository.updateRole(
+        input.targetUserId,
+        input.companyId,
+        input.roleId,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: input.requestingUserId,
-      action: 'member.role_change',
-      entityType: 'CompanyUser',
-      entityId: input.targetUserId,
-      metadata: { previousRoleId: membership.roleId, newRoleId: input.roleId },
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: input.requestingUserId,
+          action: 'member.role_change',
+          entityType: 'CompanyUser',
+          entityId: input.targetUserId,
+          metadata: { previousRoleId: membership.roleId, newRoleId: input.roleId },
+        },
+        ctx,
+      );
     });
   }
 }

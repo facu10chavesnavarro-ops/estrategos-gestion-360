@@ -4,6 +4,8 @@ import {
   RefreshTokenRepository,
   CreateRefreshTokenInput,
 } from '../../domain/repositories/refresh-token.repository';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
@@ -11,8 +13,8 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
     super();
   }
 
-  async create(input: CreateRefreshTokenInput): Promise<void> {
-    await this.prisma.refreshToken.create({
+  async create(input: CreateRefreshTokenInput, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).refreshToken.create({
       data: {
         userId: input.userId,
         tokenHash: input.tokenHash,
@@ -24,8 +26,9 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
   async findValidByUserAndHash(
     userId: string,
     tokenHash: string,
+    ctx?: TransactionContext,
   ): Promise<{ id: string } | null> {
-    const record = await this.prisma.refreshToken.findFirst({
+    const record = await resolveClient(this.prisma, ctx).refreshToken.findFirst({
       where: {
         userId,
         tokenHash,
@@ -37,8 +40,8 @@ export class PrismaRefreshTokenRepository extends RefreshTokenRepository {
     return record;
   }
 
-  async revoke(id: string): Promise<void> {
-    await this.prisma.refreshToken.update({
+  async revoke(id: string, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).refreshToken.update({
       where: { id },
       data: { revokedAt: new Date() },
     });

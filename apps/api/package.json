@@ -9,6 +9,8 @@
     "lint": "eslint \"{src,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
+    "pretest:integration": "node scripts/migrate-test-db.js",
+    "test:integration": "jest --config jest.integration.config.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts"

@@ -1,4 +1,5 @@
 import { UserEntity } from '../entities/user.entity';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 
 export interface CreateUserInput {
   email: string;
@@ -11,8 +12,8 @@ export interface CreateUserInput {
  * directamente. La implementación concreta vive en infrastructure/persistence.
  */
 export abstract class UserRepository {
-  abstract findByEmail(email: string): Promise<UserEntity | null>;
-  abstract findById(id: string): Promise<UserEntity | null>;
-  abstract updateLastLogin(id: string): Promise<void>;
-  abstract create(input: CreateUserInput): Promise<UserEntity>;
+  abstract findByEmail(email: string, ctx?: TransactionContext): Promise<UserEntity | null>;
+  abstract findById(id: string, ctx?: TransactionContext): Promise<UserEntity | null>;
+  abstract updateLastLogin(id: string, ctx?: TransactionContext): Promise<void>;
+  abstract create(input: CreateUserInput, ctx?: TransactionContext): Promise<UserEntity>;
 }

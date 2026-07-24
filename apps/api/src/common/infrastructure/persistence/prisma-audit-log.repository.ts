@@ -5,6 +5,8 @@ import {
   AuditLogRepository,
   AuditLogEntry,
 } from '../../domain/repositories/audit-log.repository';
+import { TransactionContext } from '../../domain/transaction/transaction-context';
+import { resolveClient } from './resolve-client';
 
 @Injectable()
 export class PrismaAuditLogRepository extends AuditLogRepository {
@@ -12,8 +14,8 @@ export class PrismaAuditLogRepository extends AuditLogRepository {
     super();
   }
 
-  async record(entry: AuditLogEntry): Promise<void> {
-    await this.prisma.auditLog.create({
+  async record(entry: AuditLogEntry, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).auditLog.create({
       data: {
         companyId: entry.companyId,
         userId: entry.userId,

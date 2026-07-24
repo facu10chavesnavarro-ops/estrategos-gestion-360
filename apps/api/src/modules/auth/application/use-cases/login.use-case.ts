@@ -4,6 +4,7 @@ import { PasswordHasherPort } from '../../domain/repositories/password-hasher.po
 import { TokenProviderPort } from '../../domain/repositories/token-provider.port';
 import { RefreshTokenRepository } from '../../domain/repositories/refresh-token.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import {
   InvalidCredentialsError,
   UserInactiveError,
@@ -23,6 +24,7 @@ export class LoginUseCase {
     private readonly tokenProvider: TokenProviderPort,
     private readonly refreshTokenRepository: RefreshTokenRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: LoginInput): Promise<LoginOutput> {
@@ -53,24 +55,32 @@ export class LoginUseCase {
     const refreshTokenHash =
       await this.tokenProvider.hashRefreshToken(refreshTokenPlain);
 
-    await this.refreshTokenRepository.create({
-      userId: user.id,
-      tokenHash: refreshTokenHash,
-      expiresAt,
+    await this.unitOfWork.run(async (ctx) => {
+      await this.refreshTokenRepository.create(
+        {
+          userId: user.id,
+          tokenHash: refreshTokenHash,
+          expiresAt,
+        },
+        ctx,
+      );
+
+      // RN-USR-08: "primer acceso auditado" del flujo de alta de usuario —
+      // se detecta ANTES de actualizar lastLoginAt (que lo pisa a continuación).
+      if (user.lastLoginAt === null) {
+        await this.auditLogRepository.record(
+          {
+            userId: user.id,
+            action: 'user.first_access',
+            entityType: 'User',
+            entityId: user.id,
+          },
+          ctx,
+        );
+      }
+
+      await this.userRepository.updateLastLogin(user.id, ctx);
     });
-
-    // RN-USR-08: "primer acceso auditado" del flujo de alta de usuario —
-    // se detecta ANTES de actualizar lastLoginAt (que lo pisa a continuación).
-    if (user.lastLoginAt === null) {
-      await this.auditLogRepository.record({
-        userId: user.id,
-        action: 'user.first_access',
-        entityType: 'User',
-        entityId: user.id,
-      });
-    }
-
-    await this.userRepository.updateLastLogin(user.id);
 
     return {
       accessToken,

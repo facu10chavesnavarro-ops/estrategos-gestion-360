@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { SupplierRepository } from '../../domain/repositories/supplier.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { SupplierEntity } from '../../domain/entities/supplier.entity';
@@ -16,6 +17,7 @@ export class ActivateSupplierUseCase {
   constructor(
     private readonly supplierRepository: SupplierRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: ChangeSupplierStateUseCaseInput): Promise<SupplierEntity> {
@@ -32,16 +34,25 @@ export class ActivateSupplierUseCase {
       throw new SupplierAlreadyInTargetStateError('activo');
     }
 
-    const supplier = await this.supplierRepository.setActive(input.supplierId, true);
+    return this.unitOfWork.run(async (ctx) => {
+      const supplier = await this.supplierRepository.setActive(
+        input.supplierId,
+        true,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: input.requestingUserId,
-      action: 'supplier.activate',
-      entityType: 'Supplier',
-      entityId: supplier.id,
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: input.requestingUserId,
+          action: 'supplier.activate',
+          entityType: 'Supplier',
+          entityId: supplier.id,
+        },
+        ctx,
+      );
+
+      return supplier;
     });
-
-    return supplier;
   }
 }

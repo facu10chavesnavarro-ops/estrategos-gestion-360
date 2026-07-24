@@ -6,6 +6,68 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.4.0] - 2026-07-24
+
+Resolución de la Decisión A (transacciones, Crítico) y de la Decisión B
+(Row Level Security, diseño) de `docs/AUDITORIA-TECNICA-PRE-SPRINT-3.md`.
+Bloqueaba el inicio de Sprint 3 hasta quedar resuelta.
+
+### Agregado
+
+- **Infraestructura de Unit of Work** (`common/domain/transaction/`,
+  `common/infrastructure/persistence/prisma-unit-of-work.ts`): abstracción
+  única y reutilizable sobre `prisma.$transaction`, pensada para que todos
+  los módulos futuros (Ventas, Compras, Tesorería, Inventario, Contabilidad)
+  la reutilicen sin duplicar lógica. Diseño documentado en
+  `docs/arquitectura/unit-of-work-y-transacciones.md`.
+- **Los ~26 casos de uso que escriben en más de una tabla** (contando
+  `AuditLog` como una tabla más) ahora abren una transacción real: alta,
+  edición, activación/desactivación de Empresas, Sucursales, Clientes y
+  Proveedores; alta/revocación/aceptación de invitaciones; cambio de rol y
+  activación/desactivación de miembros; y adicionalmente — no estaban en el
+  alcance original de la auditoría, pero comparten el mismo riesgo —
+  `LoginUseCase` (RefreshToken + AuditLog + User) y `RefreshSessionUseCase`
+  (revocar + emitir refresh token). Si cualquier paso falla, Postgres
+  revierte todo: ya no puede quedar una `Company` sin su `CompanyUser`, un
+  `Party` sin su rol de Cliente/Proveedor, ni una escritura sin su registro
+  de auditoría.
+- **Importación CSV**: cada fila se procesa dentro de su propia transacción
+  (no el archivo completo), preservando el procesamiento best-effort por
+  fila que exige RN-TER-10 mientras gana atomicidad interna por fila.
+- **Infraestructura de tests de integración** contra Postgres real: base de
+  datos dedicada `estrategos_test` (nunca la misma que `estrategos_dev`),
+  configuración de Jest separada (`jest.integration.config.js`,
+  `npm run test:integration`), y helper de limpieza entre tests
+  (`test/support/reset-database.ts`).
+- **4 pruebas de integración de rollback real** (`*.integration-spec.ts`
+  para `CreateCompanyUseCase` y `CreateCustomerUseCase`): fuerzan una falla
+  en la escritura de auditoría a mitad de la transacción y verifican,
+  consultando Postgres directamente, que no queda ningún registro huérfano.
+- **Diseño de Row Level Security** (Decisión B, opción B1 — junto con Unit
+  of Work): `docs/arquitectura/row-level-security.md`. Documenta el
+  mecanismo (políticas nativas de Postgres, variables de sesión
+  `app.current_company_id`/`app.current_tenant_id`), el desafío de que RLS
+  exige que *toda* consulta —no solo las multi-escritura— corra dentro de
+  una transacción, el caso especial de `hasRoleInTenant` (consulta
+  legítimamente cruzada entre empresas de un mismo tenant), y el plan de
+  rollout incremental. Documentación únicamente — sin migraciones ni código
+  de runtime, según lo acordado.
+
+### Actualizado
+
+- Los ~112 tests unitarios existentes, adaptados al nuevo patrón: cada spec
+  mockea `UnitOfWork.run` ejecutando el callback con un `TransactionContext`
+  falso, y verifica que cada repositorio se llama con ese mismo contexto.
+
+### Pruebas
+
+- 112/112 tests unitarios.
+- 4/4 tests de integración contra Postgres real (`estrategos_test`),
+  incluyendo verificación de rollback.
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: login → refresh (rotación) →
+  crear empresa → crear cliente → logout, contra Postgres real.
+
 ## [0.3.1] - 2026-07-23
 
 Auditoría técnica integral pre-Sprint 3. Correcciones aplicadas sin decisión

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { ChangeCompanyStateUseCaseInput } from '../dto/company.dto';
 import {
@@ -16,6 +17,7 @@ export class ActivateCompanyUseCase {
   constructor(
     private readonly companyRepository: CompanyRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: ChangeCompanyStateUseCaseInput): Promise<CompanyEntity> {
@@ -29,19 +31,25 @@ export class ActivateCompanyUseCase {
       throw new AlreadyInTargetStateError('La empresa', 'activa');
     }
 
-    const company = await this.companyRepository.setActive(
-      input.companyId,
-      true,
-    );
+    return this.unitOfWork.run(async (ctx) => {
+      const company = await this.companyRepository.setActive(
+        input.companyId,
+        true,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: company.id,
-      userId: input.requestingUserId,
-      action: 'company.activate',
-      entityType: 'Company',
-      entityId: company.id,
+      await this.auditLogRepository.record(
+        {
+          companyId: company.id,
+          userId: input.requestingUserId,
+          action: 'company.activate',
+          entityType: 'Company',
+          entityId: company.id,
+        },
+        ctx,
+      );
+
+      return company;
     });
-
-    return company;
   }
 }

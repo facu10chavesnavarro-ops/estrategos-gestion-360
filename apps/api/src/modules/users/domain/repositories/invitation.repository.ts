@@ -1,4 +1,5 @@
 import { InvitationEntity } from '../entities/invitation.entity';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 
 export interface CreateInvitationInput {
   companyId: string;
@@ -10,14 +11,25 @@ export interface CreateInvitationInput {
 }
 
 export abstract class InvitationRepository {
-  abstract create(input: CreateInvitationInput): Promise<InvitationEntity>;
-  abstract findById(id: string): Promise<InvitationEntity | null>;
-  abstract findByTokenHash(tokenHash: string): Promise<InvitationEntity | null>;
+  abstract create(
+    input: CreateInvitationInput,
+    ctx?: TransactionContext,
+  ): Promise<InvitationEntity>;
+  abstract findById(id: string, ctx?: TransactionContext): Promise<InvitationEntity | null>;
+  abstract findByTokenHash(
+    tokenHash: string,
+    ctx?: TransactionContext,
+  ): Promise<InvitationEntity | null>;
   abstract findPendingByEmailAndCompany(
     email: string,
     companyId: string,
+    ctx?: TransactionContext,
   ): Promise<InvitationEntity | null>;
   abstract findAllByCompany(companyId: string): Promise<InvitationEntity[]>;
-  abstract markAccepted(id: string): Promise<void>;
-  abstract markRevoked(id: string, revokedByUserId: string): Promise<void>;
+  abstract markAccepted(id: string, ctx?: TransactionContext): Promise<void>;
+  abstract markRevoked(
+    id: string,
+    revokedByUserId: string,
+    ctx?: TransactionContext,
+  ): Promise<void>;
 }

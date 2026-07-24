@@ -2,6 +2,7 @@ import { CsvImportEngine } from '../../../src/common/application/csv-import.engi
 import { CsvParserPort } from '../../../src/common/domain/import/csv-parser.port';
 import { ImportRowProcessor } from '../../../src/common/domain/import/import-row-processor';
 import { ImportRowValidationError } from '../../../src/common/domain/import/import-row-validation.error';
+import { createFakeUnitOfWork } from '../../support/fake-unit-of-work';
 
 interface FakeRow {
   key: string;
@@ -61,7 +62,7 @@ function makeParser(rows: Record<string, string>[]): jest.Mocked<CsvParserPort> 
 describe('CsvImportEngine', () => {
   it('crea filas nuevas y reporta el número de fila correcto (encabezado + 1-index)', async () => {
     const parser = makeParser([{ key: 'a', value: '1' }, { key: 'b', value: '2' }]);
-    const engine = new CsvImportEngine(parser);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
     const processor = new FakeRowProcessor();
 
     const results = await engine.run('csv', 'company-1', 'skip-new-only', processor);
@@ -74,7 +75,7 @@ describe('CsvImportEngine', () => {
 
   it('una fila inválida se rechaza y no interrumpe el procesamiento de las demás', async () => {
     const parser = makeParser([{ key: 'a', value: '1' }, { value: 'sin key' }, { key: 'c', value: '3' }]);
-    const engine = new CsvImportEngine(parser);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
     const processor = new FakeRowProcessor();
 
     const results = await engine.run('csv', 'company-1', 'skip-new-only', processor);
@@ -89,7 +90,7 @@ describe('CsvImportEngine', () => {
     await processor.create({ key: 'a', value: 'original' });
 
     const parser = makeParser([{ key: 'a', value: 'nuevo' }]);
-    const engine = new CsvImportEngine(parser);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
 
     const results = await engine.run('csv', 'company-1', 'skip-new-only', processor);
 
@@ -104,7 +105,7 @@ describe('CsvImportEngine', () => {
     await processor.create({ key: 'a', value: 'original' });
 
     const parser = makeParser([{ key: 'a', value: 'nuevo' }]);
-    const engine = new CsvImportEngine(parser);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
 
     const results = await engine.run('csv', 'company-1', 'skip-silently', processor);
 
@@ -116,7 +117,7 @@ describe('CsvImportEngine', () => {
     await processor.create({ key: 'a', value: 'original' });
 
     const parser = makeParser([{ key: 'a', value: 'actualizado' }]);
-    const engine = new CsvImportEngine(parser);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
 
     const results = await engine.run('csv', 'company-1', 'update-existing', processor);
 

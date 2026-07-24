@@ -9,6 +9,8 @@ import {
 } from '../../domain/repositories/supplier.repository';
 import { SupplierEntity } from '../../domain/entities/supplier.entity';
 import { SupplierMapper } from '../mappers/supplier.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 const WITH_PARTY = { include: { party: true } } as const;
 
@@ -18,8 +20,8 @@ export class PrismaSupplierRepository extends SupplierRepository {
     super();
   }
 
-  async create(input: CreateSupplierInput): Promise<SupplierEntity> {
-    const raw = await this.prisma.supplier.create({
+  async create(input: CreateSupplierInput, ctx?: TransactionContext): Promise<SupplierEntity> {
+    const raw = await resolveClient(this.prisma, ctx).supplier.create({
       data: {
         partyId: input.partyId,
         companyId: input.companyId,
@@ -33,16 +35,23 @@ export class PrismaSupplierRepository extends SupplierRepository {
     return SupplierMapper.toDomain(raw);
   }
 
-  async findById(id: string, companyId: string): Promise<SupplierEntity | null> {
-    const raw = await this.prisma.supplier.findFirst({
+  async findById(
+    id: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).supplier.findFirst({
       where: { id, companyId },
       ...WITH_PARTY,
     });
     return raw ? SupplierMapper.toDomain(raw) : null;
   }
 
-  async findByPartyId(partyId: string): Promise<SupplierEntity | null> {
-    const raw = await this.prisma.supplier.findUnique({
+  async findByPartyId(
+    partyId: string,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).supplier.findUnique({
       where: { partyId },
       ...WITH_PARTY,
     });
@@ -70,8 +79,12 @@ export class PrismaSupplierRepository extends SupplierRepository {
     return raws.map(SupplierMapper.toDomain);
   }
 
-  async update(id: string, input: UpdateSupplierInput): Promise<SupplierEntity> {
-    const raw = await this.prisma.supplier.update({
+  async update(
+    id: string,
+    input: UpdateSupplierInput,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity> {
+    const raw = await resolveClient(this.prisma, ctx).supplier.update({
       where: { id },
       data: input,
       ...WITH_PARTY,
@@ -79,8 +92,12 @@ export class PrismaSupplierRepository extends SupplierRepository {
     return SupplierMapper.toDomain(raw);
   }
 
-  async setActive(id: string, isActive: boolean): Promise<SupplierEntity> {
-    const raw = await this.prisma.supplier.update({
+  async setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity> {
+    const raw = await resolveClient(this.prisma, ctx).supplier.update({
       where: { id },
       data: { isActive },
       ...WITH_PARTY,

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { UpdateCompanyUseCaseInput } from '../dto/company.dto';
 import { InvalidTaxIdError } from '../../domain/errors/company.errors';
@@ -14,6 +15,7 @@ export class UpdateCompanyUseCase {
   constructor(
     private readonly companyRepository: CompanyRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: UpdateCompanyUseCaseInput): Promise<CompanyEntity> {
@@ -26,17 +28,22 @@ export class UpdateCompanyUseCase {
     const { requestingUserId, requestingRoleName: _role, companyId, ...patch } =
       input;
 
-    const company = await this.companyRepository.update(companyId, patch);
+    return this.unitOfWork.run(async (ctx) => {
+      const company = await this.companyRepository.update(companyId, patch, ctx);
 
-    await this.auditLogRepository.record({
-      companyId: company.id,
-      userId: requestingUserId,
-      action: 'company.update',
-      entityType: 'Company',
-      entityId: company.id,
-      metadata: { fields: Object.keys(patch) },
+      await this.auditLogRepository.record(
+        {
+          companyId: company.id,
+          userId: requestingUserId,
+          action: 'company.update',
+          entityType: 'Company',
+          entityId: company.id,
+          metadata: { fields: Object.keys(patch) },
+        },
+        ctx,
+      );
+
+      return company;
     });
-
-    return company;
   }
 }

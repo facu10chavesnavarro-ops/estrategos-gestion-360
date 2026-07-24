@@ -14,6 +14,10 @@ import {
   SupplierNotFoundError,
   SupplierAlreadyInTargetStateError,
 } from '../../src/modules/suppliers/domain/errors/supplier.errors';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeParty(overrides: Partial<PartyEntity> = {}): PartyEntity {
   return new PartyEntity(
@@ -79,7 +83,12 @@ describe('CreateSupplierUseCase', () => {
     partyRepository.findByTaxId.mockResolvedValue(null);
     partyRepository.create.mockResolvedValue(makeParty());
     supplierRepository.create.mockResolvedValue(makeSupplier());
-    const useCase = new CreateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -93,6 +102,7 @@ describe('CreateSupplierUseCase', () => {
     expect(result.id).toBe('supplier-1');
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'supplier.create' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -103,7 +113,12 @@ describe('CreateSupplierUseCase', () => {
     partyRepository.findByTaxId.mockResolvedValue(makeParty());
     supplierRepository.findByPartyId.mockResolvedValue(null);
     supplierRepository.create.mockResolvedValue(makeSupplier());
-    const useCase = new CreateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await useCase.execute({
       requestingUserId: 'user-1',
@@ -122,7 +137,12 @@ describe('CreateSupplierUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     partyRepository.findByTaxId.mockResolvedValue(makeParty());
     supplierRepository.findByPartyId.mockResolvedValue(makeSupplier());
-    const useCase = new CreateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -139,7 +159,12 @@ describe('CreateSupplierUseCase', () => {
     const supplierRepository = makeSupplierRepository();
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -156,7 +181,12 @@ describe('CreateSupplierUseCase', () => {
     const supplierRepository = makeSupplierRepository();
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new CreateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -177,7 +207,12 @@ describe('UpdateSupplierUseCase', () => {
     supplierRepository.findById
       .mockResolvedValueOnce(makeSupplier())
       .mockResolvedValueOnce(makeSupplier({ bankCbu: '111', legalName: 'Actualizado' }));
-    const useCase = new UpdateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new UpdateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -188,8 +223,16 @@ describe('UpdateSupplierUseCase', () => {
       bankCbu: '111',
     });
 
-    expect(partyRepository.update).toHaveBeenCalledWith('party-1', { legalName: 'Actualizado' });
-    expect(supplierRepository.update).toHaveBeenCalledWith('supplier-1', { bankCbu: '111' });
+    expect(partyRepository.update).toHaveBeenCalledWith(
+      'party-1',
+      { legalName: 'Actualizado' },
+      FAKE_TRANSACTION_CONTEXT,
+    );
+    expect(supplierRepository.update).toHaveBeenCalledWith(
+      'supplier-1',
+      { bankCbu: '111' },
+      FAKE_TRANSACTION_CONTEXT,
+    );
     expect(result.bankCbu).toBe('111');
   });
 
@@ -198,7 +241,12 @@ describe('UpdateSupplierUseCase', () => {
     const partyRepository = makePartyRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     supplierRepository.findById.mockResolvedValue(null);
-    const useCase = new UpdateSupplierUseCase(supplierRepository, partyRepository, auditLogRepository);
+    const useCase = new UpdateSupplierUseCase(
+      supplierRepository,
+      partyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -218,7 +266,11 @@ describe('DeactivateSupplierUseCase / ActivateSupplierUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     supplierRepository.findById.mockResolvedValue(makeSupplier({ isActive: true }));
     supplierRepository.setActive.mockResolvedValue(makeSupplier({ isActive: false }));
-    const useCase = new DeactivateSupplierUseCase(supplierRepository, auditLogRepository);
+    const useCase = new DeactivateSupplierUseCase(
+      supplierRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -234,7 +286,11 @@ describe('DeactivateSupplierUseCase / ActivateSupplierUseCase', () => {
     const supplierRepository = makeSupplierRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     supplierRepository.findById.mockResolvedValue(makeSupplier({ isActive: false }));
-    const useCase = new DeactivateSupplierUseCase(supplierRepository, auditLogRepository);
+    const useCase = new DeactivateSupplierUseCase(
+      supplierRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -251,7 +307,11 @@ describe('DeactivateSupplierUseCase / ActivateSupplierUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     supplierRepository.findById.mockResolvedValue(makeSupplier({ isActive: false }));
     supplierRepository.setActive.mockResolvedValue(makeSupplier({ isActive: true }));
-    const useCase = new ActivateSupplierUseCase(supplierRepository, auditLogRepository);
+    const useCase = new ActivateSupplierUseCase(
+      supplierRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',

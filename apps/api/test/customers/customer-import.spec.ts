@@ -8,6 +8,7 @@ import { PartyRepository } from '../../src/modules/parties/domain/repositories/p
 import { PartyEntity } from '../../src/modules/parties/domain/entities/party.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
+import { createFakeUnitOfWork } from '../support/fake-unit-of-work';
 
 function makeParty(overrides: Partial<PartyEntity> = {}): PartyEntity {
   return new PartyEntity(
@@ -82,6 +83,7 @@ describe('CustomerImportRowProcessor', () => {
     expect(partyRepository.create).not.toHaveBeenCalled(); // reutiliza el Party, no lo pisa
     expect(customerRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ partyId: 'party-1' }),
+      undefined,
     );
     expect(created.partyId).toBe('party-1');
   });
@@ -119,7 +121,7 @@ describe('ImportCustomersUseCase', () => {
       makeCustomer({ id: `customer-${input.partyId}`, partyId: input.partyId }),
     );
 
-    const engine = new CsvImportEngine(csvParser);
+    const engine = new CsvImportEngine(csvParser, createFakeUnitOfWork());
     const processor = new CustomerImportRowProcessor(partyRepository, customerRepository);
     const useCase = new ImportCustomersUseCase(engine, processor, auditLogRepository);
 
@@ -145,7 +147,7 @@ describe('ImportCustomersUseCase', () => {
     const customerRepository = makeCustomerRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const csvParser = { parse: jest.fn() } as jest.Mocked<CsvParserPort>;
-    const engine = new CsvImportEngine(csvParser);
+    const engine = new CsvImportEngine(csvParser, createFakeUnitOfWork());
     const processor = new CustomerImportRowProcessor(partyRepository, customerRepository);
     const useCase = new ImportCustomersUseCase(engine, processor, auditLogRepository);
 

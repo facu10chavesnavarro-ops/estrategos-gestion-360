@@ -13,6 +13,10 @@ import {
   CannotModifySelfError,
   MemberAlreadyInTargetStateError,
 } from '../../src/modules/users/domain/errors/user-management.errors';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeCompanyUserRepository(): jest.Mocked<CompanyUserRepository> {
   return {
@@ -42,6 +46,7 @@ describe('ChangeMemberRoleUseCase', () => {
       companyUserRepository,
       roleRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
 
     await useCase.execute({
@@ -56,12 +61,14 @@ describe('ChangeMemberRoleUseCase', () => {
       'user-target',
       'company-1',
       'role-new',
+      FAKE_TRANSACTION_CONTEXT,
     );
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'member.role_change',
         metadata: { previousRoleId: 'role-old', newRoleId: 'role-new' },
       }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -73,6 +80,7 @@ describe('ChangeMemberRoleUseCase', () => {
       companyUserRepository,
       roleRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
 
     await expect(
@@ -94,6 +102,7 @@ describe('ChangeMemberRoleUseCase', () => {
       companyUserRepository,
       roleRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
 
     await expect(
@@ -116,6 +125,7 @@ describe('ChangeMemberRoleUseCase', () => {
       companyUserRepository,
       roleRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
 
     await expect(
@@ -138,7 +148,11 @@ describe('DeactivateMemberUseCase / ActivateMemberUseCase', () => {
       isActive: true,
     });
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new DeactivateMemberUseCase(companyUserRepository, auditLogRepository);
+    const useCase = new DeactivateMemberUseCase(
+      companyUserRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await useCase.execute({
       requestingUserId: 'user-admin',
@@ -151,13 +165,18 @@ describe('DeactivateMemberUseCase / ActivateMemberUseCase', () => {
       'user-target',
       'company-1',
       false,
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
   it('rechaza auto-desactivación (RN-USR-12)', async () => {
     const companyUserRepository = makeCompanyUserRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new DeactivateMemberUseCase(companyUserRepository, auditLogRepository);
+    const useCase = new DeactivateMemberUseCase(
+      companyUserRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -176,7 +195,11 @@ describe('DeactivateMemberUseCase / ActivateMemberUseCase', () => {
       isActive: false,
     });
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new DeactivateMemberUseCase(companyUserRepository, auditLogRepository);
+    const useCase = new DeactivateMemberUseCase(
+      companyUserRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -195,7 +218,11 @@ describe('DeactivateMemberUseCase / ActivateMemberUseCase', () => {
       isActive: false,
     });
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new ActivateMemberUseCase(companyUserRepository, auditLogRepository);
+    const useCase = new ActivateMemberUseCase(
+      companyUserRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await useCase.execute({
       requestingUserId: 'user-admin',
@@ -208,6 +235,7 @@ describe('DeactivateMemberUseCase / ActivateMemberUseCase', () => {
       'user-target',
       'company-1',
       true,
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 });

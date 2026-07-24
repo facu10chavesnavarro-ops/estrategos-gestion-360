@@ -5,6 +5,8 @@ import {
   CompanyMembership,
   CompanyMembershipStatus,
 } from '../../domain/repositories/company-user.repository';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaCompanyUserRepository extends CompanyUserRepository {
@@ -16,8 +18,9 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     userId: string,
     tenantId: string,
     roleNames: readonly string[],
+    ctx?: TransactionContext,
   ): Promise<boolean> {
-    const membership = await this.prisma.companyUser.findFirst({
+    const membership = await resolveClient(this.prisma, ctx).companyUser.findFirst({
       where: {
         userId,
         role: { name: { in: [...roleNames] } },
@@ -31,15 +34,15 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     userId: string,
     companyId: string,
     roleName: string,
+    ctx?: TransactionContext,
   ): Promise<void> {
-    const role = await this.prisma.role.findUnique({
-      where: { name: roleName },
-    });
+    const client = resolveClient(this.prisma, ctx);
+    const role = await client.role.findUnique({ where: { name: roleName } });
     if (!role) {
       // Solo puede pasar por un dato de seed inconsistente, no por input de usuario.
       throw new NotFoundException(`Rol "${roleName}" no existe`);
     }
-    await this.prisma.companyUser.create({
+    await client.companyUser.create({
       data: { userId, companyId, roleId: role.id },
     });
   }
@@ -47,8 +50,9 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
   async hasActiveMembershipByEmail(
     email: string,
     companyId: string,
+    ctx?: TransactionContext,
   ): Promise<boolean> {
-    const membership = await this.prisma.companyUser.findFirst({
+    const membership = await resolveClient(this.prisma, ctx).companyUser.findFirst({
       where: { companyId, isActive: true, user: { email } },
     });
     return membership !== null;
@@ -74,8 +78,9 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
   async findMembership(
     userId: string,
     companyId: string,
+    ctx?: TransactionContext,
   ): Promise<CompanyMembershipStatus | null> {
-    const row = await this.prisma.companyUser.findUnique({
+    const row = await resolveClient(this.prisma, ctx).companyUser.findUnique({
       where: { userId_companyId: { userId, companyId } },
     });
     return row ? { roleId: row.roleId, isActive: row.isActive } : null;
@@ -85,8 +90,9 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     userId: string,
     companyId: string,
     roleId: string,
+    ctx?: TransactionContext,
   ): Promise<void> {
-    await this.prisma.companyUser.update({
+    await resolveClient(this.prisma, ctx).companyUser.update({
       where: { userId_companyId: { userId, companyId } },
       data: { roleId },
     });
@@ -96,8 +102,9 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     userId: string,
     companyId: string,
     isActive: boolean,
+    ctx?: TransactionContext,
   ): Promise<void> {
-    await this.prisma.companyUser.update({
+    await resolveClient(this.prisma, ctx).companyUser.update({
       where: { userId_companyId: { userId, companyId } },
       data: { isActive },
     });

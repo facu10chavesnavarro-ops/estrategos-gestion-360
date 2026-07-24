@@ -9,6 +9,8 @@ import {
 } from '../../domain/repositories/customer.repository';
 import { CustomerEntity } from '../../domain/entities/customer.entity';
 import { CustomerMapper } from '../mappers/customer.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 const WITH_PARTY = { include: { party: true } } as const;
 
@@ -18,8 +20,8 @@ export class PrismaCustomerRepository extends CustomerRepository {
     super();
   }
 
-  async create(input: CreateCustomerInput): Promise<CustomerEntity> {
-    const raw = await this.prisma.customer.create({
+  async create(input: CreateCustomerInput, ctx?: TransactionContext): Promise<CustomerEntity> {
+    const raw = await resolveClient(this.prisma, ctx).customer.create({
       data: {
         partyId: input.partyId,
         companyId: input.companyId,
@@ -31,16 +33,23 @@ export class PrismaCustomerRepository extends CustomerRepository {
     return CustomerMapper.toDomain(raw);
   }
 
-  async findById(id: string, companyId: string): Promise<CustomerEntity | null> {
-    const raw = await this.prisma.customer.findFirst({
+  async findById(
+    id: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).customer.findFirst({
       where: { id, companyId },
       ...WITH_PARTY,
     });
     return raw ? CustomerMapper.toDomain(raw) : null;
   }
 
-  async findByPartyId(partyId: string): Promise<CustomerEntity | null> {
-    const raw = await this.prisma.customer.findUnique({
+  async findByPartyId(
+    partyId: string,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).customer.findUnique({
       where: { partyId },
       ...WITH_PARTY,
     });
@@ -68,8 +77,12 @@ export class PrismaCustomerRepository extends CustomerRepository {
     return raws.map(CustomerMapper.toDomain);
   }
 
-  async update(id: string, input: UpdateCustomerInput): Promise<CustomerEntity> {
-    const raw = await this.prisma.customer.update({
+  async update(
+    id: string,
+    input: UpdateCustomerInput,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity> {
+    const raw = await resolveClient(this.prisma, ctx).customer.update({
       where: { id },
       data: input,
       ...WITH_PARTY,
@@ -77,8 +90,12 @@ export class PrismaCustomerRepository extends CustomerRepository {
     return CustomerMapper.toDomain(raw);
   }
 
-  async setActive(id: string, isActive: boolean): Promise<CustomerEntity> {
-    const raw = await this.prisma.customer.update({
+  async setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity> {
+    const raw = await resolveClient(this.prisma, ctx).customer.update({
       where: { id },
       data: { isActive },
       ...WITH_PARTY,

@@ -6,6 +6,8 @@ import {
 } from '../../domain/repositories/user.repository';
 import { UserEntity } from '../../domain/entities/user.entity';
 import { UserMapper } from '../mappers/user.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaUserRepository extends UserRepository {
@@ -13,25 +15,25 @@ export class PrismaUserRepository extends UserRepository {
     super();
   }
 
-  async findByEmail(email: string): Promise<UserEntity | null> {
-    const raw = await this.prisma.user.findUnique({ where: { email } });
+  async findByEmail(email: string, ctx?: TransactionContext): Promise<UserEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).user.findUnique({ where: { email } });
     return raw ? UserMapper.toDomain(raw) : null;
   }
 
-  async findById(id: string): Promise<UserEntity | null> {
-    const raw = await this.prisma.user.findUnique({ where: { id } });
+  async findById(id: string, ctx?: TransactionContext): Promise<UserEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).user.findUnique({ where: { id } });
     return raw ? UserMapper.toDomain(raw) : null;
   }
 
-  async updateLastLogin(id: string): Promise<void> {
-    await this.prisma.user.update({
+  async updateLastLogin(id: string, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).user.update({
       where: { id },
       data: { lastLoginAt: new Date() },
     });
   }
 
-  async create(input: CreateUserInput): Promise<UserEntity> {
-    const raw = await this.prisma.user.create({ data: input });
+  async create(input: CreateUserInput, ctx?: TransactionContext): Promise<UserEntity> {
+    const raw = await resolveClient(this.prisma, ctx).user.create({ data: input });
     return UserMapper.toDomain(raw);
   }
 }

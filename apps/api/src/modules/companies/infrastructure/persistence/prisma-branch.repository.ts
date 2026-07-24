@@ -7,6 +7,8 @@ import {
 } from '../../domain/repositories/branch.repository';
 import { BranchEntity } from '../../domain/entities/branch.entity';
 import { BranchMapper } from '../mappers/branch.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaBranchRepository extends BranchRepository {
@@ -14,13 +16,13 @@ export class PrismaBranchRepository extends BranchRepository {
     super();
   }
 
-  async create(input: CreateBranchInput): Promise<BranchEntity> {
-    const raw = await this.prisma.branch.create({ data: input });
+  async create(input: CreateBranchInput, ctx?: TransactionContext): Promise<BranchEntity> {
+    const raw = await resolveClient(this.prisma, ctx).branch.create({ data: input });
     return BranchMapper.toDomain(raw);
   }
 
-  async findById(id: string): Promise<BranchEntity | null> {
-    const raw = await this.prisma.branch.findUnique({ where: { id } });
+  async findById(id: string, ctx?: TransactionContext): Promise<BranchEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).branch.findUnique({ where: { id } });
     return raw ? BranchMapper.toDomain(raw) : null;
   }
 
@@ -29,13 +31,24 @@ export class PrismaBranchRepository extends BranchRepository {
     return raws.map(BranchMapper.toDomain);
   }
 
-  async update(id: string, input: UpdateBranchInput): Promise<BranchEntity> {
-    const raw = await this.prisma.branch.update({ where: { id }, data: input });
+  async update(
+    id: string,
+    input: UpdateBranchInput,
+    ctx?: TransactionContext,
+  ): Promise<BranchEntity> {
+    const raw = await resolveClient(this.prisma, ctx).branch.update({
+      where: { id },
+      data: input,
+    });
     return BranchMapper.toDomain(raw);
   }
 
-  async setActive(id: string, isActive: boolean): Promise<BranchEntity> {
-    const raw = await this.prisma.branch.update({
+  async setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<BranchEntity> {
+    const raw = await resolveClient(this.prisma, ctx).branch.update({
       where: { id },
       data: { isActive },
     });

@@ -36,6 +36,8 @@ import { Argon2PasswordHasher } from '../auth/infrastructure/argon2-password-has
 
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
+import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
+import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma-unit-of-work';
 import { PrismaService } from '../../common/persistence/prisma.service';
 
 @Module({
@@ -66,6 +68,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: UserRepository, useClass: PrismaUserRepository },
     { provide: PasswordHasherPort, useClass: Argon2PasswordHasher },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
+    { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],
 })
 export class UsersModule {}

@@ -6,6 +6,7 @@ import { CompanyUserRepository } from '../../../companies/domain/repositories/co
 import { UserRepository } from '../../../auth/domain/repositories/user.repository';
 import { PasswordHasherPort } from '../../../auth/domain/repositories/password-hasher.port';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import {
   AcceptInvitationUseCaseInput,
   AcceptInvitationUseCaseOutput,
@@ -26,6 +27,7 @@ export class AcceptInvitationUseCase {
     private readonly userRepository: UserRepository,
     private readonly passwordHasher: PasswordHasherPort,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(
@@ -45,39 +47,57 @@ export class AcceptInvitationUseCase {
       throw new NotFoundException('El rol de la invitación ya no existe.');
     }
 
-    let user = await this.userRepository.findByEmail(invitation.email);
-    if (!user) {
+    // Se calcula fuera de la transacción porque es trabajo de CPU costoso
+    // (hashing), no una operación de base de datos.
+    let passwordHash: string | undefined;
+    if (!(await this.userRepository.findByEmail(invitation.email))) {
       if (!input.fullName?.trim()) {
         throw new BadRequestException(
           'El nombre completo es obligatorio para crear la cuenta.',
         );
       }
-      const passwordHash = await this.passwordHasher.hash(input.password);
-      user = await this.userRepository.create({
-        email: invitation.email,
-        passwordHash,
-        fullName: input.fullName,
-      });
+      passwordHash = await this.passwordHasher.hash(input.password);
     }
-    // Si el usuario ya existía, se ignora la contraseña provista acá (RN-USR-07):
-    // aceptar una invitación no es un mecanismo para pisar una contraseña existente.
 
-    await this.companyUserRepository.addMembership(
-      user.id,
-      invitation.companyId,
-      role.name,
-    );
+    const userId = await this.unitOfWork.run(async (ctx) => {
+      let user = await this.userRepository.findByEmail(invitation.email, ctx);
+      if (!user) {
+        // Si el usuario ya existía, se ignora la contraseña provista acá
+        // (RN-USR-07): aceptar una invitación no es un mecanismo para pisar
+        // una contraseña existente.
+        user = await this.userRepository.create(
+          {
+            email: invitation.email,
+            passwordHash: passwordHash as string,
+            fullName: input.fullName as string,
+          },
+          ctx,
+        );
+      }
 
-    await this.invitationRepository.markAccepted(invitation.id);
+      await this.companyUserRepository.addMembership(
+        user.id,
+        invitation.companyId,
+        role.name,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: invitation.companyId,
-      userId: user.id,
-      action: 'invitation.accept',
-      entityType: 'Invitation',
-      entityId: invitation.id,
+      await this.invitationRepository.markAccepted(invitation.id, ctx);
+
+      await this.auditLogRepository.record(
+        {
+          companyId: invitation.companyId,
+          userId: user.id,
+          action: 'invitation.accept',
+          entityType: 'Invitation',
+          entityId: invitation.id,
+        },
+        ctx,
+      );
+
+      return user.id;
     });
 
-    return { userId: user.id, companyId: invitation.companyId };
+    return { userId, companyId: invitation.companyId };
   }
 }

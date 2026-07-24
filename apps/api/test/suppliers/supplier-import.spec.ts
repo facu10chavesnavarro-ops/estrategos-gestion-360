@@ -7,6 +7,7 @@ import { SupplierRepository } from '../../src/modules/suppliers/domain/repositor
 import { PartyRepository } from '../../src/modules/parties/domain/repositories/party.repository';
 import { PartyEntity } from '../../src/modules/parties/domain/entities/party.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
+import { createFakeUnitOfWork } from '../support/fake-unit-of-work';
 
 function makeParty(overrides: Partial<PartyEntity> = {}): PartyEntity {
   return new PartyEntity(
@@ -83,6 +84,7 @@ describe('SupplierImportRowProcessor', () => {
     expect(partyRepository.create).not.toHaveBeenCalled();
     expect(supplierRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ partyId: 'party-1' }),
+      undefined,
     );
   });
 
@@ -105,7 +107,7 @@ describe('ImportSuppliersUseCase', () => {
     partyRepository.create.mockResolvedValue(makeParty({ id: 'party-new' }));
     supplierRepository.create.mockResolvedValue(makeSupplier({ id: 'supplier-new', partyId: 'party-new' }));
 
-    const engine = new CsvImportEngine(csvParser);
+    const engine = new CsvImportEngine(csvParser, createFakeUnitOfWork());
     const processor = new SupplierImportRowProcessor(partyRepository, supplierRepository);
     const useCase = new ImportSuppliersUseCase(engine, processor, auditLogRepository);
 

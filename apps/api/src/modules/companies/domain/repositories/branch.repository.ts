@@ -1,4 +1,5 @@
 import { BranchEntity } from '../entities/branch.entity';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 
 export interface CreateBranchInput {
   companyId: string;
@@ -14,9 +15,17 @@ export interface UpdateBranchInput {
 }
 
 export abstract class BranchRepository {
-  abstract create(input: CreateBranchInput): Promise<BranchEntity>;
-  abstract findById(id: string): Promise<BranchEntity | null>;
+  abstract create(input: CreateBranchInput, ctx?: TransactionContext): Promise<BranchEntity>;
+  abstract findById(id: string, ctx?: TransactionContext): Promise<BranchEntity | null>;
   abstract findAllByCompany(companyId: string): Promise<BranchEntity[]>;
-  abstract update(id: string, input: UpdateBranchInput): Promise<BranchEntity>;
-  abstract setActive(id: string, isActive: boolean): Promise<BranchEntity>;
+  abstract update(
+    id: string,
+    input: UpdateBranchInput,
+    ctx?: TransactionContext,
+  ): Promise<BranchEntity>;
+  abstract setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<BranchEntity>;
 }

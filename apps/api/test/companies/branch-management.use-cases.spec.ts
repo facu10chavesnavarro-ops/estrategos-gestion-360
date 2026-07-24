@@ -11,6 +11,10 @@ import {
   AlreadyInTargetStateError,
 } from '../../src/modules/companies/domain/errors/company.errors';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeBranch(overrides: Partial<BranchEntity> = {}): BranchEntity {
   return new BranchEntity(
@@ -38,7 +42,11 @@ describe('CreateBranchUseCase', () => {
     const branchRepository = makeBranchRepository();
     branchRepository.create.mockResolvedValue(makeBranch());
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new CreateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -50,13 +58,18 @@ describe('CreateBranchUseCase', () => {
     expect(result.name).toBe('Casa Central');
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'branch.create', companyId: 'company-1' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
   it('rechaza si el rol no autoriza', async () => {
     const branchRepository = makeBranchRepository();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new CreateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new CreateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -77,7 +90,11 @@ describe('UpdateBranchUseCase', () => {
     branchRepository.findById.mockResolvedValue(makeBranch({ companyId: 'company-1' }));
     branchRepository.update.mockResolvedValue(makeBranch({ name: 'Sucursal Norte' }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new UpdateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new UpdateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -94,7 +111,11 @@ describe('UpdateBranchUseCase', () => {
     const branchRepository = makeBranchRepository();
     branchRepository.findById.mockResolvedValue(makeBranch({ companyId: 'otra-empresa' }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new UpdateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new UpdateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -111,7 +132,11 @@ describe('UpdateBranchUseCase', () => {
     const branchRepository = makeBranchRepository();
     branchRepository.findById.mockResolvedValue(null);
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new UpdateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new UpdateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -144,7 +169,11 @@ describe('DeactivateBranchUseCase / ActivateBranchUseCase', () => {
     branchRepository.findById.mockResolvedValue(makeBranch({ isActive: true }));
     branchRepository.setActive.mockResolvedValue(makeBranch({ isActive: false }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new DeactivateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new DeactivateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -161,7 +190,11 @@ describe('DeactivateBranchUseCase / ActivateBranchUseCase', () => {
     const branchRepository = makeBranchRepository();
     branchRepository.findById.mockResolvedValue(makeBranch({ isActive: false }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new DeactivateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new DeactivateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({
@@ -179,7 +212,11 @@ describe('DeactivateBranchUseCase / ActivateBranchUseCase', () => {
     branchRepository.findById.mockResolvedValue(makeBranch({ isActive: false }));
     branchRepository.setActive.mockResolvedValue(makeBranch({ isActive: true }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new ActivateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new ActivateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -195,7 +232,11 @@ describe('DeactivateBranchUseCase / ActivateBranchUseCase', () => {
     const branchRepository = makeBranchRepository();
     branchRepository.findById.mockResolvedValue(makeBranch({ companyId: 'otra-empresa' }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    const useCase = new ActivateBranchUseCase(branchRepository, auditLogRepository);
+    const useCase = new ActivateBranchUseCase(
+      branchRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
 
     await expect(
       useCase.execute({

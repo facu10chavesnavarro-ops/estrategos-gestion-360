@@ -24,6 +24,10 @@ import {
   InvitationNotAcceptableError,
   InvitationNotPendingError,
 } from '../../src/modules/users/domain/errors/user-management.errors';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeInvitation(overrides: Partial<{
   id: string;
@@ -133,6 +137,7 @@ describe('CreateInvitationUseCase', () => {
       tokenPort,
       notifier,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -148,12 +153,14 @@ describe('CreateInvitationUseCase', () => {
     expect(result.token).toBe('plain-token');
     expect(invitationRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ tokenHash: 'hashed-token' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
     expect(notifier.notifyInvitationCreated).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'nuevo@estrategos.com', token: 'plain-token' }),
     );
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'invitation.create' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -216,7 +223,11 @@ describe('RevokeInvitationUseCase', () => {
       markRevoked: jest.fn(),
     } as jest.Mocked<InvitationRepository>;
     auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
-    useCase = new RevokeInvitationUseCase(invitationRepository, auditLogRepository);
+    useCase = new RevokeInvitationUseCase(
+      invitationRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
   });
 
   it('revoca una invitación pendiente y registra quién la revocó', async () => {
@@ -229,9 +240,14 @@ describe('RevokeInvitationUseCase', () => {
       invitationId: 'inv-1',
     });
 
-    expect(invitationRepository.markRevoked).toHaveBeenCalledWith('inv-1', 'user-admin');
+    expect(invitationRepository.markRevoked).toHaveBeenCalledWith(
+      'inv-1',
+      'user-admin',
+      FAKE_TRANSACTION_CONTEXT,
+    );
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'invitation.revoke' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -344,6 +360,7 @@ describe('GetInvitationByTokenUseCase / AcceptInvitationUseCase', () => {
       userRepository,
       passwordHasher,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -379,13 +396,18 @@ describe('GetInvitationByTokenUseCase / AcceptInvitationUseCase', () => {
 
     expect(userRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'nuevo@estrategos.com', passwordHash: 'hashed-password' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
     expect(companyUserRepository.addMembership).toHaveBeenCalledWith(
       'user-new',
       'company-1',
       'Empleado',
+      FAKE_TRANSACTION_CONTEXT,
     );
-    expect(invitationRepository.markAccepted).toHaveBeenCalledWith('inv-1');
+    expect(invitationRepository.markAccepted).toHaveBeenCalledWith(
+      'inv-1',
+      FAKE_TRANSACTION_CONTEXT,
+    );
     expect(result.userId).toBe('user-new');
   });
 

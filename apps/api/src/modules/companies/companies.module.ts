@@ -22,6 +22,8 @@ import { CompanyUserRepository } from './domain/repositories/company-user.reposi
 import { PrismaCompanyUserRepository } from './infrastructure/persistence/prisma-company-user.repository';
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
+import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
+import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma-unit-of-work';
 
 import { PrismaService } from '../../common/persistence/prisma.service';
 
@@ -44,6 +46,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: BranchRepository, useClass: PrismaBranchRepository },
     { provide: CompanyUserRepository, useClass: PrismaCompanyUserRepository },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
+    { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],
 })
 export class CompaniesModule {}

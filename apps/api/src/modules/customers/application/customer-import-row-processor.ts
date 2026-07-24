@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ImportRowProcessor } from '../../../common/domain/import/import-row-processor';
 import { ImportRowValidationError } from '../../../common/domain/import/import-row-validation.error';
 import { isValidTaxId } from '../../../common/domain/rules/tax-id.validator';
+import { TransactionContext } from '../../../common/domain/transaction/transaction-context';
 import { PartyRepository } from '../../parties/domain/repositories/party.repository';
 import { CustomerRepository } from '../domain/repositories/customer.repository';
 import { CustomerEntity } from '../domain/entities/customer.entity';
@@ -84,16 +85,21 @@ export class CustomerImportRowProcessor
   async findExisting(
     row: CustomerImportRow,
     companyId: string,
+    ctx?: TransactionContext,
   ): Promise<CustomerEntity | null> {
     if (!row.taxId) return null; // sin CUIT no hay forma de deduplicar
-    const party = await this.partyRepository.findByTaxId(companyId, row.taxId);
+    const party = await this.partyRepository.findByTaxId(companyId, row.taxId, ctx);
     if (!party) return null;
-    return this.customerRepository.findByPartyId(party.id);
+    return this.customerRepository.findByPartyId(party.id, ctx);
   }
 
-  async create(row: CustomerImportRow, companyId: string): Promise<CustomerEntity> {
+  async create(
+    row: CustomerImportRow,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity> {
     const existingParty = row.taxId
-      ? await this.partyRepository.findByTaxId(companyId, row.taxId)
+      ? await this.partyRepository.findByTaxId(companyId, row.taxId, ctx)
       : null;
 
     // RN-TER-13: si el Tercero ya existe (ej. ya es Proveedor), se reutiliza
@@ -101,30 +107,37 @@ export class CustomerImportRowProcessor
     const partyId = existingParty
       ? existingParty.id
       : (
-          await this.partyRepository.create({
-            companyId,
-            legalName: row.legalName,
-            taxId: row.taxId,
-            taxCondition: row.taxCondition,
-            email: row.email,
-            phone: row.phone,
-            address: row.address,
-            contactName: row.contactName,
-            notes: row.notes,
-          })
+          await this.partyRepository.create(
+            {
+              companyId,
+              legalName: row.legalName,
+              taxId: row.taxId,
+              taxCondition: row.taxCondition,
+              email: row.email,
+              phone: row.phone,
+              address: row.address,
+              contactName: row.contactName,
+              notes: row.notes,
+            },
+            ctx,
+          )
         ).id;
 
-    return this.customerRepository.create({
-      partyId,
-      companyId,
-      paymentTermDays: row.paymentTermDays,
-      creditLimit: row.creditLimit,
-    });
+    return this.customerRepository.create(
+      {
+        partyId,
+        companyId,
+        paymentTermDays: row.paymentTermDays,
+        creditLimit: row.creditLimit,
+      },
+      ctx,
+    );
   }
 
   async applyUpdate(
     existing: CustomerEntity,
     row: CustomerImportRow,
+    ctx?: TransactionContext,
   ): Promise<{ entity: CustomerEntity; changedFields: string[] }> {
     const changedFields: string[] = [];
     const partyPatch: Record<string, unknown> = {};
@@ -150,15 +163,16 @@ export class CustomerImportRowProcessor
     }
 
     if (Object.keys(partyPatch).length > 0) {
-      await this.partyRepository.update(existing.partyId, partyPatch);
+      await this.partyRepository.update(existing.partyId, partyPatch, ctx);
     }
     if (Object.keys(customerPatch).length > 0) {
-      await this.customerRepository.update(existing.id, customerPatch);
+      await this.customerRepository.update(existing.id, customerPatch, ctx);
     }
 
     const updated = await this.customerRepository.findById(
       existing.id,
       existing.companyId,
+      ctx,
     );
     return { entity: updated!, changedFields };
   }

@@ -1,4 +1,5 @@
 import { CustomerEntity } from '../entities/customer.entity';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 
 export interface CreateCustomerInput {
   partyId: string;
@@ -18,13 +19,28 @@ export interface ListCustomersFilters {
 }
 
 export abstract class CustomerRepository {
-  abstract create(input: CreateCustomerInput): Promise<CustomerEntity>;
-  abstract findById(id: string, companyId: string): Promise<CustomerEntity | null>;
-  abstract findByPartyId(partyId: string): Promise<CustomerEntity | null>;
+  abstract create(input: CreateCustomerInput, ctx?: TransactionContext): Promise<CustomerEntity>;
+  abstract findById(
+    id: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity | null>;
+  abstract findByPartyId(
+    partyId: string,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity | null>;
   abstract findAllByCompany(
     companyId: string,
     filters: ListCustomersFilters,
   ): Promise<CustomerEntity[]>;
-  abstract update(id: string, input: UpdateCustomerInput): Promise<CustomerEntity>;
-  abstract setActive(id: string, isActive: boolean): Promise<CustomerEntity>;
+  abstract update(
+    id: string,
+    input: UpdateCustomerInput,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity>;
+  abstract setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<CustomerEntity>;
 }

@@ -9,6 +9,10 @@ import { PasswordHasherPort } from '../../src/modules/auth/domain/repositories/p
 import { TokenProviderPort } from '../../src/modules/auth/domain/repositories/token-provider.port';
 import { RefreshTokenRepository } from '../../src/modules/auth/domain/repositories/refresh-token.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 describe('LoginUseCase', () => {
   const activeUser = new UserEntity(
@@ -81,6 +85,7 @@ describe('LoginUseCase', () => {
       tokenProvider,
       refreshTokenRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -98,8 +103,12 @@ describe('LoginUseCase', () => {
     expect(result.user.id).toBe(activeUser.id);
     expect(refreshTokenRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ userId: activeUser.id }),
+      FAKE_TRANSACTION_CONTEXT,
     );
-    expect(userRepository.updateLastLogin).toHaveBeenCalledWith(activeUser.id);
+    expect(userRepository.updateLastLogin).toHaveBeenCalledWith(
+      activeUser.id,
+      FAKE_TRANSACTION_CONTEXT,
+    );
   });
 
   it('lanza InvalidCredentialsError si el usuario no existe', async () => {
@@ -143,6 +152,7 @@ describe('LoginUseCase', () => {
         action: 'user.first_access',
         userId: firstTimeUser.id,
       }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 

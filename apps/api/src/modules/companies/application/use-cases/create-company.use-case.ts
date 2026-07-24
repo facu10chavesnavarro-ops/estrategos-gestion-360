@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
 import { CompanyUserRepository } from '../../domain/repositories/company-user.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { CreateCompanyUseCaseInput } from '../dto/company.dto';
 import { InvalidTaxIdError } from '../../domain/errors/company.errors';
@@ -19,6 +20,7 @@ export class CreateCompanyUseCase {
     private readonly companyRepository: CompanyRepository,
     private readonly companyUserRepository: CompanyUserRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: CreateCompanyUseCaseInput): Promise<CompanyEntity> {
@@ -35,36 +37,45 @@ export class CreateCompanyUseCase {
       throw new InvalidTaxIdError();
     }
 
-    const company = await this.companyRepository.create({
-      tenantId: input.tenantId,
-      legalName: input.legalName,
-      taxId: input.taxId,
-      taxCondition: input.taxCondition,
-      activity: input.activity,
-      address: input.address,
-      contactName: input.contactName,
-      contactEmail: input.contactEmail,
-      contactPhone: input.contactPhone,
-      logoUrl: input.logoUrl,
-      currency: input.currency,
-      timezone: input.timezone,
+    return this.unitOfWork.run(async (ctx) => {
+      const company = await this.companyRepository.create(
+        {
+          tenantId: input.tenantId,
+          legalName: input.legalName,
+          taxId: input.taxId,
+          taxCondition: input.taxCondition,
+          activity: input.activity,
+          address: input.address,
+          contactName: input.contactName,
+          contactEmail: input.contactEmail,
+          contactPhone: input.contactPhone,
+          logoUrl: input.logoUrl,
+          currency: input.currency,
+          timezone: input.timezone,
+        },
+        ctx,
+      );
+
+      await this.companyUserRepository.addMembership(
+        input.requestingUserId,
+        company.id,
+        DEFAULT_ROLE_FOR_COMPANY_CREATOR,
+        ctx,
+      );
+
+      await this.auditLogRepository.record(
+        {
+          companyId: company.id,
+          userId: input.requestingUserId,
+          action: 'company.create',
+          entityType: 'Company',
+          entityId: company.id,
+          metadata: { legalName: company.legalName },
+        },
+        ctx,
+      );
+
+      return company;
     });
-
-    await this.companyUserRepository.addMembership(
-      input.requestingUserId,
-      company.id,
-      DEFAULT_ROLE_FOR_COMPANY_CREATOR,
-    );
-
-    await this.auditLogRepository.record({
-      companyId: company.id,
-      userId: input.requestingUserId,
-      action: 'company.create',
-      entityType: 'Company',
-      entityId: company.id,
-      metadata: { legalName: company.legalName },
-    });
-
-    return company;
   }
 }

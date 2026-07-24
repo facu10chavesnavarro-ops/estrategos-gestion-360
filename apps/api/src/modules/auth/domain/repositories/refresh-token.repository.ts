@@ -1,3 +1,5 @@
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+
 export interface CreateRefreshTokenInput {
   userId: string;
   tokenHash: string;
@@ -5,10 +7,11 @@ export interface CreateRefreshTokenInput {
 }
 
 export abstract class RefreshTokenRepository {
-  abstract create(input: CreateRefreshTokenInput): Promise<void>;
+  abstract create(input: CreateRefreshTokenInput, ctx?: TransactionContext): Promise<void>;
   abstract findValidByUserAndHash(
     userId: string,
     tokenHash: string,
+    ctx?: TransactionContext,
   ): Promise<{ id: string } | null>;
-  abstract revoke(id: string): Promise<void>;
+  abstract revoke(id: string, ctx?: TransactionContext): Promise<void>;
 }

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { BranchRepository } from '../../domain/repositories/branch.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { BranchEntity } from '../../domain/entities/branch.entity';
 import { UpdateBranchUseCaseInput } from '../dto/branch.dto';
 import { BranchNotFoundError } from '../../domain/errors/company.errors';
@@ -13,6 +14,7 @@ export class UpdateBranchUseCase {
   constructor(
     private readonly branchRepository: BranchRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: UpdateBranchUseCaseInput): Promise<BranchEntity> {
@@ -31,17 +33,22 @@ export class UpdateBranchUseCase {
       ...patch
     } = input;
 
-    const branch = await this.branchRepository.update(branchId, patch);
+    return this.unitOfWork.run(async (ctx) => {
+      const branch = await this.branchRepository.update(branchId, patch, ctx);
 
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: requestingUserId,
-      action: 'branch.update',
-      entityType: 'Branch',
-      entityId: branch.id,
-      metadata: { fields: Object.keys(patch) },
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: requestingUserId,
+          action: 'branch.update',
+          entityType: 'Branch',
+          entityId: branch.id,
+          metadata: { fields: Object.keys(patch) },
+        },
+        ctx,
+      );
+
+      return branch;
     });
-
-    return branch;
   }
 }

@@ -6,6 +6,8 @@ import {
 } from '../../domain/repositories/invitation.repository';
 import { InvitationEntity } from '../../domain/entities/invitation.entity';
 import { InvitationMapper } from '../mappers/invitation.mapper';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
+import { resolveClient } from '../../../../common/infrastructure/persistence/resolve-client';
 
 @Injectable()
 export class PrismaInvitationRepository extends InvitationRepository {
@@ -13,26 +15,35 @@ export class PrismaInvitationRepository extends InvitationRepository {
     super();
   }
 
-  async create(input: CreateInvitationInput): Promise<InvitationEntity> {
-    const raw = await this.prisma.invitation.create({ data: input });
+  async create(
+    input: CreateInvitationInput,
+    ctx?: TransactionContext,
+  ): Promise<InvitationEntity> {
+    const raw = await resolveClient(this.prisma, ctx).invitation.create({ data: input });
     return InvitationMapper.toDomain(raw);
   }
 
-  async findById(id: string): Promise<InvitationEntity | null> {
-    const raw = await this.prisma.invitation.findUnique({ where: { id } });
+  async findById(id: string, ctx?: TransactionContext): Promise<InvitationEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).invitation.findUnique({ where: { id } });
     return raw ? InvitationMapper.toDomain(raw) : null;
   }
 
-  async findByTokenHash(tokenHash: string): Promise<InvitationEntity | null> {
-    const raw = await this.prisma.invitation.findFirst({ where: { tokenHash } });
+  async findByTokenHash(
+    tokenHash: string,
+    ctx?: TransactionContext,
+  ): Promise<InvitationEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).invitation.findFirst({
+      where: { tokenHash },
+    });
     return raw ? InvitationMapper.toDomain(raw) : null;
   }
 
   async findPendingByEmailAndCompany(
     email: string,
     companyId: string,
+    ctx?: TransactionContext,
   ): Promise<InvitationEntity | null> {
-    const raw = await this.prisma.invitation.findFirst({
+    const raw = await resolveClient(this.prisma, ctx).invitation.findFirst({
       where: {
         email,
         companyId,
@@ -52,15 +63,19 @@ export class PrismaInvitationRepository extends InvitationRepository {
     return raws.map(InvitationMapper.toDomain);
   }
 
-  async markAccepted(id: string): Promise<void> {
-    await this.prisma.invitation.update({
+  async markAccepted(id: string, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).invitation.update({
       where: { id },
       data: { acceptedAt: new Date() },
     });
   }
 
-  async markRevoked(id: string, revokedByUserId: string): Promise<void> {
-    await this.prisma.invitation.update({
+  async markRevoked(
+    id: string,
+    revokedByUserId: string,
+    ctx?: TransactionContext,
+  ): Promise<void> {
+    await resolveClient(this.prisma, ctx).invitation.update({
       where: { id },
       data: { revokedAt: new Date(), revokedByUserId },
     });

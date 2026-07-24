@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { SupplierRepository } from '../../domain/repositories/supplier.repository';
 import { PartyRepository } from '../../../parties/domain/repositories/party.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { isValidTaxId } from '../../../../common/domain/rules/tax-id.validator';
@@ -16,6 +18,7 @@ export class CreateSupplierUseCase {
     private readonly supplierRepository: SupplierRepository,
     private readonly partyRepository: PartyRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: CreateSupplierUseCaseInput): Promise<SupplierEntity> {
@@ -25,22 +28,59 @@ export class CreateSupplierUseCase {
       throw new InvalidTaxIdError();
     }
 
-    let partyId: string;
+    return this.unitOfWork.run(async (ctx) => {
+      const partyId = await this.resolvePartyId(input, ctx);
+
+      const supplier = await this.supplierRepository.create(
+        {
+          partyId,
+          companyId: input.companyId,
+          paymentTermDays: input.paymentTermDays,
+          bankName: input.bankName,
+          bankAccountHolder: input.bankAccountHolder,
+          bankCbu: input.bankCbu,
+        },
+        ctx,
+      );
+
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: input.requestingUserId,
+          action: 'supplier.create',
+          entityType: 'Supplier',
+          entityId: supplier.id,
+          metadata: { legalName: supplier.legalName },
+        },
+        ctx,
+      );
+
+      return supplier;
+    });
+  }
+
+  private async resolvePartyId(
+    input: CreateSupplierUseCaseInput,
+    ctx: TransactionContext,
+  ): Promise<string> {
     if (input.taxId) {
       const existingParty = await this.partyRepository.findByTaxId(
         input.companyId,
         input.taxId,
+        ctx,
       );
       if (existingParty) {
         const existingSupplier = await this.supplierRepository.findByPartyId(
           existingParty.id,
+          ctx,
         );
         if (existingSupplier) {
           throw new DuplicateSupplierError();
         }
-        partyId = existingParty.id;
-      } else {
-        const party = await this.partyRepository.create({
+        return existingParty.id;
+      }
+      const party = await this.partyRepository.create(
+        {
           companyId: input.companyId,
           legalName: input.legalName,
           taxId: input.taxId,
@@ -50,11 +90,14 @@ export class CreateSupplierUseCase {
           address: input.address,
           contactName: input.contactName,
           notes: input.notes,
-        });
-        partyId = party.id;
-      }
-    } else {
-      const party = await this.partyRepository.create({
+        },
+        ctx,
+      );
+      return party.id;
+    }
+
+    const party = await this.partyRepository.create(
+      {
         companyId: input.companyId,
         legalName: input.legalName,
         taxCondition: input.taxCondition,
@@ -63,28 +106,9 @@ export class CreateSupplierUseCase {
         address: input.address,
         contactName: input.contactName,
         notes: input.notes,
-      });
-      partyId = party.id;
-    }
-
-    const supplier = await this.supplierRepository.create({
-      partyId,
-      companyId: input.companyId,
-      paymentTermDays: input.paymentTermDays,
-      bankName: input.bankName,
-      bankAccountHolder: input.bankAccountHolder,
-      bankCbu: input.bankCbu,
-    });
-
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: input.requestingUserId,
-      action: 'supplier.create',
-      entityType: 'Supplier',
-      entityId: supplier.id,
-      metadata: { legalName: supplier.legalName },
-    });
-
-    return supplier;
+      },
+      ctx,
+    );
+    return party.id;
   }
 }

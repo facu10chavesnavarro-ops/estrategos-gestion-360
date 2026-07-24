@@ -1,4 +1,5 @@
 import { SupplierEntity } from '../entities/supplier.entity';
+import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
 
 export interface CreateSupplierInput {
   partyId: string;
@@ -22,13 +23,28 @@ export interface ListSuppliersFilters {
 }
 
 export abstract class SupplierRepository {
-  abstract create(input: CreateSupplierInput): Promise<SupplierEntity>;
-  abstract findById(id: string, companyId: string): Promise<SupplierEntity | null>;
-  abstract findByPartyId(partyId: string): Promise<SupplierEntity | null>;
+  abstract create(input: CreateSupplierInput, ctx?: TransactionContext): Promise<SupplierEntity>;
+  abstract findById(
+    id: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity | null>;
+  abstract findByPartyId(
+    partyId: string,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity | null>;
   abstract findAllByCompany(
     companyId: string,
     filters: ListSuppliersFilters,
   ): Promise<SupplierEntity[]>;
-  abstract update(id: string, input: UpdateSupplierInput): Promise<SupplierEntity>;
-  abstract setActive(id: string, isActive: boolean): Promise<SupplierEntity>;
+  abstract update(
+    id: string,
+    input: UpdateSupplierInput,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity>;
+  abstract setActive(
+    id: string,
+    isActive: boolean,
+    ctx?: TransactionContext,
+  ): Promise<SupplierEntity>;
 }

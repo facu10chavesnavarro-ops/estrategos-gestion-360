@@ -21,6 +21,8 @@ import { CsvParserPort } from '../../common/domain/import/csv-parser.port';
 import { CsvParseAdapter } from '../../common/infrastructure/csv-parse-adapter';
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
+import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
+import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma-unit-of-work';
 import { PrismaService } from '../../common/persistence/prisma.service';
 
 @Module({
@@ -40,6 +42,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: PartyRepository, useClass: PrismaPartyRepository },
     { provide: CsvParserPort, useClass: CsvParseAdapter },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
+    { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],
 })
 export class SuppliersModule {}

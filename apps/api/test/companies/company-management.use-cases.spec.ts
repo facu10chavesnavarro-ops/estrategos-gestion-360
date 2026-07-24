@@ -12,6 +12,10 @@ import {
   CompanyNotFoundError,
 } from '../../src/modules/companies/domain/errors/company.errors';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
+import {
+  createFakeUnitOfWork,
+  FAKE_TRANSACTION_CONTEXT,
+} from '../support/fake-unit-of-work';
 
 function makeCompany(overrides: Partial<CompanyEntity> = {}): CompanyEntity {
   return new CompanyEntity(
@@ -65,6 +69,7 @@ describe('CreateCompanyUseCase', () => {
       companyRepository,
       companyUserRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -82,9 +87,11 @@ describe('CreateCompanyUseCase', () => {
       'user-1',
       'company-1',
       'Administrador Estrategos',
+      FAKE_TRANSACTION_CONTEXT,
     );
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'company.create' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -129,6 +136,7 @@ describe('CreateCompanyUseCase', () => {
 
     expect(companyRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ taxId: '30-12345678-9' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 });
@@ -149,7 +157,11 @@ describe('UpdateCompanyUseCase', () => {
 
     auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
 
-    useCase = new UpdateCompanyUseCase(companyRepository, auditLogRepository);
+    useCase = new UpdateCompanyUseCase(
+      companyRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
   });
 
   it('actualiza campos permitidos cuando el rol autoriza', async () => {
@@ -163,6 +175,7 @@ describe('UpdateCompanyUseCase', () => {
     expect(result.legalName).toBe('Actualizada');
     expect(auditLogRepository.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'company.update' }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 
@@ -214,10 +227,12 @@ describe('DeactivateCompanyUseCase / ActivateCompanyUseCase', () => {
     deactivateUseCase = new DeactivateCompanyUseCase(
       companyRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
     activateUseCase = new ActivateCompanyUseCase(
       companyRepository,
       auditLogRepository,
+      createFakeUnitOfWork(),
     );
   });
 
@@ -238,6 +253,7 @@ describe('DeactivateCompanyUseCase / ActivateCompanyUseCase', () => {
         action: 'company.deactivate',
         metadata: { reason: 'Cliente dio de baja el servicio' },
       }),
+      FAKE_TRANSACTION_CONTEXT,
     );
   });
 

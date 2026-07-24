@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CompanyRepository } from '../../domain/repositories/company.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { CompanyEntity } from '../../domain/entities/company.entity';
 import { ChangeCompanyStateUseCaseInput } from '../dto/company.dto';
 import {
@@ -16,6 +17,7 @@ export class DeactivateCompanyUseCase {
   constructor(
     private readonly companyRepository: CompanyRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: ChangeCompanyStateUseCaseInput): Promise<CompanyEntity> {
@@ -29,20 +31,26 @@ export class DeactivateCompanyUseCase {
       throw new AlreadyInTargetStateError('La empresa', 'inactiva');
     }
 
-    const company = await this.companyRepository.setActive(
-      input.companyId,
-      false,
-    );
+    return this.unitOfWork.run(async (ctx) => {
+      const company = await this.companyRepository.setActive(
+        input.companyId,
+        false,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: company.id,
-      userId: input.requestingUserId,
-      action: 'company.deactivate',
-      entityType: 'Company',
-      entityId: company.id,
-      metadata: { reason: input.reason },
+      await this.auditLogRepository.record(
+        {
+          companyId: company.id,
+          userId: input.requestingUserId,
+          action: 'company.deactivate',
+          entityType: 'Company',
+          entityId: company.id,
+          metadata: { reason: input.reason },
+        },
+        ctx,
+      );
+
+      return company;
     });
-
-    return company;
   }
 }

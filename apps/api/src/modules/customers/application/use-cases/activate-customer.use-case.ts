@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { CustomerRepository } from '../../domain/repositories/customer.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
+import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
 import { CustomerEntity } from '../../domain/entities/customer.entity';
@@ -16,6 +17,7 @@ export class ActivateCustomerUseCase {
   constructor(
     private readonly customerRepository: CustomerRepository,
     private readonly auditLogRepository: AuditLogRepository,
+    private readonly unitOfWork: UnitOfWork,
   ) {}
 
   async execute(input: ChangeCustomerStateUseCaseInput): Promise<CustomerEntity> {
@@ -32,16 +34,25 @@ export class ActivateCustomerUseCase {
       throw new CustomerAlreadyInTargetStateError('activo');
     }
 
-    const customer = await this.customerRepository.setActive(input.customerId, true);
+    return this.unitOfWork.run(async (ctx) => {
+      const customer = await this.customerRepository.setActive(
+        input.customerId,
+        true,
+        ctx,
+      );
 
-    await this.auditLogRepository.record({
-      companyId: input.companyId,
-      userId: input.requestingUserId,
-      action: 'customer.activate',
-      entityType: 'Customer',
-      entityId: customer.id,
+      await this.auditLogRepository.record(
+        {
+          companyId: input.companyId,
+          userId: input.requestingUserId,
+          action: 'customer.activate',
+          entityType: 'Customer',
+          entityId: customer.id,
+        },
+        ctx,
+      );
+
+      return customer;
     });
-
-    return customer;
   }
 }
