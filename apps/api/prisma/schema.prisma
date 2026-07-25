@@ -25,31 +25,35 @@ model Tenant {
 
 /// Empresa (unidad legal/operativa cuyos datos deben aislarse — RN-001, RN-002).
 model Company {
-  id            String   @id @default(uuid())
-  tenantId      String   @map("tenant_id")
-  legalName     String   @map("legal_name")
-  taxId         String?  @map("tax_id") // CUIT
-  taxCondition  String?  @map("tax_condition")
-  activity      String?
-  address       String?
-  contactName   String?  @map("contact_name")
-  contactEmail  String?  @map("contact_email")
-  contactPhone  String?  @map("contact_phone")
-  logoUrl       String?  @map("logo_url")
-  currency      String   @default("ARS")
-  timezone      String   @default("America/Argentina/Jujuy")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  legalName    String   @map("legal_name")
+  taxId        String?  @map("tax_id") // CUIT
+  taxCondition String?  @map("tax_condition")
+  activity     String?
+  address      String?
+  contactName  String?  @map("contact_name")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  logoUrl      String?  @map("logo_url")
+  currency     String   @default("ARS")
+  timezone     String   @default("America/Argentina/Jujuy")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-  tenant        Tenant        @relation(fields: [tenantId], references: [id])
-  companyUsers  CompanyUser[]
-  auditLogs     AuditLog[]
-  branches      Branch[]
-  invitations   Invitation[]
-  parties       Party[]
-  customers     Customer[]
-  suppliers     Supplier[]
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  companyUsers CompanyUser[]
+  auditLogs    AuditLog[]
+  branches     Branch[]
+  invitations  Invitation[]
+  parties      Party[]
+  customers    Customer[]
+  suppliers    Supplier[]
+  categories   Category[]
+  items        Item[]
+  taxes        Tax[]
+  priceLists   PriceList[]
 
   @@index([tenantId])
   @@map("companies")
@@ -75,20 +79,20 @@ model Branch {
 
 /// Persona con credenciales de acceso (no lleva rol propio: el rol es por empresa).
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String    @map("password_hash")
-  fullName      String    @map("full_name")
-  isActive      Boolean   @default(true) @map("is_active")
-  lastLoginAt   DateTime? @map("last_login_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
-  companyUsers  CompanyUser[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
-  invitationsSent   Invitation[] @relation("InvitationsSent")
-  invitationsRevoked Invitation[] @relation("InvitationsRevoked")
+  companyUsers       CompanyUser[]
+  refreshTokens      RefreshToken[]
+  auditLogs          AuditLog[]
+  invitationsSent    Invitation[]   @relation("InvitationsSent")
+  invitationsRevoked Invitation[]   @relation("InvitationsRevoked")
 
   @@map("users")
 }
@@ -226,17 +230,19 @@ model Party {
 /// independientemente, mantiene el patrón de columna directa de todo el
 /// sistema y deja el terreno listo para Row Level Security.
 model Customer {
-  id              String   @id @default(uuid())
-  partyId         String   @unique @map("party_id")
-  companyId       String   @map("company_id")
-  paymentTermDays Int?     @map("payment_term_days")
-  creditLimit     Decimal? @map("credit_limit") @db.Decimal(14, 2)
-  isActive        Boolean  @default(true) @map("is_active")
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id                   String   @id @default(uuid())
+  partyId              String   @unique @map("party_id")
+  companyId            String   @map("company_id")
+  paymentTermDays      Int?     @map("payment_term_days")
+  creditLimit          Decimal? @map("credit_limit") @db.Decimal(14, 2)
+  preferredPriceListId String?  @map("preferred_price_list_id")
+  isActive             Boolean  @default(true) @map("is_active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
-  party   Party   @relation(fields: [partyId], references: [id])
-  company Company @relation(fields: [companyId], references: [id])
+  party              Party      @relation(fields: [partyId], references: [id])
+  company            Company    @relation(fields: [companyId], references: [id])
+  preferredPriceList PriceList? @relation(fields: [preferredPriceListId], references: [id])
 
   @@index([companyId])
   @@index([companyId, isActive])
@@ -265,4 +271,141 @@ model Supplier {
   @@index([companyId])
   @@index([companyId, isActive])
   @@map("suppliers")
+}
+
+/// Categoría jerárquica de Ítems (Sprint 3, docs/sprint-3/01-catalogo-maestro.md).
+/// Lista de adyacencia (parentId autoreferenciado), profundidad ilimitada.
+model Category {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  parentId  String?  @map("parent_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company  Company    @relation(fields: [companyId], references: [id])
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  items    Item[]
+
+  @@index([companyId])
+  @@index([companyId, parentId])
+  @@map("categories")
+}
+
+enum ItemType {
+  PRODUCT
+  SERVICE
+}
+
+/// Producto o Servicio unificado (RN-CAT-06/07/08). tracksStock/minimumStock
+/// solo tienen sentido si type = PRODUCT.
+model Item {
+  id            String   @id @default(uuid())
+  companyId     String   @map("company_id")
+  type          ItemType
+  sku           String
+  name          String
+  description   String?
+  categoryId    String?  @map("category_id")
+  unitOfMeasure String   @map("unit_of_measure")
+  tracksStock   Boolean  @default(false) @map("tracks_stock")
+  minimumStock  Decimal? @map("minimum_stock") @db.Decimal(14, 2)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  itemTaxes      ItemTax[]
+  priceListItems PriceListItem[]
+
+  @@unique([companyId, sku])
+  @@index([companyId])
+  @@index([companyId, isActive])
+  @@index([companyId, type])
+  @@map("items")
+}
+
+enum TaxType {
+  VAT
+  PERCEPTION
+  WITHHOLDING
+}
+
+/// Catálogo flexible de impuestos con vigencia (RN-CAT-09/10). La tasa nunca
+/// se edita retroactivamente: "cambiar" una tasa es cerrar este Tax
+/// (validTo) y crear uno nuevo — preserva la integridad de comprobantes
+/// históricos que en Sprint 3.3 copiarán (snapshot) la tasa vigente.
+model Tax {
+  id        String    @id @default(uuid())
+  companyId String    @map("company_id")
+  name      String
+  type      TaxType
+  rate      Decimal   @db.Decimal(6, 4)
+  validFrom DateTime  @map("valid_from")
+  validTo   DateTime? @map("valid_to")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  company   Company   @relation(fields: [companyId], references: [id])
+  itemTaxes ItemTax[]
+
+  @@index([companyId])
+  @@map("taxes")
+}
+
+/// Qué impuestos aplican a qué Ítem (RN-CAT-11: un Item puede tener más de
+/// uno simultáneamente, ej. IVA + Percepción IIBB).
+model ItemTax {
+  itemId String @map("item_id")
+  taxId  String @map("tax_id")
+
+  item Item @relation(fields: [itemId], references: [id])
+  tax  Tax  @relation(fields: [taxId], references: [id])
+
+  @@id([itemId, taxId])
+  @@map("item_taxes")
+}
+
+/// Lista de precios (neto, sin impuestos — ver §5.2 del documento de
+/// arquitectura). RN-CAT-13: a lo sumo una activa por empresa con
+/// isDefault = true.
+model PriceList {
+  id        String    @id @default(uuid())
+  companyId String    @map("company_id")
+  name      String
+  currency  String
+  isDefault Boolean   @default(false) @map("is_default")
+  validFrom DateTime  @default(now()) @map("valid_from")
+  validTo   DateTime? @map("valid_to")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  company              Company         @relation(fields: [companyId], references: [id])
+  items                PriceListItem[]
+  preferredByCustomers Customer[]
+
+  @@index([companyId])
+  @@index([companyId, isActive])
+  @@map("price_lists")
+}
+
+/// Precio de un Ítem en una Lista de precios. A diferencia del resto del
+/// módulo, admite baja física (RN-CAT-04): no es un registro financiero, el
+/// precio históricamente facturado queda protegido aparte, como snapshot en
+/// la línea del comprobante (Sprint 3.3).
+model PriceListItem {
+  priceListId String   @map("price_list_id")
+  itemId      String   @map("item_id")
+  price       Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  priceList PriceList @relation(fields: [priceListId], references: [id])
+  item      Item      @relation(fields: [itemId], references: [id])
+
+  @@id([priceListId, itemId])
+  @@map("price_list_items")
 }

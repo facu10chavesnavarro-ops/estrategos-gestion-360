@@ -6,6 +6,53 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.5.0] - 2026-07-25
+
+Sprint 3, Sub-sprint 1: Catálogo maestro (Categorías, Ítems, Impuestos,
+Listas de precio). Primer módulo del núcleo financiero, según el plan de
+`docs/sprint-3/00-arquitectura-nucleo-financiero.md` (documento de
+arquitectura aprobado — ver también la Decisión 1.7: cuentas corrientes
+separadas Cliente/Proveedor, que se aplicará en Sprint 3.4).
+
+### Agregado
+
+- **Categorías**: jerárquicas (lista de adyacencia, `parentId`
+  autoreferenciado), con detección de ciclos (RN-CAT-03) y validación de
+  que el padre pertenezca a la misma empresa (RN-CAT-02).
+  `/companies/:id/categories`.
+- **Ítems (Productos y Servicios unificados)**: entidad única con
+  discriminador `type`, SKU único por empresa, impuestos asociados
+  (`ItemTax`, muchos a muchos), y la regla de que un Servicio nunca controla
+  stock aunque el request lo pida (RN-CAT-07) ni admite `minimumStock` sin
+  `tracksStock` (RN-CAT-08). `/companies/:id/items`.
+- **Impuestos**: catálogo flexible (IVA, Percepción, Retención) con
+  vigencia (`validFrom`/`validTo`); la tasa es inmutable una vez creada —
+  "cambiarla" es cerrar el impuesto (`POST .../close`) y crear uno nuevo,
+  para no reescribir la historia de comprobantes que en Sprint 3.3 la usarán
+  como snapshot. `/companies/:id/taxes`.
+- **Listas de precios**: múltiples listas por empresa, precio neto (sin
+  impuestos incluidos), a lo sumo una `isDefault=true` por empresa
+  (RN-CAT-13, reforzado transaccionalmente). `/companies/:id/price-lists`,
+  con precios por ítem anidados en `.../items/:itemId` (upsert con `PUT`,
+  baja física permitida con `DELETE` — única excepción al "nunca se borra
+  físicamente" del resto del sistema, porque no es un registro financiero).
+- **24 casos de uso nuevos**, todos usando `UnitOfWork` desde el día 1 (a
+  diferencia de Empresas/Clientes en Sprints 1/2, donde se agregó después).
+- **57 tests unitarios + 2 tests de integración de rollback real** contra
+  Postgres (`CreateItemUseCase` con `Item`+`ItemTax`+`AuditLog`;
+  `CreatePriceListUseCase` con `isDefault` y desmarcado atómico de la lista
+  anterior).
+
+### Pruebas
+
+- 169/169 tests unitarios (57 nuevos + 112 heredados).
+- 8/8 tests de integración contra Postgres real, incluyendo los 2 nuevos.
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: alta de Categoría/Impuesto/Ítem
+  (Producto y Servicio, confirmando RN-CAT-07)/Lista de precios, SKU
+  duplicado rechazado, fijar y listar precios, desactivar dos veces
+  (RN-CAT-16), y exclusividad de `isDefault` entre dos listas (RN-CAT-13).
+
 ## [0.4.0] - 2026-07-24
 
 Resolución de la Decisión A (transacciones, Crítico) y de la Decisión B
