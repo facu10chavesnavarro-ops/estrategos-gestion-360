@@ -6,6 +6,53 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.6.0] - 2026-07-25
+
+Sprint 3, Sub-sprint 2: Depósitos y Stock (Warehouse, Stock, StockMovement).
+Segundo módulo del núcleo financiero, según
+`docs/sprint-3/00-arquitectura-nucleo-financiero.md` §6-7.
+
+### Agregado
+
+- **Depósitos (`Warehouse`)**: uno o más por sucursal, nombre único dentro
+  de la misma sucursal (RN-STK-02). `/companies/:id/branches/:branchId/warehouses`.
+- **Stock materializado**: cantidad y costo promedio ponderado (PPP) por
+  ítem/depósito, actualizado exclusivamente como efecto de un
+  `StockMovement`, nunca escrito directamente (RN-STK-04).
+  `GET /companies/:id/warehouses/:warehouseId/stock`.
+- **Movimientos de stock**: ajustes manuales de entrada/salida
+  (`POST .../stock-movements/adjustment`) y transferencias entre depósitos
+  (`POST /companies/:id/stock-transfers`, genera un par
+  `TRANSFER_OUT`/`TRANSFER_IN` atómico con el mismo `transferGroupId`).
+  Bloqueo de stock negativo configurable por empresa
+  (`Company.allowNegativeStock`, RN-STK-06). Kardex consultable con
+  `GET .../stock-movements`.
+- **UUID v7** para `StockMovement` (primera tabla de alto volumen del
+  sistema): generador propio sin dependencias
+  (`common/infrastructure/id/uuid-v7.ts`), según la Decisión 1.1 del
+  documento de arquitectura.
+- **34 tests unitarios + 4 tests de integración de rollback real** contra
+  Postgres (ajuste de stock, transferencia entre depósitos).
+
+### Corregido / actualizado
+
+- `CompanyEntity` expone el nuevo campo `allowNegativeStock`.
+- Se agregó `decimal.js` como dependencia directa para el cálculo de costo
+  promedio ponderado — aritmética acumulativa que no debía hacerse con
+  `Number` de JavaScript (riesgo de imprecisión de punto flotante).
+
+### Pruebas
+
+- 203/203 tests unitarios (34 nuevos + 169 heredados).
+- 12/12 tests de integración contra Postgres real (4 nuevos).
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: dos entradas de stock con
+  recálculo de promedio ponderado verificado exacto ($150), salida sin
+  motivo rechazada (RN-STK-07), salida que dejaría stock negativo
+  rechazada (RN-STK-06), transferencia entre depósitos con costo
+  transferido correcto, y kardex con IDs (UUID v7) ordenados
+  temporalmente en la práctica.
+
 ## [0.5.0] - 2026-07-25
 
 Sprint 3, Sub-sprint 1: Catálogo maestro (Categorías, Ítems, Impuestos,

@@ -25,35 +25,38 @@ model Tenant {
 
 /// Empresa (unidad legal/operativa cuyos datos deben aislarse — RN-001, RN-002).
 model Company {
-  id           String   @id @default(uuid())
-  tenantId     String   @map("tenant_id")
-  legalName    String   @map("legal_name")
-  taxId        String?  @map("tax_id") // CUIT
-  taxCondition String?  @map("tax_condition")
-  activity     String?
-  address      String?
-  contactName  String?  @map("contact_name")
-  contactEmail String?  @map("contact_email")
-  contactPhone String?  @map("contact_phone")
-  logoUrl      String?  @map("logo_url")
-  currency     String   @default("ARS")
-  timezone     String   @default("America/Argentina/Jujuy")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  tenantId           String   @map("tenant_id")
+  legalName          String   @map("legal_name")
+  taxId              String?  @map("tax_id") // CUIT
+  taxCondition       String?  @map("tax_condition")
+  activity           String?
+  address            String?
+  contactName        String?  @map("contact_name")
+  contactEmail       String?  @map("contact_email")
+  contactPhone       String?  @map("contact_phone")
+  logoUrl            String?  @map("logo_url")
+  currency           String   @default("ARS")
+  timezone           String   @default("America/Argentina/Jujuy")
+  allowNegativeStock Boolean  @default(false) @map("allow_negative_stock")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id])
-  companyUsers CompanyUser[]
-  auditLogs    AuditLog[]
-  branches     Branch[]
-  invitations  Invitation[]
-  parties      Party[]
-  customers    Customer[]
-  suppliers    Supplier[]
-  categories   Category[]
-  items        Item[]
-  taxes        Tax[]
-  priceLists   PriceList[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  companyUsers   CompanyUser[]
+  auditLogs      AuditLog[]
+  branches       Branch[]
+  invitations    Invitation[]
+  parties        Party[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  categories     Category[]
+  items          Item[]
+  taxes          Tax[]
+  priceLists     PriceList[]
+  warehouses     Warehouse[]
+  stockMovements StockMovement[]
 
   @@index([tenantId])
   @@map("companies")
@@ -70,7 +73,8 @@ model Branch {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  company    Company     @relation(fields: [companyId], references: [id])
+  warehouses Warehouse[]
 
   @@index([companyId])
   @@index([companyId, isActive])
@@ -91,8 +95,9 @@ model User {
   companyUsers       CompanyUser[]
   refreshTokens      RefreshToken[]
   auditLogs          AuditLog[]
-  invitationsSent    Invitation[]   @relation("InvitationsSent")
-  invitationsRevoked Invitation[]   @relation("InvitationsRevoked")
+  invitationsSent    Invitation[]    @relation("InvitationsSent")
+  invitationsRevoked Invitation[]    @relation("InvitationsRevoked")
+  stockMovements     StockMovement[]
 
   @@map("users")
 }
@@ -320,6 +325,8 @@ model Item {
   category       Category?       @relation(fields: [categoryId], references: [id])
   itemTaxes      ItemTax[]
   priceListItems PriceListItem[]
+  stocks         Stock[]
+  stockMovements StockMovement[]
 
   @@unique([companyId, sku])
   @@index([companyId])
@@ -408,4 +415,86 @@ model PriceListItem {
 
   @@id([priceListId, itemId])
   @@map("price_list_items")
+}
+
+/// Depósito de un Ítem dentro de una Sucursal (Sprint 3.2,
+/// docs/sprint-3/02-depositos-y-stock.md). companyId duplicado respecto de
+/// branch.companyId, mismo criterio que Customer/Supplier/Party.
+model Warehouse {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  branchId  String   @map("branch_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company       Company         @relation(fields: [companyId], references: [id])
+  branch        Branch          @relation(fields: [branchId], references: [id])
+  stocks        Stock[]
+  StockMovement StockMovement[]
+
+  @@unique([branchId, name])
+  @@index([companyId])
+  @@map("warehouses")
+}
+
+/// Cantidad y costo promedio ponderado (RN-STK-05) de un Ítem en un
+/// Depósito. Nunca se escribe directamente (RN-STK-04) — solo cambia como
+/// efecto de un StockMovement, en la misma transacción que lo crea.
+model Stock {
+  companyId   String   @map("company_id")
+  itemId      String   @map("item_id")
+  warehouseId String   @map("warehouse_id")
+  quantity    Decimal  @default(0) @db.Decimal(14, 3)
+  averageCost Decimal  @default(0) @map("average_cost") @db.Decimal(14, 4)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  item      Item      @relation(fields: [itemId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@id([itemId, warehouseId])
+  @@index([companyId])
+  @@map("stock")
+}
+
+enum StockMovementType {
+  PURCHASE_IN
+  SALE_OUT
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  RETURN_IN
+  RETURN_OUT
+}
+
+/// Ledger inmutable (append-only, igual que AuditLog) de cada entrada o
+/// salida de stock. `id` sin @default: se genera con uuidv7() en la capa de
+/// infraestructura (ver docs/sprint-3/02-depositos-y-stock.md §0.3) — tabla
+/// de alto volumen (Decisión 1.1 del documento de arquitectura).
+/// `voucherId` no existe todavía: se agrega en Sprint 3.3 junto con
+/// `Voucher` (ver §0.1 del mismo documento).
+model StockMovement {
+  id              String            @id
+  companyId       String            @map("company_id")
+  itemId          String            @map("item_id")
+  warehouseId     String            @map("warehouse_id")
+  type            StockMovementType
+  quantity        Decimal           @db.Decimal(14, 3)
+  unitCost        Decimal           @map("unit_cost") @db.Decimal(14, 4)
+  reason          String?
+  transferGroupId String?           @map("transfer_group_id")
+  userId          String            @map("user_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+
+  company   Company   @relation(fields: [companyId], references: [id])
+  item      Item      @relation(fields: [itemId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@index([companyId, createdAt])
+  @@index([itemId, warehouseId])
+  @@index([transferGroupId])
+  @@map("stock_movements")
 }

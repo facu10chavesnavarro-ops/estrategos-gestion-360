@@ -70,6 +70,7 @@ function makeCompany(): CompanyEntity {
     null,
     'ARS',
     'America/Argentina/Jujuy',
+    false,
     true,
   );
 }

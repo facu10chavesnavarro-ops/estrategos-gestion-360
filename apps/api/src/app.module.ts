@@ -7,6 +7,7 @@ import { UsersModule } from './modules/users/users.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -18,6 +19,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     CustomersModule,
     SuppliersModule,
     CatalogModule,
+    InventoryModule,
   ],
   providers: [
     // Guard global: por defecto TODO endpoint requiere autenticación

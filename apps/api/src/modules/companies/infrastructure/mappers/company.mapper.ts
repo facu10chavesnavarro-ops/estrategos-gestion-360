@@ -17,6 +17,7 @@ export class CompanyMapper {
       raw.logoUrl,
       raw.currency,
       raw.timezone,
+      raw.allowNegativeStock,
       raw.isActive,
     );
   }

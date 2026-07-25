@@ -32,6 +32,7 @@ function makeCompany(overrides: Partial<CompanyEntity> = {}): CompanyEntity {
     overrides.logoUrl ?? null,
     overrides.currency ?? 'ARS',
     overrides.timezone ?? 'America/Argentina/Jujuy',
+    overrides.allowNegativeStock ?? false,
     overrides.isActive ?? true,
   );
 }

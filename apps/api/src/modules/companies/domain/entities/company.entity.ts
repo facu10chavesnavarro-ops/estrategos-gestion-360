@@ -13,6 +13,7 @@ export class CompanyEntity {
     public readonly logoUrl: string | null,
     public readonly currency: string,
     public readonly timezone: string,
+    public readonly allowNegativeStock: boolean,
     public readonly isActive: boolean,
   ) {}
 }
