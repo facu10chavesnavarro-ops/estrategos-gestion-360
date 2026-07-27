@@ -13,6 +13,7 @@ export class StockMovementMapper {
       raw.unitCost.toString(),
       raw.reason,
       raw.transferGroupId,
+      raw.voucherId,
       raw.userId,
       raw.createdAt,
     );

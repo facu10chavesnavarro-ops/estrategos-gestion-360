@@ -14,6 +14,78 @@ const BASE_ROLES = [
   'Auditor',
 ];
 
+/**
+ * Catálogo global de VoucherType (Sprint 3.3, docs/sprint-3/03-comprobantes.md
+ * §0.1) — alcance recortado: solo Factura/Nota de Crédito de Venta y Factura
+ * de Compra. Recibo, Remito, Nota de Débito, Orden de Compra y Presupuesto
+ * quedan diferidos.
+ */
+const VOUCHER_TYPES = [
+  {
+    code: 'FA_A',
+    name: 'Factura A',
+    flow: 'SALE' as const,
+    affectsStock: 'OUT' as const,
+    requiresCae: true,
+    isCreditNote: false,
+    relatedVoucherRequired: false,
+  },
+  {
+    code: 'FA_B',
+    name: 'Factura B',
+    flow: 'SALE' as const,
+    affectsStock: 'OUT' as const,
+    requiresCae: true,
+    isCreditNote: false,
+    relatedVoucherRequired: false,
+  },
+  {
+    code: 'FA_C',
+    name: 'Factura C',
+    flow: 'SALE' as const,
+    affectsStock: 'OUT' as const,
+    requiresCae: true,
+    isCreditNote: false,
+    relatedVoucherRequired: false,
+  },
+  {
+    code: 'NC_A',
+    name: 'Nota de Crédito A',
+    flow: 'SALE' as const,
+    affectsStock: 'IN' as const,
+    requiresCae: true,
+    isCreditNote: true,
+    relatedVoucherRequired: true,
+  },
+  {
+    code: 'NC_B',
+    name: 'Nota de Crédito B',
+    flow: 'SALE' as const,
+    affectsStock: 'IN' as const,
+    requiresCae: true,
+    isCreditNote: true,
+    relatedVoucherRequired: true,
+  },
+  {
+    code: 'NC_C',
+    name: 'Nota de Crédito C',
+    flow: 'SALE' as const,
+    affectsStock: 'IN' as const,
+    requiresCae: true,
+    isCreditNote: true,
+    relatedVoucherRequired: true,
+  },
+  {
+    code: 'FC',
+    name: 'Factura de Compra',
+    flow: 'PURCHASE' as const,
+    affectsStock: 'IN' as const,
+    requiresCae: false,
+    isCreditNote: false,
+    relatedVoucherRequired: false,
+  },
+];
+
 async function main() {
   const roles = await Promise.all(
     BASE_ROLES.map((name) =>
@@ -71,6 +143,16 @@ async function main() {
       roleId: adminRole!.id,
     },
   });
+
+  await Promise.all(
+    VOUCHER_TYPES.map((voucherType) =>
+      prisma.voucherType.upsert({
+        where: { code: voucherType.code },
+        update: {},
+        create: voucherType,
+      }),
+    ),
+  );
 
   // eslint-disable-next-line no-console
   console.log('Seed completo. Usuario de prueba: admin@estrategos.local / CambiarEsta123!');

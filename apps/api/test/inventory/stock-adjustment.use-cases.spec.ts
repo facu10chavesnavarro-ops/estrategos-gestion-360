@@ -1,21 +1,18 @@
 import { CreateStockAdjustmentUseCase } from '../../src/modules/inventory/application/use-cases/create-stock-adjustment.use-case';
 import { WarehouseEntity } from '../../src/modules/inventory/domain/entities/warehouse.entity';
-import { StockEntity } from '../../src/modules/inventory/domain/entities/stock.entity';
 import { StockMovementEntity } from '../../src/modules/inventory/domain/entities/stock-movement.entity';
 import { WarehouseRepository } from '../../src/modules/inventory/domain/repositories/warehouse.repository';
-import { StockRepository } from '../../src/modules/inventory/domain/repositories/stock.repository';
-import { StockMovementRepository } from '../../src/modules/inventory/domain/repositories/stock-movement.repository';
 import { ItemRepository } from '../../src/modules/catalog/domain/repositories/item.repository';
 import { ItemEntity } from '../../src/modules/catalog/domain/entities/item.entity';
 import { CompanyRepository } from '../../src/modules/companies/domain/repositories/company.repository';
 import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
+import { ApplyStockMovementService } from '../../src/modules/inventory/application/services/apply-stock-movement.service';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import { WarehouseNotFoundError } from '../../src/modules/inventory/domain/errors/warehouse.errors';
 import { ItemNotFoundError } from '../../src/modules/catalog/domain/errors/item.errors';
 import {
   ItemDoesNotTrackStockError,
-  InsufficientStockError,
   MissingReasonError,
   MissingUnitCostError,
   InvalidQuantityError,
@@ -80,21 +77,6 @@ function makeWarehouseRepository(): jest.Mocked<WarehouseRepository> {
   } as jest.Mocked<WarehouseRepository>;
 }
 
-function makeStockRepository(): jest.Mocked<StockRepository> {
-  return {
-    findByItemAndWarehouse: jest.fn(),
-    findAllByWarehouse: jest.fn(),
-    upsert: jest.fn(),
-  } as jest.Mocked<StockRepository>;
-}
-
-function makeStockMovementRepository(): jest.Mocked<StockMovementRepository> {
-  return {
-    create: jest.fn(),
-    findAllByWarehouse: jest.fn(),
-  } as jest.Mocked<StockMovementRepository>;
-}
-
 function makeItemRepository(): jest.Mocked<ItemRepository> {
   return {
     create: jest.fn(),
@@ -116,6 +98,12 @@ function makeCompanyRepository(): jest.Mocked<CompanyRepository> {
   } as jest.Mocked<CompanyRepository>;
 }
 
+function makeApplyStockMovementService(): jest.Mocked<ApplyStockMovementService> {
+  return {
+    apply: jest.fn(),
+  } as unknown as jest.Mocked<ApplyStockMovementService>;
+}
+
 function makeStockMovement(overrides: Partial<StockMovementEntity> = {}): StockMovementEntity {
   return new StockMovementEntity(
     overrides.id ?? 'movement-1',
@@ -127,6 +115,7 @@ function makeStockMovement(overrides: Partial<StockMovementEntity> = {}): StockM
     overrides.unitCost ?? '100.0000',
     overrides.reason ?? null,
     overrides.transferGroupId ?? null,
+    overrides.voucherId ?? null,
     overrides.userId ?? 'user-1',
     overrides.createdAt ?? new Date(),
   );
@@ -135,29 +124,26 @@ function makeStockMovement(overrides: Partial<StockMovementEntity> = {}): StockM
 describe('CreateStockAdjustmentUseCase', () => {
   function makeSut() {
     const warehouseRepository = makeWarehouseRepository();
-    const stockRepository = makeStockRepository();
-    const stockMovementRepository = makeStockMovementRepository();
     const itemRepository = makeItemRepository();
     const companyRepository = makeCompanyRepository();
+    const applyStockMovementService = makeApplyStockMovementService();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new CreateStockAdjustmentUseCase(
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
     warehouseRepository.findById.mockResolvedValue(makeWarehouse());
     itemRepository.findById.mockResolvedValue(makeItem());
-    stockMovementRepository.create.mockResolvedValue(makeStockMovement());
+    applyStockMovementService.apply.mockResolvedValue(makeStockMovement());
     return {
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       auditLogRepository,
       useCase,
     };
@@ -268,10 +254,7 @@ describe('CreateStockAdjustmentUseCase', () => {
   });
 
   it('RN-STK-07: exige motivo en una salida', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(
-      new StockEntity('company-1', 'item-1', 'warehouse-1', '50.000', '100.0000'),
-    );
+    const { useCase } = makeSut();
 
     await expect(
       useCase.execute({
@@ -286,9 +269,8 @@ describe('CreateStockAdjustmentUseCase', () => {
     ).rejects.toThrow(MissingReasonError);
   });
 
-  it('primera entrada: sin stock previo, el promedio es el costo entrante', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(null);
+  it('delega en ApplyStockMovementService con type ADJUSTMENT_IN en una entrada', async () => {
+    const { useCase, applyStockMovementService } = makeSut();
 
     await useCase.execute({
       requestingUserId: 'user-1',
@@ -301,42 +283,24 @@ describe('CreateStockAdjustmentUseCase', () => {
       unitCost: '100',
     });
 
-    expect(stockRepository.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: '10.000', averageCost: '100.0000' }),
+    expect(applyStockMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        itemId: 'item-1',
+        warehouseId: 'warehouse-1',
+        direction: 'IN',
+        type: 'ADJUSTMENT_IN',
+        quantity: '10',
+        unitCost: '100',
+        userId: 'user-1',
+      }),
       expect.anything(),
     );
   });
 
-  it('RN-STK-05: segunda entrada recalcula el promedio ponderado', async () => {
-    const { useCase, stockRepository } = makeSut();
-    // 10 unidades a 100 ya existentes; entran 10 más a 200.
-    // Promedio esperado: (10*100 + 10*200) / 20 = 150.
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(
-      new StockEntity('company-1', 'item-1', 'warehouse-1', '10.000', '100.0000'),
-    );
-
-    await useCase.execute({
-      requestingUserId: 'user-1',
-      requestingRoleName: 'Propietario',
-      companyId: 'company-1',
-      warehouseId: 'warehouse-1',
-      itemId: 'item-1',
-      direction: 'IN',
-      quantity: '10',
-      unitCost: '200',
-    });
-
-    expect(stockRepository.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: '20.000', averageCost: '150.0000' }),
-      expect.anything(),
-    );
-  });
-
-  it('RN-STK-05: una salida descuenta cantidad pero no modifica el promedio', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(
-      new StockEntity('company-1', 'item-1', 'warehouse-1', '20.000', '150.0000'),
-    );
+  it('delega en ApplyStockMovementService con type ADJUSTMENT_OUT y allowNegativeStock resuelto en una salida', async () => {
+    const { useCase, applyStockMovementService, companyRepository } = makeSut();
+    companyRepository.findById.mockResolvedValue(makeCompany({ allowNegativeStock: true }));
 
     await useCase.execute({
       requestingUserId: 'user-1',
@@ -349,19 +313,43 @@ describe('CreateStockAdjustmentUseCase', () => {
       reason: 'Rotura',
     });
 
-    expect(stockRepository.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: '15.000', averageCost: '150.0000' }),
+    expect(companyRepository.findById).toHaveBeenCalledWith('company-1', expect.anything());
+    expect(applyStockMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        direction: 'OUT',
+        type: 'ADJUSTMENT_OUT',
+        quantity: '5',
+        reason: 'Rotura',
+        allowNegativeStock: true,
+      }),
       expect.anything(),
     );
-    // El costo del movimiento de salida es el promedio vigente, no un valor manual.
-    expect(stockRepository.upsert).toHaveBeenCalled();
   });
 
-  it('RN-STK-06: rechaza una salida que dejaría stock negativo sin allowNegativeStock', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(
-      new StockEntity('company-1', 'item-1', 'warehouse-1', '5.000', '100.0000'),
+  it('registra una auditoría con el id del movimiento devuelto por ApplyStockMovementService', async () => {
+    const { useCase, applyStockMovementService, auditLogRepository } = makeSut();
+    applyStockMovementService.apply.mockResolvedValue(makeStockMovement({ id: 'movement-42' }));
+
+    await useCase.execute({
+      requestingUserId: 'user-1',
+      requestingRoleName: 'Propietario',
+      companyId: 'company-1',
+      warehouseId: 'warehouse-1',
+      itemId: 'item-1',
+      direction: 'IN',
+      quantity: '10',
+      unitCost: '100',
+    });
+
+    expect(auditLogRepository.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'stock.adjustment_in', entityId: 'movement-42' }),
+      expect.anything(),
     );
+  });
+
+  it('propaga el error de ApplyStockMovementService (ej. stock insuficiente)', async () => {
+    const { useCase, applyStockMovementService } = makeSut();
+    applyStockMovementService.apply.mockRejectedValue(new Error('stock insuficiente'));
 
     await expect(
       useCase.execute({
@@ -374,30 +362,6 @@ describe('CreateStockAdjustmentUseCase', () => {
         quantity: '10',
         reason: 'Rotura',
       }),
-    ).rejects.toThrow(InsufficientStockError);
-  });
-
-  it('RN-STK-06: permite stock negativo cuando la empresa lo habilita', async () => {
-    const { useCase, stockRepository, companyRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockResolvedValue(
-      new StockEntity('company-1', 'item-1', 'warehouse-1', '5.000', '100.0000'),
-    );
-    companyRepository.findById.mockResolvedValue(makeCompany({ allowNegativeStock: true }));
-
-    await useCase.execute({
-      requestingUserId: 'user-1',
-      requestingRoleName: 'Propietario',
-      companyId: 'company-1',
-      warehouseId: 'warehouse-1',
-      itemId: 'item-1',
-      direction: 'OUT',
-      quantity: '10',
-      reason: 'Venta bajo pedido',
-    });
-
-    expect(stockRepository.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ quantity: '-5.000' }),
-      expect.anything(),
-    );
+    ).rejects.toThrow('stock insuficiente');
   });
 });

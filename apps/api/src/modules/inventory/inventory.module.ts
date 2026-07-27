@@ -13,6 +13,7 @@ import { ListStockUseCase } from './application/use-cases/list-stock.use-case';
 import { ListStockMovementsUseCase } from './application/use-cases/list-stock-movements.use-case';
 import { CreateStockAdjustmentUseCase } from './application/use-cases/create-stock-adjustment.use-case';
 import { CreateStockTransferUseCase } from './application/use-cases/create-stock-transfer.use-case';
+import { ApplyStockMovementService } from './application/services/apply-stock-movement.service';
 
 import { WarehouseRepository } from './domain/repositories/warehouse.repository';
 import { PrismaWarehouseRepository } from './infrastructure/persistence/prisma-warehouse.repository';
@@ -48,6 +49,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     ListStockMovementsUseCase,
     CreateStockAdjustmentUseCase,
     CreateStockTransferUseCase,
+    ApplyStockMovementService,
     { provide: WarehouseRepository, useClass: PrismaWarehouseRepository },
     { provide: StockRepository, useClass: PrismaStockRepository },
     { provide: StockMovementRepository, useClass: PrismaStockMovementRepository },

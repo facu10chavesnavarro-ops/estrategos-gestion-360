@@ -1,12 +1,18 @@
 import { PrismaService } from '../../src/common/persistence/prisma.service';
 
-// No incluye "roles": es catálogo de referencia (sembrado una vez por el
-// seed), no dato de test. Orden irrelevante: RESTART IDENTITY CASCADE
-// resuelve las dependencias de FK dentro de una misma sentencia.
+// No incluye "roles" ni "voucher_types": son catálogos de referencia
+// (sembrados una vez por el seed), no datos de test. Orden irrelevante:
+// RESTART IDENTITY CASCADE resuelve las dependencias de FK dentro de una
+// misma sentencia.
 const TABLES = [
   'audit_logs',
   'refresh_tokens',
   'invitations',
+  'voucher_line_taxes',
+  'voucher_lines',
+  'vouchers',
+  'voucher_counters',
+  'points_of_sale',
   'stock_movements',
   'stock',
   'warehouses',

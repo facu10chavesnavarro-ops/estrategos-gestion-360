@@ -6,6 +6,64 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.7.0] - 2026-07-27
+
+Sprint 3, Sub-sprint 3: Comprobantes (Facturas y Notas de Crédito, Venta y
+Compra unificadas). Tercer módulo del núcleo financiero, según
+`docs/sprint-3/00-arquitectura-nucleo-financiero.md` §1.3-1.5, 8-10.
+
+### Agregado
+
+- **Puntos de venta (`PointOfSale`)**: uno o más por sucursal, código
+  único por empresa (identificador fiscal AFIP).
+  `/companies/:id/branches/:branchId/points-of-sale`.
+- **Comprobantes (`Voucher`)**: modelo polimórfico único para Ventas y
+  Compras — Factura A/B/C, Nota de Crédito A/B/C y Factura de Compra (7
+  tipos, catálogo global `VoucherType` sembrado). Crear = confirmar en una
+  sola operación (sin borrador, sin anulación directa — la reversión es
+  siempre vía Nota de Crédito referenciando el original, RN-VOU-03).
+  `/companies/:id/vouchers`, `GET /voucher-types`.
+- **Numeración fiscal atómica y sin huecos** (RN-VOU-02): contador
+  (`VoucherCounter`) incrementado con una sola sentencia
+  `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` dentro de la misma
+  transacción que crea el comprobante — verificado con una prueba de
+  concurrencia real (dos altas en paralelo, números consecutivos sin
+  duplicados).
+- **Snapshot de impuestos por línea** (RN-VOU-05): cada línea con ítem
+  copia las tasas de los impuestos vigentes del `Item` al momento de
+  confirmar (`VoucherLineTax`), sin volver a leer el catálogo después.
+- **Efecto de stock automático** (RN-VOU-06/07): Factura de Venta
+  descuenta, Factura de Compra ingresa, Nota de Crédito revierte — cada
+  línea con ítem que trackea stock genera un `StockMovement` dentro de la
+  misma transacción que el comprobante, vía el nuevo
+  `ApplyStockMovementService`.
+- **`ApplyStockMovementService`** (refactor de Sprint 3.2): extrae la
+  lógica de costeo PPP y validación de stock negativo (antes duplicada
+  en `CreateStockAdjustmentUseCase`/`CreateStockTransferUseCase`) a un
+  servicio que recibe la transacción abierta en vez de crear la suya
+  propia — necesario para que `CreateVoucherUseCase` pueda numerar, crear
+  el comprobante y aplicar sus efectos de stock de forma atómica.
+
+### Corregido / actualizado
+
+- `CreateStockAdjustmentUseCase`/`CreateStockTransferUseCase` ahora
+  delegan en `ApplyStockMovementService` en vez de reimplementar la
+  fórmula de costeo — sin cambios de comportamiento observable.
+- `StockMovement` gana la columna `voucherId` (diferida desde Sprint 3.2)
+  para trazar qué comprobante originó cada movimiento.
+
+### Pruebas
+
+- 232/232 tests unitarios (29 nuevos de este módulo).
+- 15/15 tests de integración contra Postgres real (3 nuevos: camino feliz,
+  rollback, y concurrencia de numeración).
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: Factura de Venta con snapshot de
+  impuestos y stock descontado verificados, Nota de Crédito con stock y
+  costo promedio repuestos correctamente, Factura de Compra con stock
+  incrementado, y rechazo de comprobantes a una contraparte inactiva o sin
+  el comprobante relacionado exigido.
+
 ## [0.6.0] - 2026-07-25
 
 Sprint 3, Sub-sprint 2: Depósitos y Stock (Warehouse, Stock, StockMovement).

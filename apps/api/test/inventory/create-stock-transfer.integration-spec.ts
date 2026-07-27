@@ -8,6 +8,7 @@ import { PrismaCompanyRepository } from '../../src/modules/companies/infrastruct
 import { PrismaAuditLogRepository } from '../../src/common/infrastructure/persistence/prisma-audit-log.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { CreateStockTransferUseCase } from '../../src/modules/inventory/application/use-cases/create-stock-transfer.use-case';
+import { ApplyStockMovementService } from '../../src/modules/inventory/application/services/apply-stock-movement.service';
 import { resetDatabase } from '../support/reset-database';
 
 /**
@@ -24,6 +25,10 @@ describe('CreateStockTransferUseCase (integración, DB real)', () => {
   const stockMovementRepository = new PrismaStockMovementRepository(prisma);
   const itemRepository = new PrismaItemRepository(prisma);
   const companyRepository = new PrismaCompanyRepository(prisma);
+  const applyStockMovementService = new ApplyStockMovementService(
+    stockRepository,
+    stockMovementRepository,
+  );
   const unitOfWork = new PrismaUnitOfWork(prisma);
 
   let companyId: string;
@@ -94,10 +99,9 @@ describe('CreateStockTransferUseCase (integración, DB real)', () => {
     const auditLogRepository = new PrismaAuditLogRepository(prisma);
     const useCase = new CreateStockTransferUseCase(
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       auditLogRepository,
       unitOfWork,
     );
@@ -139,10 +143,9 @@ describe('CreateStockTransferUseCase (integración, DB real)', () => {
     };
     const useCase = new CreateStockTransferUseCase(
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       failingAuditLogRepository,
       unitOfWork,
     );

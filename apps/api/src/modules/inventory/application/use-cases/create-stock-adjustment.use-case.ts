@@ -1,22 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import Decimal from 'decimal.js';
 import { WarehouseRepository } from '../../domain/repositories/warehouse.repository';
-import { StockRepository } from '../../domain/repositories/stock.repository';
-import { StockMovementRepository } from '../../domain/repositories/stock-movement.repository';
 import { ItemRepository } from '../../../catalog/domain/repositories/item.repository';
 import { CompanyRepository } from '../../../companies/domain/repositories/company.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
 import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/company-roles';
-import { uuidv7 } from '../../../../common/infrastructure/id/uuid-v7';
+import { ApplyStockMovementService } from '../services/apply-stock-movement.service';
 import { StockMovementEntity } from '../../domain/entities/stock-movement.entity';
 import { CreateStockAdjustmentUseCaseInput } from '../dto/stock-movement.dto';
 import { WarehouseNotFoundError } from '../../domain/errors/warehouse.errors';
 import { ItemNotFoundError } from '../../../catalog/domain/errors/item.errors';
 import {
   ItemDoesNotTrackStockError,
-  InsufficientStockError,
   MissingReasonError,
   MissingUnitCostError,
   InvalidQuantityError,
@@ -25,16 +22,16 @@ import {
 /**
  * Alta/baja manual de stock (RN-STK-05/06/07/13). En Sprint 3.2 es el único
  * origen de `StockMovement` junto con las transferencias — Sprint 3.3
- * (Comprobantes) agregará `PURCHASE_IN`/`SALE_OUT` desde Ventas/Compras.
+ * (Comprobantes) agrega `PURCHASE_IN`/`SALE_OUT`/etc. desde Ventas/Compras,
+ * reutilizando `ApplyStockMovementService` (ver docs/sprint-3/03-comprobantes.md §0.3).
  */
 @Injectable()
 export class CreateStockAdjustmentUseCase {
   constructor(
     private readonly warehouseRepository: WarehouseRepository,
-    private readonly stockRepository: StockRepository,
-    private readonly stockMovementRepository: StockMovementRepository,
     private readonly itemRepository: ItemRepository,
     private readonly companyRepository: CompanyRepository,
+    private readonly applyStockMovementService: ApplyStockMovementService,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -71,67 +68,24 @@ export class CreateStockAdjustmentUseCase {
     }
 
     return this.unitOfWork.run(async (ctx) => {
-      const currentStock = await this.stockRepository.findByItemAndWarehouse(
-        input.itemId,
-        input.warehouseId,
-        ctx,
-      );
-      const currentQuantity = currentStock ? new Decimal(currentStock.quantity) : new Decimal(0);
-      const currentAverageCost = currentStock
-        ? new Decimal(currentStock.averageCost)
-        : new Decimal(0);
-
-      let newQuantity: Decimal;
-      let newAverageCost: Decimal;
-      let movementUnitCost: Decimal;
-      const movementType = input.direction === 'IN' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT';
-
-      if (input.direction === 'IN') {
-        const incomingCost = new Decimal(input.unitCost as string);
-        newQuantity = currentQuantity.plus(quantity);
-        // RN-STK-05: promedio ponderado.
-        newAverageCost = newQuantity.isZero()
-          ? new Decimal(0)
-          : currentQuantity
-              .times(currentAverageCost)
-              .plus(quantity.times(incomingCost))
-              .dividedBy(newQuantity);
-        movementUnitCost = incomingCost;
-      } else {
-        newQuantity = currentQuantity.minus(quantity);
-        newAverageCost = currentAverageCost; // RN-STK-05: una salida no modifica el promedio.
-        movementUnitCost = currentAverageCost;
-
-        if (newQuantity.isNegative()) {
-          const company = await this.companyRepository.findById(input.companyId, ctx);
-          if (!company?.allowNegativeStock) {
-            throw new InsufficientStockError();
-          }
-        }
+      let allowNegativeStock = true;
+      if (input.direction === 'OUT') {
+        const company = await this.companyRepository.findById(input.companyId, ctx);
+        allowNegativeStock = company?.allowNegativeStock ?? false;
       }
 
-      await this.stockRepository.upsert(
+      const movement = await this.applyStockMovementService.apply(
         {
           companyId: input.companyId,
           itemId: input.itemId,
           warehouseId: input.warehouseId,
-          quantity: newQuantity.toFixed(3),
-          averageCost: newAverageCost.toFixed(4),
-        },
-        ctx,
-      );
-
-      const movement = await this.stockMovementRepository.create(
-        {
-          id: uuidv7(),
-          companyId: input.companyId,
-          itemId: input.itemId,
-          warehouseId: input.warehouseId,
-          type: movementType,
-          quantity: quantity.toFixed(3),
-          unitCost: movementUnitCost.toFixed(4),
+          direction: input.direction,
+          type: input.direction === 'IN' ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+          quantity: input.quantity,
+          unitCost: input.unitCost,
           reason: input.reason,
           userId: input.requestingUserId,
+          allowNegativeStock,
         },
         ctx,
       );

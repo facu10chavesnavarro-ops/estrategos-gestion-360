@@ -11,12 +11,15 @@ export interface CreateStockMovementInput {
   unitCost: string;
   reason?: string;
   transferGroupId?: string;
+  /** Presente cuando el movimiento se originó en un Comprobante (Sprint 3.3). */
+  voucherId?: string;
   userId: string;
 }
 
 export interface ListStockMovementsFilters {
   itemId?: string;
   type?: StockMovementType;
+  voucherId?: string;
   from?: Date;
   to?: Date;
 }

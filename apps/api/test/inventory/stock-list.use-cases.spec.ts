@@ -55,6 +55,7 @@ describe('ListStockMovementsUseCase', () => {
         '100.0000',
         null,
         null,
+        null,
         'user-1',
         new Date(),
       ),

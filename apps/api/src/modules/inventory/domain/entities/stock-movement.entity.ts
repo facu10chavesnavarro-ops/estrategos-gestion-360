@@ -19,6 +19,7 @@ export class StockMovementEntity {
     public readonly unitCost: string,
     public readonly reason: string | null,
     public readonly transferGroupId: string | null,
+    public readonly voucherId: string | null,
     public readonly userId: string,
     public readonly createdAt: Date,
   ) {}

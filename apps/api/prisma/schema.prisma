@@ -57,6 +57,8 @@ model Company {
   priceLists     PriceList[]
   warehouses     Warehouse[]
   stockMovements StockMovement[]
+  pointsOfSale   PointOfSale[]
+  vouchers       Voucher[]
 
   @@index([tenantId])
   @@map("companies")
@@ -73,8 +75,9 @@ model Branch {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  company    Company     @relation(fields: [companyId], references: [id])
-  warehouses Warehouse[]
+  company      Company       @relation(fields: [companyId], references: [id])
+  warehouses   Warehouse[]
+  pointsOfSale PointOfSale[]
 
   @@index([companyId])
   @@index([companyId, isActive])
@@ -223,6 +226,7 @@ model Party {
   company  Company   @relation(fields: [companyId], references: [id])
   customer Customer?
   supplier Supplier?
+  vouchers Voucher[]
 
   @@unique([companyId, taxId])
   @@index([companyId])
@@ -327,6 +331,7 @@ model Item {
   priceListItems PriceListItem[]
   stocks         Stock[]
   stockMovements StockMovement[]
+  voucherLines   VoucherLine[]
 
   @@unique([companyId, sku])
   @@index([companyId])
@@ -355,8 +360,9 @@ model Tax {
   validTo   DateTime? @map("valid_to")
   createdAt DateTime  @default(now()) @map("created_at")
 
-  company   Company   @relation(fields: [companyId], references: [id])
-  itemTaxes ItemTax[]
+  company          Company          @relation(fields: [companyId], references: [id])
+  itemTaxes        ItemTax[]
+  voucherLineTaxes VoucherLineTax[]
 
   @@index([companyId])
   @@map("taxes")
@@ -473,8 +479,6 @@ enum StockMovementType {
 /// salida de stock. `id` sin @default: se genera con uuidv7() en la capa de
 /// infraestructura (ver docs/sprint-3/02-depositos-y-stock.md §0.3) — tabla
 /// de alto volumen (Decisión 1.1 del documento de arquitectura).
-/// `voucherId` no existe todavía: se agrega en Sprint 3.3 junto con
-/// `Voucher` (ver §0.1 del mismo documento).
 model StockMovement {
   id              String            @id
   companyId       String            @map("company_id")
@@ -485,16 +489,163 @@ model StockMovement {
   unitCost        Decimal           @map("unit_cost") @db.Decimal(14, 4)
   reason          String?
   transferGroupId String?           @map("transfer_group_id")
+  /// Presente cuando el movimiento se originó en un Comprobante confirmado
+  /// (Sprint 3.3); ausente en un ajuste/transferencia manual.
+  voucherId       String?           @map("voucher_id")
   userId          String            @map("user_id")
   createdAt       DateTime          @default(now()) @map("created_at")
 
   company   Company   @relation(fields: [companyId], references: [id])
   item      Item      @relation(fields: [itemId], references: [id])
   warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  voucher   Voucher?  @relation(fields: [voucherId], references: [id])
   user      User      @relation(fields: [userId], references: [id])
 
   @@index([companyId, createdAt])
   @@index([itemId, warehouseId])
   @@index([transferGroupId])
+  @@index([voucherId])
   @@map("stock_movements")
+}
+
+/// Punto de venta AFIP (Sprint 3.3, docs/sprint-3/03-comprobantes.md).
+model PointOfSale {
+  id        String   @id @default(uuid())
+  companyId String   @map("company_id")
+  branchId  String   @map("branch_id")
+  code      String
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  branch          Branch           @relation(fields: [branchId], references: [id])
+  vouchers        Voucher[]
+  voucherCounters VoucherCounter[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@map("points_of_sale")
+}
+
+enum VoucherFlow {
+  SALE
+  PURCHASE
+}
+
+enum StockEffect {
+  IN
+  OUT
+  NONE
+}
+
+/// Catálogo global de plataforma (como Role) — no pertenece a ninguna
+/// empresa. Sprint 3.3 solo sembró FA_A/B/C, NC_A/B/C y FC — ver
+/// docs/sprint-3/03-comprobantes.md §0.1 para el resto (Recibo, Remito,
+/// Nota de Débito, Orden de Compra, Presupuesto), diferido.
+model VoucherType {
+  id                     String      @id @default(uuid())
+  code                   String      @unique
+  name                   String
+  flow                   VoucherFlow
+  affectsStock           StockEffect @map("affects_stock")
+  requiresCae            Boolean     @map("requires_cae")
+  isCreditNote           Boolean     @default(false) @map("is_credit_note")
+  relatedVoucherRequired Boolean     @default(false) @map("related_voucher_required")
+  isActive               Boolean     @default(true) @map("is_active")
+
+  vouchers Voucher[]
+
+  @@map("voucher_types")
+}
+
+/// Contador de numeración fiscal (RN-VOU-02) — incrementado atómicamente
+/// vía INSERT ... ON CONFLICT DO UPDATE ... RETURNING dentro de la misma
+/// transacción que crea el Voucher.
+model VoucherCounter {
+  companyId     String @map("company_id")
+  pointOfSaleId String @map("point_of_sale_id")
+  voucherTypeId String @map("voucher_type_id")
+  lastNumber    Int    @default(0) @map("last_number")
+
+  pointOfSale PointOfSale @relation(fields: [pointOfSaleId], references: [id])
+
+  @@id([companyId, pointOfSaleId, voucherTypeId])
+  @@map("voucher_counters")
+}
+
+/// Comprobante (Factura/Nota de Crédito, Venta o Compra — RN-VOU-01 a 12).
+/// `id` sin @default: uuidv7(), tabla de alto volumen. Inmutable una vez
+/// creado (RN-VOU-03): no hay UpdateVoucherUseCase ni anulación directa.
+model Voucher {
+  id                String    @id
+  companyId         String    @map("company_id")
+  branchId          String    @map("branch_id")
+  pointOfSaleId     String    @map("point_of_sale_id")
+  voucherTypeId     String    @map("voucher_type_id")
+  number            Int
+  partyId           String    @map("party_id")
+  warehouseId       String?   @map("warehouse_id")
+  issueDate         DateTime  @map("issue_date")
+  currency          String
+  exchangeRate      Decimal   @default(1) @map("exchange_rate") @db.Decimal(10, 4)
+  relatedVoucherId  String?   @map("related_voucher_id")
+  subtotal          Decimal   @db.Decimal(14, 2)
+  taxTotal          Decimal   @map("tax_total") @db.Decimal(14, 2)
+  total             Decimal   @db.Decimal(14, 2)
+  cae               String?
+  caeExpirationDate DateTime? @map("cae_expiration_date")
+  createdByUserId   String    @map("created_by_user_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  company        Company         @relation(fields: [companyId], references: [id])
+  pointOfSale    PointOfSale     @relation(fields: [pointOfSaleId], references: [id])
+  voucherType    VoucherType     @relation(fields: [voucherTypeId], references: [id])
+  party          Party           @relation(fields: [partyId], references: [id])
+  relatedVoucher Voucher?        @relation("VoucherRelation", fields: [relatedVoucherId], references: [id])
+  relatedByNotes Voucher[]       @relation("VoucherRelation")
+  lines          VoucherLine[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, pointOfSaleId, voucherTypeId, number])
+  @@index([companyId, createdAt])
+  @@index([partyId])
+  @@map("vouchers")
+}
+
+/// Línea de comprobante — snapshot de precio (RN-VOU-05), nunca referencia
+/// viva. `id` sin @default: uuidv7(), tabla de altísimo volumen.
+model VoucherLine {
+  id                 String  @id
+  voucherId          String  @map("voucher_id")
+  lineNumber         Int     @map("line_number")
+  itemId             String? @map("item_id")
+  description        String
+  quantity           Decimal @db.Decimal(14, 3)
+  unitPrice          Decimal @map("unit_price") @db.Decimal(14, 4)
+  discountPercentage Decimal @default(0) @map("discount_percentage") @db.Decimal(5, 2)
+  subtotal           Decimal @db.Decimal(14, 2)
+
+  voucher Voucher          @relation(fields: [voucherId], references: [id])
+  item    Item?            @relation(fields: [itemId], references: [id])
+  taxes   VoucherLineTax[]
+
+  @@unique([voucherId, lineNumber])
+  @@map("voucher_lines")
+}
+
+/// Snapshot de impuesto aplicado a una línea (RN-VOU-05) — tasa y monto
+/// congelados al momento de confirmar, nunca recalculados después.
+model VoucherLineTax {
+  voucherLineId String  @map("voucher_line_id")
+  taxId         String  @map("tax_id")
+  rate          Decimal @db.Decimal(6, 4)
+  amount        Decimal @db.Decimal(14, 2)
+
+  voucherLine VoucherLine @relation(fields: [voucherLineId], references: [id])
+  tax         Tax         @relation(fields: [taxId], references: [id])
+
+  @@id([voucherLineId, taxId])
+  @@map("voucher_line_taxes")
 }

@@ -32,6 +32,7 @@ export class PrismaStockMovementRepository extends StockMovementRepository {
         unitCost: input.unitCost,
         reason: input.reason,
         transferGroupId: input.transferGroupId,
+        voucherId: input.voucherId,
         userId: input.userId,
       },
     });
@@ -48,6 +49,9 @@ export class PrismaStockMovementRepository extends StockMovementRepository {
     }
     if (filters.type) {
       where.type = filters.type;
+    }
+    if (filters.voucherId) {
+      where.voucherId = filters.voucherId;
     }
     if (filters.from || filters.to) {
       where.createdAt = {

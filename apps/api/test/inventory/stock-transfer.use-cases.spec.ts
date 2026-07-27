@@ -1,19 +1,15 @@
 import { CreateStockTransferUseCase } from '../../src/modules/inventory/application/use-cases/create-stock-transfer.use-case';
 import { WarehouseEntity } from '../../src/modules/inventory/domain/entities/warehouse.entity';
-import { StockEntity } from '../../src/modules/inventory/domain/entities/stock.entity';
 import { StockMovementEntity } from '../../src/modules/inventory/domain/entities/stock-movement.entity';
 import { WarehouseRepository } from '../../src/modules/inventory/domain/repositories/warehouse.repository';
-import { StockRepository } from '../../src/modules/inventory/domain/repositories/stock.repository';
-import { StockMovementRepository } from '../../src/modules/inventory/domain/repositories/stock-movement.repository';
 import { ItemRepository } from '../../src/modules/catalog/domain/repositories/item.repository';
 import { ItemEntity } from '../../src/modules/catalog/domain/entities/item.entity';
 import { CompanyRepository } from '../../src/modules/companies/domain/repositories/company.repository';
+import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
+import { ApplyStockMovementService } from '../../src/modules/inventory/application/services/apply-stock-movement.service';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
-import {
-  InsufficientStockError,
-  SameWarehouseTransferError,
-} from '../../src/modules/inventory/domain/errors/stock-movement.errors';
+import { SameWarehouseTransferError } from '../../src/modules/inventory/domain/errors/stock-movement.errors';
 import { createFakeUnitOfWork } from '../support/fake-unit-of-work';
 
 function makeWarehouse(overrides: Partial<WarehouseEntity> = {}): WarehouseEntity {
@@ -43,6 +39,26 @@ function makeItem(overrides: Partial<ItemEntity> = {}): ItemEntity {
   );
 }
 
+function makeCompany(overrides: Partial<CompanyEntity> = {}): CompanyEntity {
+  return new CompanyEntity(
+    overrides.id ?? 'company-1',
+    overrides.tenantId ?? 'tenant-1',
+    overrides.legalName ?? 'Empresa Piloto SRL',
+    overrides.taxId ?? null,
+    overrides.taxCondition ?? null,
+    overrides.activity ?? null,
+    overrides.address ?? null,
+    overrides.contactName ?? null,
+    overrides.contactEmail ?? null,
+    overrides.contactPhone ?? null,
+    overrides.logoUrl ?? null,
+    overrides.currency ?? 'ARS',
+    overrides.timezone ?? 'America/Argentina/Jujuy',
+    overrides.allowNegativeStock ?? false,
+    overrides.isActive ?? true,
+  );
+}
+
 function makeWarehouseRepository(): jest.Mocked<WarehouseRepository> {
   return {
     create: jest.fn(),
@@ -52,21 +68,6 @@ function makeWarehouseRepository(): jest.Mocked<WarehouseRepository> {
     update: jest.fn(),
     setActive: jest.fn(),
   } as jest.Mocked<WarehouseRepository>;
-}
-
-function makeStockRepository(): jest.Mocked<StockRepository> {
-  return {
-    findByItemAndWarehouse: jest.fn(),
-    findAllByWarehouse: jest.fn(),
-    upsert: jest.fn(),
-  } as jest.Mocked<StockRepository>;
-}
-
-function makeStockMovementRepository(): jest.Mocked<StockMovementRepository> {
-  return {
-    create: jest.fn(),
-    findAllByWarehouse: jest.fn(),
-  } as jest.Mocked<StockMovementRepository>;
 }
 
 function makeItemRepository(): jest.Mocked<ItemRepository> {
@@ -90,6 +91,12 @@ function makeCompanyRepository(): jest.Mocked<CompanyRepository> {
   } as jest.Mocked<CompanyRepository>;
 }
 
+function makeApplyStockMovementService(): jest.Mocked<ApplyStockMovementService> {
+  return {
+    apply: jest.fn(),
+  } as unknown as jest.Mocked<ApplyStockMovementService>;
+}
+
 function makeMovement(overrides: Partial<StockMovementEntity> = {}): StockMovementEntity {
   return new StockMovementEntity(
     overrides.id ?? 'movement-1',
@@ -101,6 +108,7 @@ function makeMovement(overrides: Partial<StockMovementEntity> = {}): StockMoveme
     overrides.unitCost ?? '100.0000',
     overrides.reason ?? 'Reposición',
     overrides.transferGroupId ?? 'group-1',
+    overrides.voucherId ?? null,
     overrides.userId ?? 'user-1',
     overrides.createdAt ?? new Date(),
   );
@@ -109,17 +117,15 @@ function makeMovement(overrides: Partial<StockMovementEntity> = {}): StockMoveme
 describe('CreateStockTransferUseCase', () => {
   function makeSut() {
     const warehouseRepository = makeWarehouseRepository();
-    const stockRepository = makeStockRepository();
-    const stockMovementRepository = makeStockMovementRepository();
     const itemRepository = makeItemRepository();
     const companyRepository = makeCompanyRepository();
+    const applyStockMovementService = makeApplyStockMovementService();
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new CreateStockTransferUseCase(
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -127,13 +133,20 @@ describe('CreateStockTransferUseCase', () => {
       makeWarehouse({ id, branchId: id === 'warehouse-2' ? 'branch-2' : 'branch-1' }),
     );
     itemRepository.findById.mockResolvedValue(makeItem());
-    stockMovementRepository.create.mockResolvedValue(makeMovement());
+    companyRepository.findById.mockResolvedValue(makeCompany());
+    applyStockMovementService.apply.mockImplementation(async (input) =>
+      makeMovement({
+        type: input.type as 'TRANSFER_OUT' | 'TRANSFER_IN',
+        warehouseId: input.warehouseId,
+        transferGroupId: input.transferGroupId ?? null,
+        unitCost: input.unitCost ?? '100.0000',
+      }),
+    );
     return {
       warehouseRepository,
-      stockRepository,
-      stockMovementRepository,
       itemRepository,
       companyRepository,
+      applyStockMovementService,
       auditLogRepository,
       useCase,
     };
@@ -173,35 +186,8 @@ describe('CreateStockTransferUseCase', () => {
     ).rejects.toThrow(SameWarehouseTransferError);
   });
 
-  it('RN-STK-06: rechaza si el origen no tiene stock suficiente', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockImplementation(async (_itemId, warehouseId) =>
-      warehouseId === 'warehouse-1'
-        ? new StockEntity('company-1', 'item-1', 'warehouse-1', '2.000', '100.0000')
-        : null,
-    );
-
-    await expect(
-      useCase.execute({
-        requestingUserId: 'user-1',
-        requestingRoleName: 'Propietario',
-        companyId: 'company-1',
-        fromWarehouseId: 'warehouse-1',
-        toWarehouseId: 'warehouse-2',
-        itemId: 'item-1',
-        quantity: '5',
-        reason: 'Reposición',
-      }),
-    ).rejects.toThrow(InsufficientStockError);
-  });
-
   it('RN-STK-08: genera un par TRANSFER_OUT/TRANSFER_IN con el mismo transferGroupId', async () => {
-    const { useCase, stockRepository, stockMovementRepository, auditLogRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockImplementation(async (_itemId, warehouseId) =>
-      warehouseId === 'warehouse-1'
-        ? new StockEntity('company-1', 'item-1', 'warehouse-1', '20.000', '100.0000')
-        : null,
-    );
+    const { useCase, applyStockMovementService, auditLogRepository } = makeSut();
 
     const result = await useCase.execute({
       requestingUserId: 'user-1',
@@ -217,29 +203,15 @@ describe('CreateStockTransferUseCase', () => {
     expect(result.outMovement).toBeDefined();
     expect(result.inMovement).toBeDefined();
 
-    const createCalls = stockMovementRepository.create.mock.calls;
-    expect(createCalls).toHaveLength(2);
-    const [outCall, inCall] = createCalls.map((call) => call[0]);
-    expect(outCall.type).toBe('TRANSFER_OUT');
-    expect(inCall.type).toBe('TRANSFER_IN');
-    expect(outCall.transferGroupId).toBe(inCall.transferGroupId);
-
-    // El costo que viaja es el averageCost vigente en el origen (100).
-    expect(outCall.unitCost).toBe('100.0000');
-    expect(inCall.unitCost).toBe('100.0000');
-
-    // Origen: 20 - 5 = 15, promedio sin cambios.
-    expect(stockRepository.upsert).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ warehouseId: 'warehouse-1', quantity: '15.000', averageCost: '100.0000' }),
-      expect.anything(),
-    );
-    // Destino sin stock previo: cantidad = 5, promedio = costo entrante (100).
-    expect(stockRepository.upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ warehouseId: 'warehouse-2', quantity: '5.000', averageCost: '100.0000' }),
-      expect.anything(),
-    );
+    const applyCalls = applyStockMovementService.apply.mock.calls;
+    expect(applyCalls).toHaveLength(2);
+    const [outInput] = applyCalls[0];
+    const [inInput] = applyCalls[1];
+    expect(outInput.type).toBe('TRANSFER_OUT');
+    expect(outInput.direction).toBe('OUT');
+    expect(inInput.type).toBe('TRANSFER_IN');
+    expect(inInput.direction).toBe('IN');
+    expect(outInput.transferGroupId).toBe(inInput.transferGroupId);
 
     // Una sola auditoría para todo el hecho de negocio, no dos.
     expect(auditLogRepository.record).toHaveBeenCalledTimes(1);
@@ -249,15 +221,11 @@ describe('CreateStockTransferUseCase', () => {
     );
   });
 
-  it('recalcula el promedio ponderado del destino si ya tenía stock a otro costo', async () => {
-    const { useCase, stockRepository } = makeSut();
-    stockRepository.findByItemAndWarehouse.mockImplementation(async (_itemId, warehouseId) => {
-      if (warehouseId === 'warehouse-1') {
-        return new StockEntity('company-1', 'item-1', 'warehouse-1', '20.000', '100.0000');
-      }
-      // El destino ya tiene 10 unidades a 200.
-      return new StockEntity('company-1', 'item-1', 'warehouse-2', '10.000', '200.0000');
-    });
+  it('el costo que viaja al destino es el unitCost devuelto por la salida', async () => {
+    const { useCase, applyStockMovementService } = makeSut();
+    applyStockMovementService.apply.mockImplementationOnce(async (input) =>
+      makeMovement({ type: 'TRANSFER_OUT', warehouseId: input.warehouseId, unitCost: '175.0000' }),
+    );
 
     await useCase.execute({
       requestingUserId: 'user-1',
@@ -266,15 +234,50 @@ describe('CreateStockTransferUseCase', () => {
       fromWarehouseId: 'warehouse-1',
       toWarehouseId: 'warehouse-2',
       itemId: 'item-1',
-      quantity: '10',
+      quantity: '5',
       reason: 'Reposición',
     });
 
-    // Destino: (10*200 + 10*100) / 20 = 150.
-    expect(stockRepository.upsert).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ warehouseId: 'warehouse-2', quantity: '20.000', averageCost: '150.0000' }),
-      expect.anything(),
-    );
+    const [, inCall] = applyStockMovementService.apply.mock.calls;
+    const [inInput] = inCall;
+    expect(inInput.unitCost).toBe('175.0000');
+  });
+
+  it('resuelve allowNegativeStock desde la empresa y lo pasa a ambas llamadas', async () => {
+    const { useCase, applyStockMovementService, companyRepository } = makeSut();
+    companyRepository.findById.mockResolvedValue(makeCompany({ allowNegativeStock: true }));
+
+    await useCase.execute({
+      requestingUserId: 'user-1',
+      requestingRoleName: 'Propietario',
+      companyId: 'company-1',
+      fromWarehouseId: 'warehouse-1',
+      toWarehouseId: 'warehouse-2',
+      itemId: 'item-1',
+      quantity: '5',
+      reason: 'Reposición',
+    });
+
+    const [[outInput], [inInput]] = applyStockMovementService.apply.mock.calls;
+    expect(outInput.allowNegativeStock).toBe(true);
+    expect(inInput.allowNegativeStock).toBe(true);
+  });
+
+  it('propaga el error de ApplyStockMovementService (ej. stock insuficiente en el origen)', async () => {
+    const { useCase, applyStockMovementService } = makeSut();
+    applyStockMovementService.apply.mockRejectedValueOnce(new Error('stock insuficiente'));
+
+    await expect(
+      useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        fromWarehouseId: 'warehouse-1',
+        toWarehouseId: 'warehouse-2',
+        itemId: 'item-1',
+        quantity: '5',
+        reason: 'Reposición',
+      }),
+    ).rejects.toThrow('stock insuficiente');
   });
 });
