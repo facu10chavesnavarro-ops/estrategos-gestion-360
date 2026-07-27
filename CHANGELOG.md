@@ -6,6 +6,51 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [1.0.0] - 2026-07-27
+
+**Backend MVP — versión congelada.** Cierra Sprints 0 a 4 como la primera
+versión estable del backend de Estrategos Gestión 360: un ERP
+administrativo y financiero multi-tenant completo de punta a punta, sin
+huecos funcionales en su núcleo. A partir de aquí el trabajo continúa con
+la documentación e implementación del frontend (`docs/frontend/`); nuevos
+cambios de backend versionarán como `1.x.0` (funcionalidad) o `1.0.x`
+(correcciones/documentación) según corresponda.
+
+### Alcance congelado (Sprints 0-4, v0.1.0 → v0.10.0)
+
+- **Núcleo** (Sprint 0-1): autenticación JWT con refresh rotable, tenants,
+  empresas multi-tenant con aislamiento por `companyId`, sucursales,
+  usuarios con rol por empresa, invitaciones, auditoría inmutable
+  (RN-009), Unit of Work transaccional.
+- **Terceros** (Sprint 2): clientes y proveedores sobre un modelo `Party`
+  compartido, importación masiva por CSV.
+- **Catálogo** (Sprint 3.1): categorías jerárquicas, ítems (producto/
+  servicio), impuestos con vigencia, listas de precios.
+- **Stock** (Sprint 3.2): depósitos, stock por ítem+depósito, movimientos
+  con ajustes y transferencias, costeo por promedio ponderado.
+- **Comprobantes** (Sprint 3.3): motor de numeración fiscal, Facturas A/B/C
+  y Notas de Crédito de venta, Factura de Compra, snapshot de precios e
+  impuestos, efectos automáticos sobre stock.
+- **Tesorería** (Sprint 3.4): medios de pago (efectivo, cheque, tarjetas,
+  transferencia), cobros/pagos con imputación a comprobantes, cuentas
+  corrientes de clientes y proveedores.
+- **Caja y Bancos** (Sprint 3.5): cajas por sucursal con sesiones y cierre
+  con saldo esperado/diferencia, cuentas bancarias y sus movimientos.
+- **Contabilidad** (Sprint 4): Plan de Cuentas por empresa, asientos de
+  doble entrada automáticos (desde Voucher/Payment) y manuales, Libro
+  Diario y Libro Mayor, opt-in por empresa.
+
+### Estado verificado al momento del freeze
+
+- 355 tests unitarios + 24 de integración contra Postgres real, todos
+  verdes. `tsc --noEmit`, `eslint` y `nest build` sin errores en ningún
+  punto del historial de sprints.
+- Documentación de arquitectura completa en `docs/ARQUITECTURA.md` y
+  `docs/sprint-*/`, con cada decisión relevante (multi-tenancy, UUID v7,
+  Unit of Work, RLS diferido, convención de signos de cuenta corriente,
+  mapeo contable, etc.) documentada y aprobada explícitamente antes de
+  implementarse.
+
 ## [0.10.0] - 2026-07-27
 
 Sprint 4: Contabilidad (Plan de Cuentas y Asientos). Cierra el núcleo
