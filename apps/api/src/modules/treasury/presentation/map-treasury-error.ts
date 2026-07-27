@@ -34,6 +34,12 @@ import {
   MissingBankMovementDescriptionError,
   InvalidBankMovementAmountError,
 } from '../domain/errors/bank.errors';
+import {
+  MissingCashRegisterAccountMappingError,
+  MissingBankAccountMappingError,
+  MissingPaymentMethodAccountMappingError,
+  MissingCounterpartAccountError,
+} from '../../accounting/domain/errors/accounting.errors';
 
 const NOT_FOUND_ERRORS = [
   PaymentNotFoundError,
@@ -67,6 +73,10 @@ const BAD_REQUEST_ERRORS = [
   BankAccountAlreadyInTargetStateError,
   MissingBankMovementDescriptionError,
   InvalidBankMovementAmountError,
+  MissingCashRegisterAccountMappingError,
+  MissingBankAccountMappingError,
+  MissingPaymentMethodAccountMappingError,
+  MissingCounterpartAccountError,
 ];
 
 export function mapTreasuryError(error: unknown): never {

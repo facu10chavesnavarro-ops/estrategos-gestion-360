@@ -10,6 +10,8 @@ export interface CreateCategoryInput {
 export interface UpdateCategoryInput {
   parentId?: string | null;
   name?: string;
+  salesAccountId?: string | null;
+  purchasesAccountId?: string | null;
 }
 
 export interface ListCategoriesFilters {

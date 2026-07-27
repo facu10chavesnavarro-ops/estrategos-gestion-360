@@ -9,5 +9,7 @@ export class TaxEntity {
     public readonly rate: string,
     public readonly validFrom: Date,
     public readonly validTo: Date | null,
+    public readonly salesAccountId: string | null,
+    public readonly purchasesAccountId: string | null,
   ) {}
 }

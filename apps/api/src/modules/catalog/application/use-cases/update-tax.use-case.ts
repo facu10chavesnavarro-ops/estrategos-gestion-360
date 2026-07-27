@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TaxRepository } from '../../domain/repositories/tax.repository';
+import { ChartOfAccountRepository } from '../../../accounting/domain/repositories/chart-of-account.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
@@ -7,17 +8,19 @@ import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/c
 import { TaxEntity } from '../../domain/entities/tax.entity';
 import { UpdateTaxUseCaseInput } from '../dto/tax.dto';
 import { TaxNotFoundError } from '../../domain/errors/tax.errors';
+import { InvalidAccountMappingError } from '../../../accounting/domain/errors/accounting.errors';
 
 /**
- * Solo el nombre es editable — `rate`/`validFrom` son inmutables una vez
- * creado el Tax (RN-CAT-09/10 vía §9 del documento de arquitectura: cambiar
- * una tasa es cerrar este Tax y crear uno nuevo, para no reescribir la
- * historia de comprobantes que en Sprint 3.3 la usarán como snapshot).
+ * `rate`/`validFrom` son inmutables una vez creado el Tax (RN-CAT-09/10 vía
+ * §9 del documento de arquitectura: cambiar una tasa es cerrar este Tax y
+ * crear uno nuevo). `name` y el mapeo contable (salesAccountId/
+ * purchasesAccountId, Sprint 4 §2.4) sí son editables.
  */
 @Injectable()
 export class UpdateTaxUseCase {
   constructor(
     private readonly taxRepository: TaxRepository,
+    private readonly chartOfAccountRepository: ChartOfAccountRepository,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -30,8 +33,24 @@ export class UpdateTaxUseCase {
       throw new TaxNotFoundError();
     }
 
+    for (const accountId of [input.salesAccountId, input.purchasesAccountId]) {
+      if (accountId) {
+        const account = await this.chartOfAccountRepository.findById(accountId, input.companyId);
+        if (!account || !account.allowsMovements || !account.isActive) {
+          throw new InvalidAccountMappingError();
+        }
+      }
+    }
+
     return this.unitOfWork.run(async (ctx) => {
-      const tax = await this.taxRepository.updateName(input.taxId, input.name, ctx);
+      let tax = await this.taxRepository.updateName(input.taxId, input.name, ctx);
+      if (input.salesAccountId !== undefined || input.purchasesAccountId !== undefined) {
+        tax = await this.taxRepository.updateAccounts(
+          input.taxId,
+          { salesAccountId: input.salesAccountId, purchasesAccountId: input.purchasesAccountId },
+          ctx,
+        );
+      }
 
       await this.auditLogRepository.record(
         {
@@ -40,7 +59,7 @@ export class UpdateTaxUseCase {
           action: 'tax.update',
           entityType: 'Tax',
           entityId: tax.id,
-          metadata: { fields: ['name'] },
+          metadata: { fields: ['name', 'salesAccountId', 'purchasesAccountId'] },
         },
         ctx,
       );

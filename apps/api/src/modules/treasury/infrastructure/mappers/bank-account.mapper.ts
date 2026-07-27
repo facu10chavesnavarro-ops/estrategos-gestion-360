@@ -13,6 +13,7 @@ export class BankAccountMapper {
       raw.alias,
       raw.currency,
       raw.isActive,
+      raw.glAccountId,
     );
   }
 }

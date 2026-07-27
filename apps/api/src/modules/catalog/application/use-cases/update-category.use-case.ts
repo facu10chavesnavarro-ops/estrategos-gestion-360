@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { CategoryRepository } from '../../domain/repositories/category.repository';
+import { ChartOfAccountRepository } from '../../../accounting/domain/repositories/chart-of-account.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { TransactionContext } from '../../../../common/domain/transaction/transaction-context';
@@ -12,14 +13,16 @@ import {
   InvalidParentCategoryError,
   CategoryCycleError,
 } from '../../domain/errors/category.errors';
+import { InvalidAccountMappingError } from '../../../accounting/domain/errors/accounting.errors';
 
 const MAX_DEPTH = 100;
 
-/** RN-CAT-01/02/03/14/15. */
+/** RN-CAT-01/02/03/14/15. Mapeo contable: Sprint 4 §2.4. */
 @Injectable()
 export class UpdateCategoryUseCase {
   constructor(
     private readonly categoryRepository: CategoryRepository,
+    private readonly chartOfAccountRepository: ChartOfAccountRepository,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -30,6 +33,15 @@ export class UpdateCategoryUseCase {
     const existing = await this.categoryRepository.findById(input.categoryId, input.companyId);
     if (!existing) {
       throw new CategoryNotFoundError();
+    }
+
+    for (const accountId of [input.salesAccountId, input.purchasesAccountId]) {
+      if (accountId) {
+        const account = await this.chartOfAccountRepository.findById(accountId, input.companyId);
+        if (!account || !account.allowsMovements || !account.isActive) {
+          throw new InvalidAccountMappingError();
+        }
+      }
     }
 
     return this.unitOfWork.run(async (ctx) => {

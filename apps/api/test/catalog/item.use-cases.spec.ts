@@ -66,6 +66,7 @@ function makeTaxRepository(): jest.Mocked<TaxRepository> {
     findById: jest.fn(),
     findAllByCompany: jest.fn(),
     updateName: jest.fn(),
+    updateAccounts: jest.fn(),
     close: jest.fn(),
   } as jest.Mocked<TaxRepository>;
 }
@@ -281,7 +282,7 @@ describe('CreateItemUseCase', () => {
     const taxRepository = makeTaxRepository();
     itemRepository.findBySku.mockResolvedValue(null);
     taxRepository.findById.mockResolvedValue(
-      new TaxEntity('tax-1', 'company-1', 'IVA 21%', 'VAT', '21', new Date(), null),
+      new TaxEntity('tax-1', 'company-1', 'IVA 21%', 'VAT', '21', new Date(), null, null, null),
     );
     itemRepository.create.mockResolvedValue(makeItem({ taxIds: ['tax-1', 'tax-2'] }));
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;

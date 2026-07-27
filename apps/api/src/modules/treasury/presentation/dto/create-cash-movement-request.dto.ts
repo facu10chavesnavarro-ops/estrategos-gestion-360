@@ -10,4 +10,8 @@ export class CreateCashMovementRequestDto {
   @IsOptional()
   @IsString()
   reason?: string;
+
+  @IsOptional()
+  @IsString()
+  counterpartAccountId?: string;
 }

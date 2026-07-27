@@ -8,6 +8,13 @@ import { CashSessionRepository } from '../../src/modules/treasury/domain/reposit
 import { CashMovementEntity } from '../../src/modules/treasury/domain/entities/cash-movement.entity';
 import { CashMovementRepository } from '../../src/modules/treasury/domain/repositories/cash-movement.repository';
 import { ApplyCashMovementService } from '../../src/modules/treasury/application/services/apply-cash-movement.service';
+import { AccountingSettingsRepository } from '../../src/modules/accounting/domain/repositories/accounting-settings.repository';
+import { AccountingSettingsEntity } from '../../src/modules/accounting/domain/entities/accounting-settings.entity';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
+import {
+  MissingCashRegisterAccountMappingError,
+  MissingCounterpartAccountError,
+} from '../../src/modules/accounting/domain/errors/accounting.errors';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import {
@@ -29,6 +36,7 @@ function makeCashRegister(overrides: Partial<CashRegisterEntity> = {}): CashRegi
     overrides.branchId ?? 'branch-1',
     overrides.name ?? 'Caja Principal',
     overrides.isActive ?? true,
+    overrides.accountId ?? null,
   );
 }
 
@@ -266,19 +274,39 @@ describe('CloseCashSessionUseCase', () => {
 describe('CreateCashMovementUseCase (manual)', () => {
   function makeSut() {
     const cashSessionRepository = makeCashSessionRepository();
+    const cashRegisterRepository = makeCashRegisterRepository();
     const applyCashMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplyCashMovementService>;
+    const accountingSettingsRepository = {
+      create: jest.fn(),
+      findByCompany: jest.fn(),
+      update: jest.fn(),
+    } as jest.Mocked<AccountingSettingsRepository>;
+    const applyJournalEntryService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyJournalEntryService>;
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new CreateCashMovementUseCase(
       cashSessionRepository,
+      cashRegisterRepository,
       applyCashMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
     cashSessionRepository.findById.mockResolvedValue(makeCashSession());
     applyCashMovementService.apply.mockResolvedValue({} as CashMovementEntity);
-    return { cashSessionRepository, applyCashMovementService, auditLogRepository, useCase };
+    return {
+      cashSessionRepository,
+      cashRegisterRepository,
+      applyCashMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
+      auditLogRepository,
+      useCase,
+    };
   }
 
   it('crea un movimiento manual con motivo', async () => {
@@ -348,5 +376,102 @@ describe('CreateCashMovementUseCase (manual)', () => {
         reason: 'Motivo',
       }),
     ).rejects.toThrow(CashSessionNotOpenError);
+  });
+
+  describe('Sprint 4: asiento contable de movimientos manuales (RN-ACC-06)', () => {
+    it('no exige counterpartAccountId si la empresa no activó Contabilidad', async () => {
+      const { useCase } = makeSut();
+
+      await expect(
+        useCase.execute({
+          requestingUserId: 'user-1',
+          requestingRoleName: 'Propietario',
+          companyId: 'company-1',
+          cashSessionId: 'session-1',
+          type: 'IN',
+          amount: '50',
+          reason: 'Aporte del dueño',
+        }),
+      ).resolves.toBeDefined();
+    });
+
+    it('rechaza sin counterpartAccountId cuando Contabilidad está activa', async () => {
+      const { useCase, accountingSettingsRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+
+      await expect(
+        useCase.execute({
+          requestingUserId: 'user-1',
+          requestingRoleName: 'Propietario',
+          companyId: 'company-1',
+          cashSessionId: 'session-1',
+          type: 'IN',
+          amount: '50',
+          reason: 'Aporte del dueño',
+        }),
+      ).rejects.toThrow(MissingCounterpartAccountError);
+    });
+
+    it('rechaza si la caja no tiene cuenta contable mapeada', async () => {
+      const { useCase, accountingSettingsRepository, cashRegisterRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      cashRegisterRepository.findById.mockResolvedValue(
+        makeCashRegister({ accountId: null }),
+      );
+
+      await expect(
+        useCase.execute({
+          requestingUserId: 'user-1',
+          requestingRoleName: 'Propietario',
+          companyId: 'company-1',
+          cashSessionId: 'session-1',
+          type: 'IN',
+          amount: '50',
+          reason: 'Aporte del dueño',
+          counterpartAccountId: 'capital-account',
+        }),
+      ).rejects.toThrow(MissingCashRegisterAccountMappingError);
+    });
+
+    it('genera un asiento balanceado contra la cuenta de la caja', async () => {
+      const {
+        useCase,
+        accountingSettingsRepository,
+        cashRegisterRepository,
+        applyJournalEntryService,
+      } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      cashRegisterRepository.findById.mockResolvedValue(
+        makeCashRegister({ accountId: 'caja-account' }),
+      );
+
+      await useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        cashSessionId: 'session-1',
+        type: 'IN',
+        amount: '50',
+        reason: 'Aporte del dueño',
+        counterpartAccountId: 'capital-account',
+      });
+
+      expect(applyJournalEntryService.apply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: 'MANUAL',
+          lines: [
+            expect.objectContaining({ accountId: 'caja-account', debit: '50.00', credit: '0' }),
+            expect.objectContaining({ accountId: 'capital-account', debit: '0', credit: '50.00' }),
+          ],
+        }),
+        expect.anything(),
+      );
+    });
   });
 });

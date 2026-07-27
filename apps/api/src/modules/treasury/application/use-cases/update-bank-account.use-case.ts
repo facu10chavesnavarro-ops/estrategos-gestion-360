@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { BankAccountRepository } from '../../domain/repositories/bank-account.repository';
+import { ChartOfAccountRepository } from '../../../accounting/domain/repositories/chart-of-account.repository';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
@@ -7,12 +8,14 @@ import { ROLES_THAT_CAN_MANAGE_COMPANY } from '../../../../common/domain/rules/c
 import { BankAccountEntity } from '../../domain/entities/bank-account.entity';
 import { UpdateBankAccountUseCaseInput } from '../dto/bank-account.dto';
 import { BankAccountNotFoundError } from '../../domain/errors/bank.errors';
+import { InvalidAccountMappingError } from '../../../accounting/domain/errors/accounting.errors';
 
-/** RN-BANK-04. */
+/** RN-BANK-04. Mapeo contable: Sprint 4 §2.4. */
 @Injectable()
 export class UpdateBankAccountUseCase {
   constructor(
     private readonly bankAccountRepository: BankAccountRepository,
+    private readonly chartOfAccountRepository: ChartOfAccountRepository,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -28,6 +31,16 @@ export class UpdateBankAccountUseCase {
       throw new BankAccountNotFoundError();
     }
 
+    if (input.glAccountId) {
+      const account = await this.chartOfAccountRepository.findById(
+        input.glAccountId,
+        input.companyId,
+      );
+      if (!account || !account.allowsMovements || !account.isActive) {
+        throw new InvalidAccountMappingError();
+      }
+    }
+
     return this.unitOfWork.run(async (ctx) => {
       const bankAccount = await this.bankAccountRepository.update(
         input.bankAccountId,
@@ -36,6 +49,7 @@ export class UpdateBankAccountUseCase {
           accountNumber: input.accountNumber,
           cbu: input.cbu,
           alias: input.alias,
+          glAccountId: input.glAccountId,
         },
         ctx,
       );
@@ -47,7 +61,7 @@ export class UpdateBankAccountUseCase {
           action: 'bank_account.update',
           entityType: 'BankAccount',
           entityId: bankAccount.id,
-          metadata: { fields: ['bankName', 'accountNumber', 'cbu', 'alias'] },
+          metadata: { fields: ['bankName', 'accountNumber', 'cbu', 'alias', 'glAccountId'] },
         },
         ctx,
       );

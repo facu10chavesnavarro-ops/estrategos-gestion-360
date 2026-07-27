@@ -14,4 +14,8 @@ export class CreateBankMovementRequestDto {
   @IsOptional()
   @IsISO8601()
   date?: string;
+
+  @IsOptional()
+  @IsString()
+  counterpartAccountId?: string;
 }

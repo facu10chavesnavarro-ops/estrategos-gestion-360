@@ -4,6 +4,7 @@ import { DeactivateCategoryUseCase } from '../../src/modules/catalog/application
 import { ActivateCategoryUseCase } from '../../src/modules/catalog/application/use-cases/activate-category.use-case';
 import { CategoryEntity } from '../../src/modules/catalog/domain/entities/category.entity';
 import { CategoryRepository } from '../../src/modules/catalog/domain/repositories/category.repository';
+import { ChartOfAccountRepository } from '../../src/modules/accounting/domain/repositories/chart-of-account.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import {
@@ -24,6 +25,8 @@ function makeCategory(overrides: Partial<CategoryEntity> = {}): CategoryEntity {
     overrides.parentId ?? null,
     overrides.name ?? 'Insumos de oficina',
     overrides.isActive ?? true,
+    overrides.salesAccountId ?? null,
+    overrides.purchasesAccountId ?? null,
   );
 }
 
@@ -35,6 +38,17 @@ function makeCategoryRepository(): jest.Mocked<CategoryRepository> {
     update: jest.fn(),
     setActive: jest.fn(),
   } as jest.Mocked<CategoryRepository>;
+}
+
+function makeChartOfAccountRepository(): jest.Mocked<ChartOfAccountRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByCode: jest.fn(),
+    findAllByCompany: jest.fn(),
+    update: jest.fn(),
+    setActive: jest.fn(),
+  } as jest.Mocked<ChartOfAccountRepository>;
 }
 
 describe('CreateCategoryUseCase', () => {
@@ -111,6 +125,7 @@ describe('UpdateCategoryUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCategoryUseCase(
       categoryRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -132,6 +147,7 @@ describe('UpdateCategoryUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCategoryUseCase(
       categoryRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -153,6 +169,7 @@ describe('UpdateCategoryUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCategoryUseCase(
       categoryRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -181,6 +198,7 @@ describe('UpdateCategoryUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCategoryUseCase(
       categoryRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );

@@ -5,5 +5,6 @@ export class CashRegisterEntity {
     public readonly branchId: string,
     public readonly name: string,
     public readonly isActive: boolean,
+    public readonly accountId: string | null,
   ) {}
 }

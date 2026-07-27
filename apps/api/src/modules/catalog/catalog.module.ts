@@ -41,6 +41,9 @@ import { PrismaTaxRepository } from './infrastructure/persistence/prisma-tax.rep
 import { PriceListRepository } from './domain/repositories/price-list.repository';
 import { PrismaPriceListRepository } from './infrastructure/persistence/prisma-price-list.repository';
 
+import { ChartOfAccountRepository } from '../accounting/domain/repositories/chart-of-account.repository';
+import { PrismaChartOfAccountRepository } from '../accounting/infrastructure/persistence/prisma-chart-of-account.repository';
+
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
 import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
@@ -79,6 +82,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: ItemRepository, useClass: PrismaItemRepository },
     { provide: TaxRepository, useClass: PrismaTaxRepository },
     { provide: PriceListRepository, useClass: PrismaPriceListRepository },
+    { provide: ChartOfAccountRepository, useClass: PrismaChartOfAccountRepository },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
     { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],

@@ -16,4 +16,8 @@ export class UpdateBankAccountRequestDto {
   @IsOptional()
   @IsString()
   alias?: string;
+
+  @IsOptional()
+  @IsString()
+  glAccountId?: string | null;
 }

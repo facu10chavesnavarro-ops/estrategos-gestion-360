@@ -4,6 +4,10 @@ import { PrismaCashRegisterRepository } from '../../src/modules/treasury/infrast
 import { PrismaCashSessionRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-session.repository';
 import { PrismaCashMovementRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-movement.repository';
 import { ApplyCashMovementService } from '../../src/modules/treasury/application/services/apply-cash-movement.service';
+import { PrismaAccountingSettingsRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-accounting-settings.repository';
+import { PrismaChartOfAccountRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-chart-of-account.repository';
+import { PrismaJournalEntryRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-journal-entry.repository';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
 import { PrismaAuditLogRepository } from '../../src/common/infrastructure/persistence/prisma-audit-log.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { OpenCashSessionUseCase } from '../../src/modules/treasury/application/use-cases/open-cash-session.use-case';
@@ -23,6 +27,13 @@ describe('CashSession (integración, DB real)', () => {
   const cashSessionRepository = new PrismaCashSessionRepository(prisma);
   const cashMovementRepository = new PrismaCashMovementRepository(prisma);
   const applyCashMovementService = new ApplyCashMovementService(cashMovementRepository);
+  const chartOfAccountRepository = new PrismaChartOfAccountRepository(prisma);
+  const accountingSettingsRepository = new PrismaAccountingSettingsRepository(prisma);
+  const journalEntryRepository = new PrismaJournalEntryRepository(prisma);
+  const applyJournalEntryService = new ApplyJournalEntryService(
+    chartOfAccountRepository,
+    journalEntryRepository,
+  );
   const unitOfWork = new PrismaUnitOfWork(prisma);
 
   let companyId: string;
@@ -51,7 +62,10 @@ describe('CashSession (integración, DB real)', () => {
   function makeCreateCashMovementUseCase(auditLogRepository: AuditLogRepository) {
     return new CreateCashMovementUseCase(
       cashSessionRepository,
+      cashRegisterRepository,
       applyCashMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       unitOfWork,
     );

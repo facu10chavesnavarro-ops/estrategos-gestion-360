@@ -30,6 +30,11 @@ export abstract class TaxRepository {
     name: string,
     ctx?: TransactionContext,
   ): Promise<TaxEntity>;
+  abstract updateAccounts(
+    id: string,
+    input: { salesAccountId?: string | null; purchasesAccountId?: string | null },
+    ctx?: TransactionContext,
+  ): Promise<TaxEntity>;
   abstract close(
     id: string,
     validTo: Date,

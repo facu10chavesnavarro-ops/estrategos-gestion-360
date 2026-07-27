@@ -4,6 +4,7 @@ import { CloseTaxUseCase } from '../../src/modules/catalog/application/use-cases
 import { ListTaxesUseCase } from '../../src/modules/catalog/application/use-cases/list-taxes.use-case';
 import { TaxEntity } from '../../src/modules/catalog/domain/entities/tax.entity';
 import { TaxRepository } from '../../src/modules/catalog/domain/repositories/tax.repository';
+import { ChartOfAccountRepository } from '../../src/modules/accounting/domain/repositories/chart-of-account.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import {
@@ -23,6 +24,8 @@ function makeTax(overrides: Partial<TaxEntity> = {}): TaxEntity {
     overrides.rate ?? '21',
     overrides.validFrom ?? new Date('2026-01-01'),
     overrides.validTo ?? null,
+    overrides.salesAccountId ?? null,
+    overrides.purchasesAccountId ?? null,
   );
 }
 
@@ -32,8 +35,20 @@ function makeTaxRepository(): jest.Mocked<TaxRepository> {
     findById: jest.fn(),
     findAllByCompany: jest.fn(),
     updateName: jest.fn(),
+    updateAccounts: jest.fn(),
     close: jest.fn(),
   } as jest.Mocked<TaxRepository>;
+}
+
+function makeChartOfAccountRepository(): jest.Mocked<ChartOfAccountRepository> {
+  return {
+    create: jest.fn(),
+    findById: jest.fn(),
+    findByCode: jest.fn(),
+    findAllByCompany: jest.fn(),
+    update: jest.fn(),
+    setActive: jest.fn(),
+  } as jest.Mocked<ChartOfAccountRepository>;
 }
 
 describe('CreateTaxUseCase', () => {
@@ -137,6 +152,7 @@ describe('UpdateTaxUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateTaxUseCase(
       taxRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -158,6 +174,7 @@ describe('UpdateTaxUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateTaxUseCase(
       taxRepository,
+      makeChartOfAccountRepository(),
       auditLogRepository,
       createFakeUnitOfWork(),
     );

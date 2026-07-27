@@ -35,6 +35,8 @@ import { ItemRepository } from '../catalog/domain/repositories/item.repository';
 import { PrismaItemRepository } from '../catalog/infrastructure/persistence/prisma-item.repository';
 import { TaxRepository } from '../catalog/domain/repositories/tax.repository';
 import { PrismaTaxRepository } from '../catalog/infrastructure/persistence/prisma-tax.repository';
+import { CategoryRepository } from '../catalog/domain/repositories/category.repository';
+import { PrismaCategoryRepository } from '../catalog/infrastructure/persistence/prisma-category.repository';
 import { WarehouseRepository } from '../inventory/domain/repositories/warehouse.repository';
 import { PrismaWarehouseRepository } from '../inventory/infrastructure/persistence/prisma-warehouse.repository';
 import { StockRepository } from '../inventory/domain/repositories/stock.repository';
@@ -55,6 +57,14 @@ import {
 } from '../treasury/infrastructure/persistence/prisma-supplier-account.repository';
 import { ApplyCustomerAccountMovementService } from '../treasury/application/services/apply-customer-account-movement.service';
 import { ApplySupplierAccountMovementService } from '../treasury/application/services/apply-supplier-account-movement.service';
+
+import { ChartOfAccountRepository } from '../accounting/domain/repositories/chart-of-account.repository';
+import { PrismaChartOfAccountRepository } from '../accounting/infrastructure/persistence/prisma-chart-of-account.repository';
+import { AccountingSettingsRepository } from '../accounting/domain/repositories/accounting-settings.repository';
+import { PrismaAccountingSettingsRepository } from '../accounting/infrastructure/persistence/prisma-accounting-settings.repository';
+import { JournalEntryRepository } from '../accounting/domain/repositories/journal-entry.repository';
+import { PrismaJournalEntryRepository } from '../accounting/infrastructure/persistence/prisma-journal-entry.repository';
+import { ApplyJournalEntryService } from '../accounting/application/services/apply-journal-entry.service';
 
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
@@ -79,6 +89,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     ApplyStockMovementService,
     ApplyCustomerAccountMovementService,
     ApplySupplierAccountMovementService,
+    ApplyJournalEntryService,
     { provide: PointOfSaleRepository, useClass: PrismaPointOfSaleRepository },
     { provide: VoucherTypeRepository, useClass: PrismaVoucherTypeRepository },
     { provide: VoucherCounterRepository, useClass: PrismaVoucherCounterRepository },
@@ -89,6 +100,10 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: SupplierRepository, useClass: PrismaSupplierRepository },
     { provide: ItemRepository, useClass: PrismaItemRepository },
     { provide: TaxRepository, useClass: PrismaTaxRepository },
+    { provide: CategoryRepository, useClass: PrismaCategoryRepository },
+    { provide: ChartOfAccountRepository, useClass: PrismaChartOfAccountRepository },
+    { provide: AccountingSettingsRepository, useClass: PrismaAccountingSettingsRepository },
+    { provide: JournalEntryRepository, useClass: PrismaJournalEntryRepository },
     { provide: WarehouseRepository, useClass: PrismaWarehouseRepository },
     { provide: StockRepository, useClass: PrismaStockRepository },
     { provide: StockMovementRepository, useClass: PrismaStockMovementRepository },

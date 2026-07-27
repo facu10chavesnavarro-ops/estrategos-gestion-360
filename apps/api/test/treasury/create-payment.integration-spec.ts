@@ -8,6 +8,7 @@ import { PrismaCustomerRepository } from '../../src/modules/customers/infrastruc
 import { PrismaSupplierRepository } from '../../src/modules/suppliers/infrastructure/persistence/prisma-supplier.repository';
 import { PrismaItemRepository } from '../../src/modules/catalog/infrastructure/persistence/prisma-item.repository';
 import { PrismaTaxRepository } from '../../src/modules/catalog/infrastructure/persistence/prisma-tax.repository';
+import { PrismaCategoryRepository } from '../../src/modules/catalog/infrastructure/persistence/prisma-category.repository';
 import { PrismaCompanyRepository } from '../../src/modules/companies/infrastructure/persistence/prisma-company.repository';
 import { PrismaStockRepository } from '../../src/modules/inventory/infrastructure/persistence/prisma-stock.repository';
 import { PrismaStockMovementRepository } from '../../src/modules/inventory/infrastructure/persistence/prisma-stock-movement.repository';
@@ -23,6 +24,7 @@ import {
 import { PrismaPaymentMethodRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-payment-method.repository';
 import { PrismaPaymentRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-payment.repository';
 import { PrismaCashSessionRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-session.repository';
+import { PrismaCashRegisterRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-register.repository';
 import { PrismaCashMovementRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-movement.repository';
 import { PrismaBankAccountRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-bank-account.repository';
 import { PrismaBankMovementRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-bank-movement.repository';
@@ -30,6 +32,11 @@ import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/
 import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
 import { ApplyCashMovementService } from '../../src/modules/treasury/application/services/apply-cash-movement.service';
 import { ApplyBankMovementService } from '../../src/modules/treasury/application/services/apply-bank-movement.service';
+import { PrismaChartOfAccountRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-chart-of-account.repository';
+import { PrismaAccountingSettingsRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-accounting-settings.repository';
+import { PrismaJournalEntryRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-journal-entry.repository';
+import { PrismaCompanyPaymentMethodAccountRepository } from '../../src/modules/accounting/infrastructure/persistence/prisma-company-payment-method-account.repository';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
 import { PrismaAuditLogRepository } from '../../src/common/infrastructure/persistence/prisma-audit-log.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { CreateVoucherUseCase } from '../../src/modules/vouchers/application/use-cases/create-voucher.use-case';
@@ -73,11 +80,23 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
   const paymentMethodRepository = new PrismaPaymentMethodRepository(prisma);
   const paymentRepository = new PrismaPaymentRepository(prisma);
   const cashSessionRepository = new PrismaCashSessionRepository(prisma);
+  const cashRegisterRepository = new PrismaCashRegisterRepository(prisma);
   const cashMovementRepository = new PrismaCashMovementRepository(prisma);
   const bankAccountRepository = new PrismaBankAccountRepository(prisma);
   const bankMovementRepository = new PrismaBankMovementRepository(prisma);
   const applyCashMovementService = new ApplyCashMovementService(cashMovementRepository);
   const applyBankMovementService = new ApplyBankMovementService(bankMovementRepository);
+  const categoryRepository = new PrismaCategoryRepository(prisma);
+  const chartOfAccountRepository = new PrismaChartOfAccountRepository(prisma);
+  const accountingSettingsRepository = new PrismaAccountingSettingsRepository(prisma);
+  const journalEntryRepository = new PrismaJournalEntryRepository(prisma);
+  const companyPaymentMethodAccountRepository = new PrismaCompanyPaymentMethodAccountRepository(
+    prisma,
+  );
+  const applyJournalEntryService = new ApplyJournalEntryService(
+    chartOfAccountRepository,
+    journalEntryRepository,
+  );
   const unitOfWork = new PrismaUnitOfWork(prisma);
 
   let companyId: string;
@@ -102,10 +121,13 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
       supplierRepository,
       itemRepository,
       taxRepository,
+      categoryRepository,
       companyRepository,
       applyStockMovementService,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       unitOfWork,
     );
@@ -120,11 +142,15 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
       voucherRepository,
       companyRepository,
       cashSessionRepository,
+      cashRegisterRepository,
       bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
       applyCashMovementService,
       applyBankMovementService,
+      accountingSettingsRepository,
+      companyPaymentMethodAccountRepository,
+      applyJournalEntryService,
       auditLogRepository,
       unitOfWork,
     );

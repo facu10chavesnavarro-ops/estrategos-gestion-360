@@ -12,6 +12,7 @@ export interface UpdateCashRegisterUseCaseInput {
   companyId: string;
   cashRegisterId: string;
   name?: string;
+  accountId?: string | null;
 }
 
 export interface ChangeCashRegisterStateUseCaseInput {

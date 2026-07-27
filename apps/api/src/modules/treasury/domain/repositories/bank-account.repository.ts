@@ -16,6 +16,7 @@ export interface UpdateBankAccountInput {
   accountNumber?: string;
   cbu?: string;
   alias?: string;
+  glAccountId?: string | null;
 }
 
 export abstract class BankAccountRepository {

@@ -11,6 +11,8 @@ export class TaxMapper {
       raw.rate.toString(),
       raw.validFrom,
       raw.validTo,
+      raw.salesAccountId,
+      raw.purchasesAccountId,
     );
   }
 }

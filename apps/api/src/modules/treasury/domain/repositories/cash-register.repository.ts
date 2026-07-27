@@ -9,6 +9,7 @@ export interface CreateCashRegisterInput {
 
 export interface UpdateCashRegisterInput {
   name?: string;
+  accountId?: string | null;
 }
 
 export abstract class CashRegisterRepository {

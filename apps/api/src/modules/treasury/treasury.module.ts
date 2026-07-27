@@ -73,6 +73,16 @@ import { PrismaCompanyRepository } from '../companies/infrastructure/persistence
 import { BranchRepository } from '../companies/domain/repositories/branch.repository';
 import { PrismaBranchRepository } from '../companies/infrastructure/persistence/prisma-branch.repository';
 
+import { ChartOfAccountRepository } from '../accounting/domain/repositories/chart-of-account.repository';
+import { PrismaChartOfAccountRepository } from '../accounting/infrastructure/persistence/prisma-chart-of-account.repository';
+import { AccountingSettingsRepository } from '../accounting/domain/repositories/accounting-settings.repository';
+import { PrismaAccountingSettingsRepository } from '../accounting/infrastructure/persistence/prisma-accounting-settings.repository';
+import { JournalEntryRepository } from '../accounting/domain/repositories/journal-entry.repository';
+import { PrismaJournalEntryRepository } from '../accounting/infrastructure/persistence/prisma-journal-entry.repository';
+import { CompanyPaymentMethodAccountRepository } from '../accounting/domain/repositories/company-payment-method-account.repository';
+import { PrismaCompanyPaymentMethodAccountRepository } from '../accounting/infrastructure/persistence/prisma-company-payment-method-account.repository';
+import { ApplyJournalEntryService } from '../accounting/application/services/apply-journal-entry.service';
+
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
 import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
@@ -120,6 +130,7 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     ApplySupplierAccountMovementService,
     ApplyCashMovementService,
     ApplyBankMovementService,
+    ApplyJournalEntryService,
     { provide: PaymentMethodRepository, useClass: PrismaPaymentMethodRepository },
     { provide: PaymentRepository, useClass: PrismaPaymentRepository },
     { provide: CustomerAccountRepository, useClass: PrismaCustomerAccountRepository },
@@ -136,6 +147,13 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: VoucherRepository, useClass: PrismaVoucherRepository },
     { provide: CompanyRepository, useClass: PrismaCompanyRepository },
     { provide: BranchRepository, useClass: PrismaBranchRepository },
+    { provide: ChartOfAccountRepository, useClass: PrismaChartOfAccountRepository },
+    { provide: AccountingSettingsRepository, useClass: PrismaAccountingSettingsRepository },
+    { provide: JournalEntryRepository, useClass: PrismaJournalEntryRepository },
+    {
+      provide: CompanyPaymentMethodAccountRepository,
+      useClass: PrismaCompanyPaymentMethodAccountRepository,
+    },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
     { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],

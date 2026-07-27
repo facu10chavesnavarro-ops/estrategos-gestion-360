@@ -11,5 +11,6 @@ export class BankAccountEntity {
     public readonly alias: string | null,
     public readonly currency: string,
     public readonly isActive: boolean,
+    public readonly glAccountId: string | null,
   ) {}
 }

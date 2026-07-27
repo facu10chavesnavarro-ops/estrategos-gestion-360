@@ -22,4 +22,5 @@ export interface CreateCashMovementUseCaseInput {
   type: 'IN' | 'OUT';
   amount: string;
   reason?: string;
+  counterpartAccountId?: string;
 }

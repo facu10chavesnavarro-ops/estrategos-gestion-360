@@ -21,6 +21,7 @@ export interface UpdateBankAccountUseCaseInput {
   accountNumber?: string;
   cbu?: string;
   alias?: string;
+  glAccountId?: string | null;
 }
 
 export interface ChangeBankAccountStateUseCaseInput {
@@ -39,4 +40,5 @@ export interface CreateBankMovementUseCaseInput {
   amount: string;
   description?: string;
   date?: string;
+  counterpartAccountId?: string;
 }

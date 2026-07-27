@@ -22,6 +22,15 @@ import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/
 import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
 import { CustomerAccountMovementEntity } from '../../src/modules/treasury/domain/entities/customer-account.entity';
 import { SupplierAccountMovementEntity } from '../../src/modules/treasury/domain/entities/supplier-account.entity';
+import { CategoryRepository } from '../../src/modules/catalog/domain/repositories/category.repository';
+import { CategoryEntity } from '../../src/modules/catalog/domain/entities/category.entity';
+import { AccountingSettingsRepository } from '../../src/modules/accounting/domain/repositories/accounting-settings.repository';
+import { AccountingSettingsEntity } from '../../src/modules/accounting/domain/entities/accounting-settings.entity';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
+import {
+  MissingCategoryAccountMappingError,
+  MissingTaxAccountMappingError,
+} from '../../src/modules/accounting/domain/errors/accounting.errors';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import { InsufficientStockError } from '../../src/modules/inventory/domain/errors/stock-movement.errors';
@@ -128,6 +137,8 @@ function makeTax(overrides: Partial<TaxEntity> = {}): TaxEntity {
     overrides.rate ?? '21',
     overrides.validFrom ?? new Date('2020-01-01'),
     overrides.validTo ?? null,
+    overrides.salesAccountId ?? null,
+    overrides.purchasesAccountId ?? null,
   );
 }
 
@@ -187,6 +198,18 @@ function makeVoucher(overrides: Partial<VoucherEntity> = {}): VoucherEntity {
     overrides.createdByUserId ?? 'user-1',
     overrides.createdAt ?? new Date(),
     overrides.lines ?? [makeVoucherLine()],
+  );
+}
+
+function makeCategory(overrides: Partial<CategoryEntity> = {}): CategoryEntity {
+  return new CategoryEntity(
+    overrides.id ?? 'category-1',
+    overrides.companyId ?? 'company-1',
+    overrides.parentId ?? null,
+    overrides.name ?? 'Servicios',
+    overrides.isActive ?? true,
+    overrides.salesAccountId ?? null,
+    overrides.purchasesAccountId ?? null,
   );
 }
 
@@ -259,8 +282,24 @@ describe('CreateVoucherUseCase', () => {
       findById: jest.fn(),
       findAllByCompany: jest.fn(),
       updateName: jest.fn(),
+      updateAccounts: jest.fn(),
       close: jest.fn(),
     } as jest.Mocked<TaxRepository>;
+    const categoryRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAllByCompany: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<CategoryRepository>;
+    const accountingSettingsRepository = {
+      create: jest.fn(),
+      findByCompany: jest.fn(),
+      update: jest.fn(),
+    } as jest.Mocked<AccountingSettingsRepository>;
+    const applyJournalEntryService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyJournalEntryService>;
     const companyRepository = {
       create: jest.fn(),
       findAllForUser: jest.fn(),
@@ -288,10 +327,13 @@ describe('CreateVoucherUseCase', () => {
       supplierRepository,
       itemRepository,
       taxRepository,
+      categoryRepository,
       companyRepository,
       applyStockMovementService,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -322,10 +364,13 @@ describe('CreateVoucherUseCase', () => {
       supplierRepository,
       itemRepository,
       taxRepository,
+      categoryRepository,
       companyRepository,
       applyStockMovementService,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       useCase,
     };
@@ -629,5 +674,75 @@ describe('CreateVoucherUseCase', () => {
       }),
       expect.anything(),
     );
+  });
+
+  describe('Sprint 4: asiento contable automático (§2.3)', () => {
+    it('no genera ningún asiento si la empresa no activó Contabilidad', async () => {
+      const { useCase, applyJournalEntryService } = makeSut();
+
+      await useCase.execute(baseInput);
+
+      expect(applyJournalEntryService.apply).not.toHaveBeenCalled();
+    });
+
+    it('genera un asiento balanceado cuando Contabilidad está activa y la categoría está mapeada', async () => {
+      const { useCase, accountingSettingsRepository, categoryRepository, itemRepository, applyJournalEntryService } =
+        makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      itemRepository.findById.mockResolvedValue(makeItem({ categoryId: 'category-1' }));
+      categoryRepository.findById.mockResolvedValue(
+        makeCategory({ id: 'category-1', salesAccountId: 'sales-account' }),
+      );
+
+      await useCase.execute(baseInput);
+
+      expect(applyJournalEntryService.apply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceType: 'VOUCHER',
+          origin: 'AUTOMATIC',
+          lines: [
+            expect.objectContaining({ accountId: 'ar-account', debit: '1000.00', credit: '0' }),
+            expect.objectContaining({ accountId: 'sales-account', debit: '0', credit: '1000.00' }),
+          ],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('RN-ACC-05: rechaza si la categoría del ítem no tiene cuenta de ventas mapeada', async () => {
+      const { useCase, accountingSettingsRepository, categoryRepository, itemRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      itemRepository.findById.mockResolvedValue(makeItem({ categoryId: 'category-1' }));
+      categoryRepository.findById.mockResolvedValue(
+        makeCategory({ id: 'category-1', salesAccountId: null }),
+      );
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow(
+        MissingCategoryAccountMappingError,
+      );
+    });
+
+    it('RN-ACC-05: rechaza un impuesto sin cuenta mapeada', async () => {
+      const { useCase, accountingSettingsRepository, categoryRepository, itemRepository, taxRepository } =
+        makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      itemRepository.findById.mockResolvedValue(
+        makeItem({ categoryId: 'category-1', taxIds: ['tax-1'] }),
+      );
+      categoryRepository.findById.mockResolvedValue(
+        makeCategory({ id: 'category-1', salesAccountId: 'sales-account' }),
+      );
+      taxRepository.findById.mockResolvedValue(
+        new TaxEntity('tax-1', 'company-1', 'IVA 21%', 'VAT', '21', new Date('2020-01-01'), null, null, null),
+      );
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow(MissingTaxAccountMappingError);
+    });
   });
 });

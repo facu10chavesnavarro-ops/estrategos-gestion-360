@@ -19,6 +19,10 @@ import {
   InvalidVoucherLineQuantityError,
 } from '../domain/errors/voucher.errors';
 import { InsufficientStockError } from '../../inventory/domain/errors/stock-movement.errors';
+import {
+  MissingCategoryAccountMappingError,
+  MissingTaxAccountMappingError,
+} from '../../accounting/domain/errors/accounting.errors';
 
 const NOT_FOUND_ERRORS = [
   PointOfSaleNotFoundError,
@@ -39,6 +43,8 @@ const BAD_REQUEST_ERRORS = [
   InvalidVoucherLineItemError,
   InvalidVoucherLineQuantityError,
   InsufficientStockError,
+  MissingCategoryAccountMappingError,
+  MissingTaxAccountMappingError,
 ];
 
 export function mapVoucherError(error: unknown): never {

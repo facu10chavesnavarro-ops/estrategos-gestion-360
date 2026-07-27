@@ -7,6 +7,14 @@ import { BankAccountEntity } from '../../src/modules/treasury/domain/entities/ba
 import { BankAccountRepository } from '../../src/modules/treasury/domain/repositories/bank-account.repository';
 import { BankMovementEntity } from '../../src/modules/treasury/domain/entities/bank-movement.entity';
 import { ApplyBankMovementService } from '../../src/modules/treasury/application/services/apply-bank-movement.service';
+import { ChartOfAccountRepository } from '../../src/modules/accounting/domain/repositories/chart-of-account.repository';
+import { AccountingSettingsRepository } from '../../src/modules/accounting/domain/repositories/accounting-settings.repository';
+import { AccountingSettingsEntity } from '../../src/modules/accounting/domain/entities/accounting-settings.entity';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
+import {
+  MissingBankAccountMappingError,
+  MissingCounterpartAccountError,
+} from '../../src/modules/accounting/domain/errors/accounting.errors';
 import { CompanyRepository } from '../../src/modules/companies/domain/repositories/company.repository';
 import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
@@ -30,6 +38,7 @@ function makeBankAccount(overrides: Partial<BankAccountEntity> = {}): BankAccoun
     overrides.alias ?? null,
     overrides.currency ?? 'ARS',
     overrides.isActive ?? true,
+    overrides.glAccountId ?? null,
   );
 }
 
@@ -133,6 +142,14 @@ describe('UpdateBankAccountUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateBankAccountUseCase(
       bankAccountRepository,
+      {
+        create: jest.fn(),
+        findById: jest.fn(),
+        findByCode: jest.fn(),
+        findAllByCompany: jest.fn(),
+        update: jest.fn(),
+        setActive: jest.fn(),
+      } as jest.Mocked<ChartOfAccountRepository>,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -154,6 +171,14 @@ describe('UpdateBankAccountUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateBankAccountUseCase(
       bankAccountRepository,
+      {
+        create: jest.fn(),
+        findById: jest.fn(),
+        findByCode: jest.fn(),
+        findAllByCompany: jest.fn(),
+        update: jest.fn(),
+        setActive: jest.fn(),
+      } as jest.Mocked<ChartOfAccountRepository>,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -239,16 +264,33 @@ describe('CreateBankMovementUseCase (manual)', () => {
     const applyBankMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplyBankMovementService>;
+    const accountingSettingsRepository = {
+      create: jest.fn(),
+      findByCompany: jest.fn(),
+      update: jest.fn(),
+    } as jest.Mocked<AccountingSettingsRepository>;
+    const applyJournalEntryService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyJournalEntryService>;
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new CreateBankMovementUseCase(
       bankAccountRepository,
       applyBankMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
     bankAccountRepository.findById.mockResolvedValue(makeBankAccount());
     applyBankMovementService.apply.mockResolvedValue({} as BankMovementEntity);
-    return { bankAccountRepository, applyBankMovementService, auditLogRepository, useCase };
+    return {
+      bankAccountRepository,
+      applyBankMovementService,
+      accountingSettingsRepository,
+      applyJournalEntryService,
+      auditLogRepository,
+      useCase,
+    };
   }
 
   it('crea un movimiento manual con descripción', async () => {
@@ -320,5 +362,84 @@ describe('CreateBankMovementUseCase (manual)', () => {
         description: 'Motivo',
       }),
     ).rejects.toThrow(BankAccountNotFoundError);
+  });
+
+  describe('Sprint 4: asiento contable de movimientos manuales (RN-ACC-06)', () => {
+    it('rechaza sin counterpartAccountId cuando Contabilidad está activa', async () => {
+      const { useCase, accountingSettingsRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+
+      await expect(
+        useCase.execute({
+          requestingUserId: 'user-1',
+          requestingRoleName: 'Propietario',
+          companyId: 'company-1',
+          bankAccountId: 'bank-account-1',
+          type: 'DEPOSIT',
+          amount: '150',
+          description: 'Motivo',
+        }),
+      ).rejects.toThrow(MissingCounterpartAccountError);
+    });
+
+    it('rechaza si la cuenta bancaria no tiene cuenta contable mapeada', async () => {
+      const { useCase, accountingSettingsRepository, bankAccountRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      bankAccountRepository.findById.mockResolvedValue(makeBankAccount({ glAccountId: null }));
+
+      await expect(
+        useCase.execute({
+          requestingUserId: 'user-1',
+          requestingRoleName: 'Propietario',
+          companyId: 'company-1',
+          bankAccountId: 'bank-account-1',
+          type: 'DEPOSIT',
+          amount: '150',
+          description: 'Motivo',
+          counterpartAccountId: 'ingresos-account',
+        }),
+      ).rejects.toThrow(MissingBankAccountMappingError);
+    });
+
+    it('genera un asiento balanceado contra la cuenta de la cuenta bancaria', async () => {
+      const {
+        useCase,
+        accountingSettingsRepository,
+        bankAccountRepository,
+        applyJournalEntryService,
+      } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      bankAccountRepository.findById.mockResolvedValue(
+        makeBankAccount({ glAccountId: 'banco-account' }),
+      );
+
+      await useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        bankAccountId: 'bank-account-1',
+        type: 'DEPOSIT',
+        amount: '150',
+        description: 'Motivo',
+        counterpartAccountId: 'ingresos-account',
+      });
+
+      expect(applyJournalEntryService.apply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          origin: 'MANUAL',
+          lines: [
+            expect.objectContaining({ accountId: 'banco-account', debit: '150.00', credit: '0' }),
+            expect.objectContaining({ accountId: 'ingresos-account', debit: '0', credit: '150.00' }),
+          ],
+        }),
+        expect.anything(),
+      );
+    });
   });
 });

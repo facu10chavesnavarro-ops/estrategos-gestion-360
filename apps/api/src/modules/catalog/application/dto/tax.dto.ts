@@ -17,6 +17,8 @@ export interface UpdateTaxUseCaseInput {
   companyId: string;
   taxId: string;
   name: string;
+  salesAccountId?: string | null;
+  purchasesAccountId?: string | null;
 }
 
 export interface CloseTaxUseCaseInput {

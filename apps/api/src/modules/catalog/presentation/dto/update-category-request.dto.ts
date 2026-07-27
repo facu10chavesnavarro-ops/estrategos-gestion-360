@@ -9,4 +9,12 @@ export class UpdateCategoryRequestDto {
   @IsString()
   @MinLength(2, { message: 'El nombre debe tener al menos 2 caracteres' })
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  salesAccountId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  purchasesAccountId?: string | null;
 }

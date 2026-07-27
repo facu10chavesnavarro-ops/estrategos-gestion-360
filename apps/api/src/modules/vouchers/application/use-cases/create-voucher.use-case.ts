@@ -11,11 +11,22 @@ import { CustomerRepository } from '../../../customers/domain/repositories/custo
 import { SupplierRepository } from '../../../suppliers/domain/repositories/supplier.repository';
 import { ItemRepository } from '../../../catalog/domain/repositories/item.repository';
 import { TaxRepository } from '../../../catalog/domain/repositories/tax.repository';
+import { TaxEntity } from '../../../catalog/domain/entities/tax.entity';
+import { CategoryRepository } from '../../../catalog/domain/repositories/category.repository';
 import { CompanyRepository } from '../../../companies/domain/repositories/company.repository';
 import { ApplyStockMovementService } from '../../../inventory/application/services/apply-stock-movement.service';
 import { StockMovementType } from '../../../inventory/domain/entities/stock-movement.entity';
 import { ApplyCustomerAccountMovementService } from '../../../treasury/application/services/apply-customer-account-movement.service';
 import { ApplySupplierAccountMovementService } from '../../../treasury/application/services/apply-supplier-account-movement.service';
+import { AccountingSettingsRepository } from '../../../accounting/domain/repositories/accounting-settings.repository';
+import {
+  ApplyJournalEntryService,
+  ApplyJournalEntryLineInput,
+} from '../../../accounting/application/services/apply-journal-entry.service';
+import {
+  MissingCategoryAccountMappingError,
+  MissingTaxAccountMappingError,
+} from '../../../accounting/domain/errors/accounting.errors';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
@@ -65,10 +76,13 @@ export class CreateVoucherUseCase {
     private readonly supplierRepository: SupplierRepository,
     private readonly itemRepository: ItemRepository,
     private readonly taxRepository: TaxRepository,
+    private readonly categoryRepository: CategoryRepository,
     private readonly companyRepository: CompanyRepository,
     private readonly applyStockMovementService: ApplyStockMovementService,
     private readonly applyCustomerAccountMovementService: ApplyCustomerAccountMovementService,
     private readonly applySupplierAccountMovementService: ApplySupplierAccountMovementService,
+    private readonly accountingSettingsRepository: AccountingSettingsRepository,
+    private readonly applyJournalEntryService: ApplyJournalEntryService,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -133,16 +147,34 @@ export class CreateVoucherUseCase {
 
     const now = new Date();
 
+    // Sprint 4 §2.3: Contabilidad es opt-in por empresa — si no activó
+    // AccountingSettings, el comportamiento es exactamente el mismo que
+    // antes de este sprint (sin asiento). Solo se genera asiento si además
+    // el tipo de comprobante afecta la cuenta corriente (RN-ACC-05).
+    const accountingSettings = await this.accountingSettingsRepository.findByCompany(
+      input.companyId,
+    );
+    const accountingActive = Boolean(accountingSettings) && voucherType.affectsCurrentAccount !== 'NONE';
+
     // RN-VOU-05: resuelve ítem + impuestos vigentes por línea, antes de tocar la DB en escritura.
+    // Sprint 4: también resuelve la Category del ítem (para el mapeo contable) —
+    // una línea sin itemId no tiene Category que mapear, por eso se rechaza
+    // cuando Contabilidad está activa (RN-ACC-05).
     const resolvedLines = await Promise.all(
       input.lines.map(async (line) => {
         if (!line.itemId) {
-          return { line, item: null, taxes: [] as { taxId: string; rate: string }[] };
+          if (accountingActive) {
+            throw new MissingCategoryAccountMappingError();
+          }
+          return { line, item: null, category: null, taxes: [] as TaxEntity[] };
         }
         const item = await this.itemRepository.findById(line.itemId, input.companyId);
         if (!item) {
           throw new InvalidVoucherLineItemError();
         }
+        const category = item.categoryId
+          ? await this.categoryRepository.findById(item.categoryId, input.companyId)
+          : null;
         const taxes = (
           await Promise.all(
             item.taxIds.map((taxId) => this.taxRepository.findById(taxId, input.companyId)),
@@ -151,7 +183,7 @@ export class CreateVoucherUseCase {
           (tax): tax is NonNullable<typeof tax> =>
             tax !== null && isTaxCurrentlyValid(tax.validFrom, tax.validTo, now),
         );
-        return { line, item, taxes: taxes.map((tax) => ({ taxId: tax.id, rate: tax.rate })) };
+        return { line, item, category, taxes };
       }),
     );
 
@@ -164,8 +196,12 @@ export class CreateVoucherUseCase {
     }
 
     // RN-VOU-09: subtotal/taxTotal/total se calculan de las líneas, nunca informados.
+    // Sprint 4: en el mismo recorrido se acumula, por cuenta contable, el
+    // total a contrapartida de Ventas/Compras y de cada impuesto (RN-ACC-05).
     let voucherSubtotal = new Decimal(0);
     let voucherTaxTotal = new Decimal(0);
+    const categoryAmountsByAccount = new Map<string, Decimal>();
+    const taxAmountsByAccount = new Map<string, Decimal>();
     const linesToCreate: RepositoryVoucherLineInput[] = resolvedLines.map((resolved, index) => {
       const quantity = new Decimal(resolved.line.quantity);
       const unitPrice = new Decimal(resolved.line.unitPrice);
@@ -178,10 +214,35 @@ export class CreateVoucherUseCase {
         const rate = new Decimal(tax.rate);
         const amount = lineSubtotal.times(rate).dividedBy(100);
         voucherTaxTotal = voucherTaxTotal.plus(amount);
-        return { taxId: tax.taxId, rate: rate.toFixed(4), amount: amount.toFixed(2) };
+        if (accountingActive) {
+          const taxAccountId =
+            voucherType.flow === 'SALE' ? tax.salesAccountId : tax.purchasesAccountId;
+          if (!taxAccountId) {
+            throw new MissingTaxAccountMappingError();
+          }
+          taxAmountsByAccount.set(
+            taxAccountId,
+            (taxAmountsByAccount.get(taxAccountId) ?? new Decimal(0)).plus(amount),
+          );
+        }
+        return { taxId: tax.id, rate: rate.toFixed(4), amount: amount.toFixed(2) };
       });
 
       voucherSubtotal = voucherSubtotal.plus(lineSubtotal);
+
+      if (accountingActive) {
+        const categoryAccountId =
+          voucherType.flow === 'SALE'
+            ? resolved.category?.salesAccountId
+            : resolved.category?.purchasesAccountId;
+        if (!categoryAccountId) {
+          throw new MissingCategoryAccountMappingError();
+        }
+        categoryAmountsByAccount.set(
+          categoryAccountId,
+          (categoryAmountsByAccount.get(categoryAccountId) ?? new Decimal(0)).plus(lineSubtotal),
+        );
+      }
 
       return {
         id: uuidv7(),
@@ -282,6 +343,50 @@ export class CreateVoucherUseCase {
             ctx,
           );
         }
+      }
+
+      // Sprint 4 §2.3: el asiento se dispara desde el Voucher, no desde
+      // movimientos individuales — un único asiento balanceado por
+      // comprobante confirmado.
+      if (accountingActive) {
+        const controlSide = voucherType.affectsCurrentAccount;
+        const oppositeIsDebit = controlSide === 'CREDIT';
+        const journalEntryLines: ApplyJournalEntryLineInput[] = [
+          {
+            accountId:
+              voucherType.flow === 'SALE'
+                ? (accountingSettings as NonNullable<typeof accountingSettings>).accountsReceivableId
+                : (accountingSettings as NonNullable<typeof accountingSettings>).accountsPayableId,
+            debit: controlSide === 'DEBIT' ? voucherTotal.toFixed(2) : '0',
+            credit: controlSide === 'CREDIT' ? voucherTotal.toFixed(2) : '0',
+          },
+          ...Array.from(categoryAmountsByAccount.entries()).map(([accountId, amount]) => ({
+            accountId,
+            debit: oppositeIsDebit ? amount.toFixed(2) : '0',
+            credit: oppositeIsDebit ? '0' : amount.toFixed(2),
+          })),
+          ...Array.from(taxAmountsByAccount.entries()).map(([accountId, amount]) => ({
+            accountId,
+            debit: oppositeIsDebit ? amount.toFixed(2) : '0',
+            credit: oppositeIsDebit ? '0' : amount.toFixed(2),
+          })),
+        ];
+
+        await this.applyJournalEntryService.apply(
+          {
+            companyId: input.companyId,
+            date: voucher.issueDate,
+            description: `${voucherType.name} N° ${voucher.number}`,
+            currency: voucher.currency,
+            exchangeRate: voucher.exchangeRate,
+            origin: 'AUTOMATIC',
+            sourceType: 'VOUCHER',
+            sourceId: voucher.id,
+            createdByUserId: input.requestingUserId,
+            lines: journalEntryLines,
+          },
+          ctx,
+        );
       }
 
       await this.auditLogRepository.record(

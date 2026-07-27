@@ -4,6 +4,7 @@ import { DeactivateCashRegisterUseCase } from '../../src/modules/treasury/applic
 import { ActivateCashRegisterUseCase } from '../../src/modules/treasury/application/use-cases/activate-cash-register.use-case';
 import { CashRegisterEntity } from '../../src/modules/treasury/domain/entities/cash-register.entity';
 import { CashRegisterRepository } from '../../src/modules/treasury/domain/repositories/cash-register.repository';
+import { ChartOfAccountRepository } from '../../src/modules/accounting/domain/repositories/chart-of-account.repository';
 import { BranchRepository } from '../../src/modules/companies/domain/repositories/branch.repository';
 import { BranchEntity } from '../../src/modules/companies/domain/entities/branch.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
@@ -22,6 +23,7 @@ function makeCashRegister(overrides: Partial<CashRegisterEntity> = {}): CashRegi
     overrides.branchId ?? 'branch-1',
     overrides.name ?? 'Caja Principal',
     overrides.isActive ?? true,
+    overrides.accountId ?? null,
   );
 }
 
@@ -139,6 +141,14 @@ describe('UpdateCashRegisterUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCashRegisterUseCase(
       cashRegisterRepository,
+      {
+        create: jest.fn(),
+        findById: jest.fn(),
+        findByCode: jest.fn(),
+        findAllByCompany: jest.fn(),
+        update: jest.fn(),
+        setActive: jest.fn(),
+      } as jest.Mocked<ChartOfAccountRepository>,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -160,6 +170,14 @@ describe('UpdateCashRegisterUseCase', () => {
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
     const useCase = new UpdateCashRegisterUseCase(
       cashRegisterRepository,
+      {
+        create: jest.fn(),
+        findById: jest.fn(),
+        findByCode: jest.fn(),
+        findAllByCompany: jest.fn(),
+        update: jest.fn(),
+        setActive: jest.fn(),
+      } as jest.Mocked<ChartOfAccountRepository>,
       auditLogRepository,
       createFakeUnitOfWork(),
     );

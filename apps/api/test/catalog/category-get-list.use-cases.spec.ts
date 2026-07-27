@@ -11,6 +11,8 @@ function makeCategory(overrides: Partial<CategoryEntity> = {}): CategoryEntity {
     overrides.parentId ?? null,
     overrides.name ?? 'Insumos de oficina',
     overrides.isActive ?? true,
+    overrides.salesAccountId ?? null,
+    overrides.purchasesAccountId ?? null,
   );
 }
 

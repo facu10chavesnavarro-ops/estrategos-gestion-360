@@ -26,6 +26,7 @@ import {
   InvalidPriceError,
   ItemNotInPriceListError,
 } from '../domain/errors/price-list.errors';
+import { InvalidAccountMappingError } from '../../accounting/domain/errors/accounting.errors';
 
 const NOT_FOUND_ERRORS = [
   CategoryNotFoundError,
@@ -49,6 +50,7 @@ const BAD_REQUEST_ERRORS = [
   TaxAlreadyClosedError,
   PriceListAlreadyInTargetStateError,
   InvalidPriceError,
+  InvalidAccountMappingError,
 ];
 
 export function mapCatalogError(error: unknown): never {

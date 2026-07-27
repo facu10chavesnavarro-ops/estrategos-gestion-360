@@ -23,6 +23,18 @@ import { CashMovementEntity } from '../../src/modules/treasury/domain/entities/c
 import { BankAccountRepository } from '../../src/modules/treasury/domain/repositories/bank-account.repository';
 import { BankAccountEntity } from '../../src/modules/treasury/domain/entities/bank-account.entity';
 import { BankMovementEntity } from '../../src/modules/treasury/domain/entities/bank-movement.entity';
+import { CashRegisterRepository } from '../../src/modules/treasury/domain/repositories/cash-register.repository';
+import { CashRegisterEntity } from '../../src/modules/treasury/domain/entities/cash-register.entity';
+import { AccountingSettingsRepository } from '../../src/modules/accounting/domain/repositories/accounting-settings.repository';
+import { AccountingSettingsEntity } from '../../src/modules/accounting/domain/entities/accounting-settings.entity';
+import { CompanyPaymentMethodAccountRepository } from '../../src/modules/accounting/domain/repositories/company-payment-method-account.repository';
+import { CompanyPaymentMethodAccountEntity } from '../../src/modules/accounting/domain/entities/company-payment-method-account.entity';
+import { ApplyJournalEntryService } from '../../src/modules/accounting/application/services/apply-journal-entry.service';
+import {
+  MissingCashRegisterAccountMappingError,
+  MissingBankAccountMappingError,
+  MissingPaymentMethodAccountMappingError,
+} from '../../src/modules/accounting/domain/errors/accounting.errors';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import {
@@ -181,6 +193,18 @@ function makeBankAccount(overrides: Partial<BankAccountEntity> = {}): BankAccoun
     overrides.alias ?? null,
     overrides.currency ?? 'ARS',
     overrides.isActive ?? true,
+    overrides.glAccountId ?? null,
+  );
+}
+
+function makeCashRegister(overrides: Partial<CashRegisterEntity> = {}): CashRegisterEntity {
+  return new CashRegisterEntity(
+    overrides.id ?? 'register-1',
+    overrides.companyId ?? 'company-1',
+    overrides.branchId ?? 'branch-1',
+    overrides.name ?? 'Caja Principal',
+    overrides.isActive ?? true,
+    overrides.accountId ?? null,
   );
 }
 
@@ -238,6 +262,26 @@ describe('CreatePaymentUseCase', () => {
       update: jest.fn(),
       setActive: jest.fn(),
     } as jest.Mocked<BankAccountRepository>;
+    const cashRegisterRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAllByBranch: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<CashRegisterRepository>;
+    const accountingSettingsRepository = {
+      create: jest.fn(),
+      findByCompany: jest.fn(),
+      update: jest.fn(),
+    } as jest.Mocked<AccountingSettingsRepository>;
+    const companyPaymentMethodAccountRepository = {
+      upsert: jest.fn(),
+      find: jest.fn(),
+      findAllByCompany: jest.fn(),
+    } as jest.Mocked<CompanyPaymentMethodAccountRepository>;
+    const applyJournalEntryService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyJournalEntryService>;
     const applyCustomerAccountMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplyCustomerAccountMovementService>;
@@ -260,11 +304,15 @@ describe('CreatePaymentUseCase', () => {
       voucherRepository,
       companyRepository,
       cashSessionRepository,
+      cashRegisterRepository,
       bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
       applyCashMovementService,
       applyBankMovementService,
+      accountingSettingsRepository,
+      companyPaymentMethodAccountRepository,
+      applyJournalEntryService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -277,6 +325,7 @@ describe('CreatePaymentUseCase', () => {
     paymentRepository.create.mockResolvedValue(makePayment());
     voucherRepository.findById.mockResolvedValue(makeVoucher());
     cashSessionRepository.findById.mockResolvedValue(makeCashSession());
+    cashRegisterRepository.findById.mockResolvedValue(makeCashRegister());
     bankAccountRepository.findById.mockResolvedValue(makeBankAccount());
     applyCustomerAccountMovementService.apply.mockResolvedValue(
       {} as CustomerAccountMovementEntity,
@@ -295,11 +344,15 @@ describe('CreatePaymentUseCase', () => {
       voucherRepository,
       companyRepository,
       cashSessionRepository,
+      cashRegisterRepository,
       bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
       applyCashMovementService,
       applyBankMovementService,
+      accountingSettingsRepository,
+      companyPaymentMethodAccountRepository,
+      applyJournalEntryService,
       auditLogRepository,
       useCase,
     };
@@ -679,5 +732,166 @@ describe('CreatePaymentUseCase', () => {
 
     expect(applyCashMovementService.apply).not.toHaveBeenCalled();
     expect(applyBankMovementService.apply).not.toHaveBeenCalled();
+  });
+
+  describe('Sprint 4: asiento contable automático (§2.3)', () => {
+    it('no genera ningún asiento si la empresa no activó Contabilidad', async () => {
+      const { useCase, applyJournalEntryService } = makeSut();
+
+      await useCase.execute(baseInput);
+
+      expect(applyJournalEntryService.apply).not.toHaveBeenCalled();
+    });
+
+    it('un cobro en efectivo genera un asiento balanceado (Haber AR / Debe Caja)', async () => {
+      const { useCase, accountingSettingsRepository, cashRegisterRepository, applyJournalEntryService } =
+        makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      cashRegisterRepository.findById.mockResolvedValue(
+        makeCashRegister({ accountId: 'caja-account' }),
+      );
+
+      await useCase.execute(baseInput);
+
+      expect(applyJournalEntryService.apply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sourceType: 'PAYMENT',
+          origin: 'AUTOMATIC',
+          lines: [
+            expect.objectContaining({ accountId: 'ar-account', debit: '0', credit: '1210.00' }),
+            expect.objectContaining({ accountId: 'caja-account', debit: '1210.00', credit: '0' }),
+          ],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('RN-ACC-05: rechaza si la caja no tiene cuenta contable mapeada', async () => {
+      const { useCase, accountingSettingsRepository, cashRegisterRepository } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      cashRegisterRepository.findById.mockResolvedValue(makeCashRegister({ accountId: null }));
+
+      await expect(useCase.execute(baseInput)).rejects.toThrow(
+        MissingCashRegisterAccountMappingError,
+      );
+    });
+
+    it('RN-ACC-05: rechaza una Transferencia sin la cuenta contable de la cuenta bancaria mapeada', async () => {
+      const { useCase, accountingSettingsRepository, paymentMethodRepository, bankAccountRepository } =
+        makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      paymentMethodRepository.findById.mockResolvedValue(
+        makePaymentMethod({
+          id: 'method-transferencia',
+          code: 'TRANSFERENCIA',
+          requiresCashMovement: false,
+          requiresBankMovement: true,
+        }),
+      );
+      bankAccountRepository.findById.mockResolvedValue(makeBankAccount({ glAccountId: null }));
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          methodDetails: [{ paymentMethodId: 'method-transferencia', amount: '1210' }],
+          cashSessionId: undefined,
+          bankAccountId: 'bank-account-1',
+        }),
+      ).rejects.toThrow(MissingBankAccountMappingError);
+    });
+
+    it('RN-ACC-05: rechaza un Cheque sin mapeo de cuenta para el sentido del cobro', async () => {
+      const {
+        useCase,
+        accountingSettingsRepository,
+        paymentMethodRepository,
+        companyPaymentMethodAccountRepository,
+      } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      paymentMethodRepository.findById.mockResolvedValue(
+        makePaymentMethod({
+          id: 'method-cheque',
+          code: 'CHEQUE',
+          requiresCheckDetail: true,
+          requiresCashMovement: false,
+          requiresBankMovement: false,
+        }),
+      );
+      companyPaymentMethodAccountRepository.find.mockResolvedValue(null);
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          methodDetails: [
+            {
+              paymentMethodId: 'method-cheque',
+              amount: '1210',
+              checkDetail: { number: '123', bankName: 'Banco', dueDate: '2026-09-01' },
+            },
+          ],
+          cashSessionId: undefined,
+        }),
+      ).rejects.toThrow(MissingPaymentMethodAccountMappingError);
+    });
+
+    it('un Cheque con mapeo configurado genera la línea de asiento con esa cuenta', async () => {
+      const {
+        useCase,
+        accountingSettingsRepository,
+        paymentMethodRepository,
+        companyPaymentMethodAccountRepository,
+        applyJournalEntryService,
+      } = makeSut();
+      accountingSettingsRepository.findByCompany.mockResolvedValue(
+        new AccountingSettingsEntity('company-1', 'ar-account', 'ap-account'),
+      );
+      paymentMethodRepository.findById.mockResolvedValue(
+        makePaymentMethod({
+          id: 'method-cheque',
+          code: 'CHEQUE',
+          requiresCheckDetail: true,
+          requiresCashMovement: false,
+          requiresBankMovement: false,
+        }),
+      );
+      companyPaymentMethodAccountRepository.find.mockResolvedValue(
+        new CompanyPaymentMethodAccountEntity(
+          'company-1',
+          'method-cheque',
+          'COLLECTION',
+          'valores-a-depositar',
+        ),
+      );
+
+      await useCase.execute({
+        ...baseInput,
+        methodDetails: [
+          {
+            paymentMethodId: 'method-cheque',
+            amount: '1210',
+            checkDetail: { number: '123', bankName: 'Banco', dueDate: '2026-09-01' },
+          },
+        ],
+        cashSessionId: undefined,
+      });
+
+      expect(applyJournalEntryService.apply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          lines: [
+            expect.objectContaining({ accountId: 'ar-account', debit: '0', credit: '1210.00' }),
+            expect.objectContaining({ accountId: 'valores-a-depositar', debit: '1210.00', credit: '0' }),
+          ],
+        }),
+        expect.anything(),
+      );
+    });
   });
 });

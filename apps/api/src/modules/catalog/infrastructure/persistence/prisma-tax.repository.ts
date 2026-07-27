@@ -68,4 +68,16 @@ export class PrismaTaxRepository extends TaxRepository {
     });
     return TaxMapper.toDomain(raw);
   }
+
+  async updateAccounts(
+    id: string,
+    input: { salesAccountId?: string | null; purchasesAccountId?: string | null },
+    ctx?: TransactionContext,
+  ): Promise<TaxEntity> {
+    const raw = await resolveClient(this.prisma, ctx).tax.update({
+      where: { id },
+      data: input,
+    });
+    return TaxMapper.toDomain(raw);
+  }
 }

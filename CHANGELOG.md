@@ -6,6 +6,79 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.10.0] - 2026-07-27
+
+Sprint 4: Contabilidad (Plan de Cuentas y Asientos). Cierra el núcleo
+financiero completo con un motor de asientos contables de doble entrada,
+opcional por empresa (`docs/sprint-4/00-arquitectura-contabilidad.md`).
+Decisiones 2.3 (el asiento se dispara desde `Voucher`/`Payment`, no desde
+`CashMovement`/`BankMovement`) y 2.4 (mapeo contable distribuido en las
+entidades existentes + `AccountingSettings`) aprobadas explícitamente.
+
+### Agregado
+
+- **Plan de Cuentas** (`ChartOfAccount`, por empresa, jerárquico): al
+  activar Contabilidad (`POST /companies/:id/accounting-settings/activate`)
+  se clona una plantilla estándar argentina de 18 cuentas (Activo/Pasivo/
+  Patrimonio Neto/Ingresos/Egresos) y se crea `AccountingSettings` con las
+  cuentas de control (Deudores por Ventas, Proveedores). Solo las cuentas
+  hoja (`allowsMovements`) reciben movimientos; las de sistema
+  (`isSystemAccount`) no pueden desactivarse. `/companies/:id/chart-of-accounts`.
+- **Asientos contables** (`JournalEntry`/`JournalEntryLine`): motor único
+  (`ApplyJournalEntryService`) que valida balanceo Debe=Haber y que cada
+  cuenta sea imputable antes de persistir. Inmutables — la corrección es
+  un asiento de reversión (`POST /journal-entries/:id/reverse`), nunca una
+  edición. Soportan asientos automáticos (`origin: AUTOMATIC`, disparados
+  desde `Voucher`/`Payment`) y manuales (`origin: MANUAL`,
+  `POST /companies/:id/journal-entries`). Libro Diario
+  (`GET /companies/:id/journal-entries`) y Libro Mayor con saldo
+  acumulado (`GET /companies/:id/chart-of-accounts/:id/ledger`).
+- **Mapeo contable opt-in**: `Category.salesAccountId`/`purchasesAccountId`,
+  `Tax.salesAccountId`/`purchasesAccountId`, `CashRegister.accountId`,
+  `BankAccount.glAccountId`, y `CompanyPaymentMethodAccount` (tabla puente
+  para medios de pago que no mueven caja ni banco, ej. Cheque, mapeados
+  por empresa + medio + sentido). Contabilidad es opcional por empresa: sin
+  `AccountingSettings`, el comportamiento es idéntico al de antes de este
+  sprint.
+- **Retrofit `CreateVoucherUseCase`**: con Contabilidad activa, confirmar
+  un comprobante genera un asiento balanceado (Deudores/Proveedores contra
+  Ventas/Compras + IVA, agrupado por cuenta); rechaza si falta el mapeo de
+  la categoría del ítem o del impuesto (RN-ACC-05).
+- **Retrofit `CreatePaymentUseCase`**: confirmar un cobro/pago genera un
+  asiento balanceado (Deudores/Proveedores contra Caja/Banco/otros medios,
+  agrupado por cuenta); rechaza si falta el mapeo de la caja, la cuenta
+  bancaria o el medio de pago usado.
+- **Retrofit `CreateCashMovementUseCase`/`CreateBankMovementUseCase`**: los
+  movimientos manuales exigen además `counterpartAccountId` cuando
+  Contabilidad está activa y generan su propio asiento manual.
+
+### Hallazgos durante la implementación (documentados en §9 del doc de diseño)
+
+- `PaymentMethod` es un catálogo global pero `ChartOfAccount` es por
+  empresa: resuelto con la tabla puente `CompanyPaymentMethodAccount` en
+  vez de una FK directa.
+- El mismo medio de pago necesita cuentas distintas según el sentido
+  (`CHEQUE` recibido es activo, `CHEQUE` entregado es pasivo): se agregó
+  `direction` a la clave de `CompanyPaymentMethodAccount` (migración
+  adicional sobre una tabla todavía vacía).
+- La exención inicialmente planteada para `CUENTA_CORRIENTE` (medio sin
+  cuenta mapeada) dejaba asientos desbalanceados en pagos mixtos; se
+  corrigió exigiendo mapeo a todo medio sin `CashMovement`/`BankMovement`,
+  sin excepciones.
+
+### Pruebas
+
+- 355/355 tests unitarios (59 nuevos de este sprint).
+- 24/24 tests de integración contra Postgres real (3 nuevos: camino feliz
+  Factura+Cobro con asientos balanceados y Libro Mayor correcto, rollback
+  sin asiento huérfano, rechazo por mapeo faltante).
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: activación de Contabilidad,
+  Plan de Cuentas clonado, mapeo de cuentas, Factura de Venta con asiento
+  de 3 líneas balanceado, Cobro con asiento de 2 líneas balanceado, Libro
+  Mayor con saldo acumulado correcto, asiento manual + reversión, y
+  rechazo de asiento desbalanceado / doble reversión.
+
 ## [0.9.0] - 2026-07-27
 
 Sprint 3, Sub-sprint 5: Caja y Bancos. Quinto y último sub-sprint del

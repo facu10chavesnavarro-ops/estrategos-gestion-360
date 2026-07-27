@@ -43,27 +43,31 @@ model Company {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  tenant           Tenant            @relation(fields: [tenantId], references: [id])
-  companyUsers     CompanyUser[]
-  auditLogs        AuditLog[]
-  branches         Branch[]
-  invitations      Invitation[]
-  parties          Party[]
-  customers        Customer[]
-  suppliers        Supplier[]
-  categories       Category[]
-  items            Item[]
-  taxes            Tax[]
-  priceLists       PriceList[]
-  warehouses       Warehouse[]
-  stockMovements   StockMovement[]
-  pointsOfSale     PointOfSale[]
-  vouchers         Voucher[]
-  customerAccounts CustomerAccount[]
-  supplierAccounts SupplierAccount[]
-  payments         Payment[]
-  bankAccounts     BankAccount[]
-  cashRegisters    CashRegister[]
+  tenant                       Tenant                        @relation(fields: [tenantId], references: [id])
+  companyUsers                 CompanyUser[]
+  auditLogs                    AuditLog[]
+  branches                     Branch[]
+  invitations                  Invitation[]
+  parties                      Party[]
+  customers                    Customer[]
+  suppliers                    Supplier[]
+  categories                   Category[]
+  items                        Item[]
+  taxes                        Tax[]
+  priceLists                   PriceList[]
+  warehouses                   Warehouse[]
+  stockMovements               StockMovement[]
+  pointsOfSale                 PointOfSale[]
+  vouchers                     Voucher[]
+  customerAccounts             CustomerAccount[]
+  supplierAccounts             SupplierAccount[]
+  payments                     Payment[]
+  bankAccounts                 BankAccount[]
+  cashRegisters                CashRegister[]
+  chartOfAccounts              ChartOfAccount[]
+  accountingSettings           AccountingSettings?
+  journalEntries               JournalEntry[]
+  paymentMethodAccountMappings CompanyPaymentMethodAccount[]
 
   @@index([tenantId])
   @@map("companies")
@@ -294,18 +298,22 @@ model Supplier {
 /// Categoría jerárquica de Ítems (Sprint 3, docs/sprint-3/01-catalogo-maestro.md).
 /// Lista de adyacencia (parentId autoreferenciado), profundidad ilimitada.
 model Category {
-  id        String   @id @default(uuid())
-  companyId String   @map("company_id")
-  parentId  String?  @map("parent_id")
-  name      String
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                 String   @id @default(uuid())
+  companyId          String   @map("company_id")
+  parentId           String?  @map("parent_id")
+  name               String
+  isActive           Boolean  @default(true) @map("is_active")
+  salesAccountId     String?  @map("sales_account_id")
+  purchasesAccountId String?  @map("purchases_account_id")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
 
-  company  Company    @relation(fields: [companyId], references: [id])
-  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryHierarchy")
-  items    Item[]
+  company          Company         @relation(fields: [companyId], references: [id])
+  parent           Category?       @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children         Category[]      @relation("CategoryHierarchy")
+  items            Item[]
+  salesAccount     ChartOfAccount? @relation("CategorySalesAccount", fields: [salesAccountId], references: [id])
+  purchasesAccount ChartOfAccount? @relation("CategoryPurchasesAccount", fields: [purchasesAccountId], references: [id])
 
   @@index([companyId])
   @@index([companyId, parentId])
@@ -360,18 +368,22 @@ enum TaxType {
 /// (validTo) y crear uno nuevo — preserva la integridad de comprobantes
 /// históricos que en Sprint 3.3 copiarán (snapshot) la tasa vigente.
 model Tax {
-  id        String    @id @default(uuid())
-  companyId String    @map("company_id")
-  name      String
-  type      TaxType
-  rate      Decimal   @db.Decimal(6, 4)
-  validFrom DateTime  @map("valid_from")
-  validTo   DateTime? @map("valid_to")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id                 String    @id @default(uuid())
+  companyId          String    @map("company_id")
+  name               String
+  type               TaxType
+  rate               Decimal   @db.Decimal(6, 4)
+  validFrom          DateTime  @map("valid_from")
+  validTo            DateTime? @map("valid_to")
+  salesAccountId     String?   @map("sales_account_id")
+  purchasesAccountId String?   @map("purchases_account_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
 
   company          Company          @relation(fields: [companyId], references: [id])
   itemTaxes        ItemTax[]
   voucherLineTaxes VoucherLineTax[]
+  salesAccount     ChartOfAccount?  @relation("TaxSalesAccount", fields: [salesAccountId], references: [id])
+  purchasesAccount ChartOfAccount?  @relation("TaxPurchasesAccount", fields: [purchasesAccountId], references: [id])
 
   @@index([companyId])
   @@map("taxes")
@@ -682,7 +694,8 @@ model PaymentMethod {
   requiresBankMovement Boolean @default(false) @map("requires_bank_movement")
   isActive             Boolean @default(true) @map("is_active")
 
-  methodDetails PaymentMethodDetail[]
+  methodDetails          PaymentMethodDetail[]
+  companyAccountMappings CompanyPaymentMethodAccount[]
 
   @@map("payment_methods")
 }
@@ -865,12 +878,14 @@ model CashRegister {
   branchId  String   @map("branch_id")
   name      String
   isActive  Boolean  @default(true) @map("is_active")
+  accountId String?  @map("account_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  company  Company       @relation(fields: [companyId], references: [id])
-  branch   Branch        @relation(fields: [branchId], references: [id])
+  company  Company         @relation(fields: [companyId], references: [id])
+  branch   Branch          @relation(fields: [branchId], references: [id])
   sessions CashSession[]
+  account  ChartOfAccount? @relation(fields: [accountId], references: [id])
 
   @@index([companyId])
   @@map("cash_registers")
@@ -937,11 +952,13 @@ model BankAccount {
   alias         String?
   currency      String
   isActive      Boolean         @default(true) @map("is_active")
+  glAccountId   String?         @map("gl_account_id")
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
 
-  company   Company        @relation(fields: [companyId], references: [id])
+  company   Company         @relation(fields: [companyId], references: [id])
   movements BankMovement[]
+  glAccount ChartOfAccount? @relation(fields: [glAccountId], references: [id])
 
   @@index([companyId])
   @@map("bank_accounts")
@@ -973,4 +990,148 @@ model BankMovement {
 
   @@index([bankAccountId, date])
   @@map("bank_movements")
+}
+
+// ---------------------------------------------------------------------------
+// Sprint 4 — Contabilidad (Plan de Cuentas y Asientos)
+// docs/sprint-4/00-arquitectura-contabilidad.md
+// ---------------------------------------------------------------------------
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+/// Plan de Cuentas por empresa (RN-ACC-01/02, §2.1/2.2). Jerárquico como
+/// Category: las cuentas con hijos son agrupadoras de reporte, solo las
+/// hoja (allowsMovements = true) reciben JournalEntryLine.
+model ChartOfAccount {
+  id              String      @id @default(uuid())
+  companyId       String      @map("company_id")
+  parentId        String?     @map("parent_id")
+  code            String
+  name            String
+  type            AccountType
+  allowsMovements Boolean     @default(true) @map("allows_movements")
+  isSystemAccount Boolean     @default(false) @map("is_system_account")
+  isActive        Boolean     @default(true) @map("is_active")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  company                        Company                       @relation(fields: [companyId], references: [id])
+  parent                         ChartOfAccount?               @relation("ChartOfAccountHierarchy", fields: [parentId], references: [id])
+  children                       ChartOfAccount[]              @relation("ChartOfAccountHierarchy")
+  lines                          JournalEntryLine[]
+  categoriesSelling              Category[]                    @relation("CategorySalesAccount")
+  categoriesBuying               Category[]                    @relation("CategoryPurchasesAccount")
+  taxesSelling                   Tax[]                         @relation("TaxSalesAccount")
+  taxesBuying                    Tax[]                         @relation("TaxPurchasesAccount")
+  cashRegisters                  CashRegister[]
+  bankAccounts                   BankAccount[]
+  paymentMethodMappings          CompanyPaymentMethodAccount[]
+  accountingSettingsAsReceivable AccountingSettings[]          @relation("AccountsReceivable")
+  accountingSettingsAsPayable    AccountingSettings[]          @relation("AccountsPayable")
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([companyId, parentId])
+  @@map("chart_of_accounts")
+}
+
+/// Mapeo cuenta contable por empresa para PaymentMethod (catálogo global) —
+/// tabla puente necesaria porque PaymentMethod no tiene companyId y
+/// ChartOfAccount sí (§2.4, hallazgo durante implementación). Se usa
+/// solo para medios que no generan CashMovement ni BankMovement (hoy:
+/// CHEQUE). La clave incluye `direction`: el mismo medio necesita una
+/// cuenta distinta según el sentido (CHEQUE recibido en un cobro →
+/// "Valores a Depositar", activo; CHEQUE propio entregado en un pago →
+/// "Cheques Emitidos a Pagar", pasivo) — segundo hallazgo de
+/// implementación, mismo criterio que el primero.
+model CompanyPaymentMethodAccount {
+  companyId       String           @map("company_id")
+  paymentMethodId String           @map("payment_method_id")
+  direction       PaymentDirection
+  accountId       String           @map("account_id")
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  paymentMethod PaymentMethod  @relation(fields: [paymentMethodId], references: [id])
+  account       ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@id([companyId, paymentMethodId, direction])
+  @@map("company_payment_method_accounts")
+}
+
+/// Cuentas de control por empresa (§2.4). Una fila por Company, creada al
+/// activar Contabilidad junto con la plantilla de Plan de Cuentas.
+model AccountingSettings {
+  companyId            String   @id @map("company_id")
+  accountsReceivableId String   @map("accounts_receivable_id")
+  accountsPayableId    String   @map("accounts_payable_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  company            Company        @relation(fields: [companyId], references: [id])
+  accountsReceivable ChartOfAccount @relation("AccountsReceivable", fields: [accountsReceivableId], references: [id])
+  accountsPayable    ChartOfAccount @relation("AccountsPayable", fields: [accountsPayableId], references: [id])
+
+  @@map("accounting_settings")
+}
+
+enum JournalEntryOrigin {
+  AUTOMATIC
+  MANUAL
+}
+
+enum JournalEntrySourceType {
+  VOUCHER
+  PAYMENT
+}
+
+/// Asiento contable (RN-ACC-03/04/05). `id` sin @default: uuidv7(), tabla
+/// de alto volumen. Inmutable una vez creado — la corrección es un asiento
+/// de reversión (reversalOfEntryId), nunca una edición ni un borrado físico.
+model JournalEntry {
+  id                String                  @id
+  companyId         String                  @map("company_id")
+  date              DateTime
+  description       String
+  currency          String
+  exchangeRate      Decimal                 @default(1) @map("exchange_rate") @db.Decimal(10, 4)
+  origin            JournalEntryOrigin
+  sourceType        JournalEntrySourceType? @map("source_type")
+  sourceId          String?                 @map("source_id")
+  reversalOfEntryId String?                 @map("reversal_of_entry_id")
+  createdByUserId   String                  @map("created_by_user_id")
+  createdAt         DateTime                @default(now()) @map("created_at")
+
+  company         Company            @relation(fields: [companyId], references: [id])
+  lines           JournalEntryLine[]
+  reversalOfEntry JournalEntry?      @relation("JournalEntryReversal", fields: [reversalOfEntryId], references: [id])
+  reversedBy      JournalEntry[]     @relation("JournalEntryReversal")
+
+  @@index([companyId, date])
+  @@index([sourceType, sourceId])
+  @@map("journal_entries")
+}
+
+/// Línea de asiento (Debe/Haber). `id` sin @default: uuidv7(), tabla de
+/// alto volumen. RN-ACC-01: accountId debe ser una cuenta imputable
+/// (allowsMovements = true), validado en la capa de aplicación.
+model JournalEntryLine {
+  id             String  @id
+  journalEntryId String  @map("journal_entry_id")
+  accountId      String  @map("account_id")
+  debit          Decimal @default(0) @db.Decimal(14, 2)
+  credit         Decimal @default(0) @db.Decimal(14, 2)
+  description    String?
+
+  journalEntry JournalEntry   @relation(fields: [journalEntryId], references: [id])
+  account      ChartOfAccount @relation(fields: [accountId], references: [id])
+
+  @@index([journalEntryId])
+  @@index([accountId])
+  @@map("journal_entry_lines")
 }

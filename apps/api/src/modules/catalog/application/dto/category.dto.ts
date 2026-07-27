@@ -13,6 +13,8 @@ export interface UpdateCategoryUseCaseInput {
   categoryId: string;
   parentId?: string | null;
   name?: string;
+  salesAccountId?: string | null;
+  purchasesAccountId?: string | null;
 }
 
 export interface ChangeCategoryStateUseCaseInput {
