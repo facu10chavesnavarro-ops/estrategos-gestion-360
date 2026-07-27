@@ -1,5 +1,10 @@
 import { VoucherType as PrismaVoucherType } from '@prisma/client';
-import { VoucherTypeEntity, VoucherFlow, StockEffect } from '../../domain/entities/voucher-type.entity';
+import {
+  VoucherTypeEntity,
+  VoucherFlow,
+  StockEffect,
+  CurrentAccountEffect,
+} from '../../domain/entities/voucher-type.entity';
 
 export class VoucherTypeMapper {
   static toDomain(raw: PrismaVoucherType): VoucherTypeEntity {
@@ -9,6 +14,7 @@ export class VoucherTypeMapper {
       raw.name,
       raw.flow as VoucherFlow,
       raw.affectsStock as StockEffect,
+      raw.affectsCurrentAccount as CurrentAccountEffect,
       raw.requiresCae,
       raw.isCreditNote,
       raw.relatedVoucherRequired,

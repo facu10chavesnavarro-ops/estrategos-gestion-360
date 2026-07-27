@@ -26,6 +26,7 @@ const VOUCHER_TYPES = [
     name: 'Factura A',
     flow: 'SALE' as const,
     affectsStock: 'OUT' as const,
+    affectsCurrentAccount: 'DEBIT' as const,
     requiresCae: true,
     isCreditNote: false,
     relatedVoucherRequired: false,
@@ -35,6 +36,7 @@ const VOUCHER_TYPES = [
     name: 'Factura B',
     flow: 'SALE' as const,
     affectsStock: 'OUT' as const,
+    affectsCurrentAccount: 'DEBIT' as const,
     requiresCae: true,
     isCreditNote: false,
     relatedVoucherRequired: false,
@@ -44,6 +46,7 @@ const VOUCHER_TYPES = [
     name: 'Factura C',
     flow: 'SALE' as const,
     affectsStock: 'OUT' as const,
+    affectsCurrentAccount: 'DEBIT' as const,
     requiresCae: true,
     isCreditNote: false,
     relatedVoucherRequired: false,
@@ -53,6 +56,7 @@ const VOUCHER_TYPES = [
     name: 'Nota de Crédito A',
     flow: 'SALE' as const,
     affectsStock: 'IN' as const,
+    affectsCurrentAccount: 'CREDIT' as const,
     requiresCae: true,
     isCreditNote: true,
     relatedVoucherRequired: true,
@@ -62,6 +66,7 @@ const VOUCHER_TYPES = [
     name: 'Nota de Crédito B',
     flow: 'SALE' as const,
     affectsStock: 'IN' as const,
+    affectsCurrentAccount: 'CREDIT' as const,
     requiresCae: true,
     isCreditNote: true,
     relatedVoucherRequired: true,
@@ -71,6 +76,7 @@ const VOUCHER_TYPES = [
     name: 'Nota de Crédito C',
     flow: 'SALE' as const,
     affectsStock: 'IN' as const,
+    affectsCurrentAccount: 'CREDIT' as const,
     requiresCae: true,
     isCreditNote: true,
     relatedVoucherRequired: true,
@@ -80,9 +86,66 @@ const VOUCHER_TYPES = [
     name: 'Factura de Compra',
     flow: 'PURCHASE' as const,
     affectsStock: 'IN' as const,
+    affectsCurrentAccount: 'CREDIT' as const,
     requiresCae: false,
     isCreditNote: false,
     relatedVoucherRequired: false,
+  },
+];
+
+/**
+ * Catálogo global de PaymentMethod (Sprint 3.4, docs/sprint-3/04-tesoreria.md
+ * §0.5/§1.1) — Efectivo/Transferencia/Cuenta Corriente sin tabla de detalle;
+ * Cheque y las dos tarjetas sí (CheckDetail/CardDetail).
+ */
+const PAYMENT_METHODS = [
+  {
+    code: 'EFECTIVO',
+    name: 'Efectivo',
+    requiresCheckDetail: false,
+    requiresCardDetail: false,
+    requiresCashMovement: true,
+    requiresBankMovement: false,
+  },
+  {
+    code: 'CHEQUE',
+    name: 'Cheque',
+    requiresCheckDetail: true,
+    requiresCardDetail: false,
+    requiresCashMovement: false,
+    requiresBankMovement: false,
+  },
+  {
+    code: 'TRANSFERENCIA',
+    name: 'Transferencia Bancaria',
+    requiresCheckDetail: false,
+    requiresCardDetail: false,
+    requiresCashMovement: false,
+    requiresBankMovement: true,
+  },
+  {
+    code: 'TARJETA_DEBITO',
+    name: 'Tarjeta de Débito',
+    requiresCheckDetail: false,
+    requiresCardDetail: true,
+    requiresCashMovement: false,
+    requiresBankMovement: true,
+  },
+  {
+    code: 'TARJETA_CREDITO',
+    name: 'Tarjeta de Crédito',
+    requiresCheckDetail: false,
+    requiresCardDetail: true,
+    requiresCashMovement: false,
+    requiresBankMovement: true,
+  },
+  {
+    code: 'CUENTA_CORRIENTE',
+    name: 'Cuenta Corriente',
+    requiresCheckDetail: false,
+    requiresCardDetail: false,
+    requiresCashMovement: false,
+    requiresBankMovement: false,
   },
 ];
 
@@ -150,6 +213,16 @@ async function main() {
         where: { code: voucherType.code },
         update: {},
         create: voucherType,
+      }),
+    ),
+  );
+
+  await Promise.all(
+    PAYMENT_METHODS.map((paymentMethod) =>
+      prisma.paymentMethod.upsert({
+        where: { code: paymentMethod.code },
+        update: {},
+        create: paymentMethod,
       }),
     ),
   );

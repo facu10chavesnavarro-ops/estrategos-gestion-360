@@ -43,22 +43,25 @@ model Company {
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
-  companyUsers   CompanyUser[]
-  auditLogs      AuditLog[]
-  branches       Branch[]
-  invitations    Invitation[]
-  parties        Party[]
-  customers      Customer[]
-  suppliers      Supplier[]
-  categories     Category[]
-  items          Item[]
-  taxes          Tax[]
-  priceLists     PriceList[]
-  warehouses     Warehouse[]
-  stockMovements StockMovement[]
-  pointsOfSale   PointOfSale[]
-  vouchers       Voucher[]
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  companyUsers     CompanyUser[]
+  auditLogs        AuditLog[]
+  branches         Branch[]
+  invitations      Invitation[]
+  parties          Party[]
+  customers        Customer[]
+  suppliers        Supplier[]
+  categories       Category[]
+  items            Item[]
+  taxes            Tax[]
+  priceLists       PriceList[]
+  warehouses       Warehouse[]
+  stockMovements   StockMovement[]
+  pointsOfSale     PointOfSale[]
+  vouchers         Voucher[]
+  customerAccounts CustomerAccount[]
+  supplierAccounts SupplierAccount[]
+  payments         Payment[]
 
   @@index([tenantId])
   @@map("companies")
@@ -227,6 +230,7 @@ model Party {
   customer Customer?
   supplier Supplier?
   vouchers Voucher[]
+  payments Payment[]
 
   @@unique([companyId, taxId])
   @@index([companyId])
@@ -249,9 +253,10 @@ model Customer {
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 
-  party              Party      @relation(fields: [partyId], references: [id])
-  company            Company    @relation(fields: [companyId], references: [id])
-  preferredPriceList PriceList? @relation(fields: [preferredPriceListId], references: [id])
+  party              Party            @relation(fields: [partyId], references: [id])
+  company            Company          @relation(fields: [companyId], references: [id])
+  preferredPriceList PriceList?       @relation(fields: [preferredPriceListId], references: [id])
+  account            CustomerAccount?
 
   @@index([companyId])
   @@index([companyId, isActive])
@@ -274,8 +279,9 @@ model Supplier {
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
-  party   Party   @relation(fields: [partyId], references: [id])
-  company Company @relation(fields: [companyId], references: [id])
+  party   Party            @relation(fields: [partyId], references: [id])
+  company Company          @relation(fields: [companyId], references: [id])
+  account SupplierAccount?
 
   @@index([companyId])
   @@index([companyId, isActive])
@@ -540,20 +546,27 @@ enum StockEffect {
   NONE
 }
 
+enum CurrentAccountEffect {
+  DEBIT
+  CREDIT
+  NONE
+}
+
 /// Catálogo global de plataforma (como Role) — no pertenece a ninguna
 /// empresa. Sprint 3.3 solo sembró FA_A/B/C, NC_A/B/C y FC — ver
 /// docs/sprint-3/03-comprobantes.md §0.1 para el resto (Recibo, Remito,
 /// Nota de Débito, Orden de Compra, Presupuesto), diferido.
 model VoucherType {
-  id                     String      @id @default(uuid())
-  code                   String      @unique
+  id                     String               @id @default(uuid())
+  code                   String               @unique
   name                   String
   flow                   VoucherFlow
-  affectsStock           StockEffect @map("affects_stock")
-  requiresCae            Boolean     @map("requires_cae")
-  isCreditNote           Boolean     @default(false) @map("is_credit_note")
-  relatedVoucherRequired Boolean     @default(false) @map("related_voucher_required")
-  isActive               Boolean     @default(true) @map("is_active")
+  affectsStock           StockEffect          @map("affects_stock")
+  affectsCurrentAccount  CurrentAccountEffect @map("affects_current_account")
+  requiresCae            Boolean              @map("requires_cae")
+  isCreditNote           Boolean              @default(false) @map("is_credit_note")
+  relatedVoucherRequired Boolean              @default(false) @map("related_voucher_required")
+  isActive               Boolean              @default(true) @map("is_active")
 
   vouchers Voucher[]
 
@@ -599,14 +612,17 @@ model Voucher {
   createdByUserId   String    @map("created_by_user_id")
   createdAt         DateTime  @default(now()) @map("created_at")
 
-  company        Company         @relation(fields: [companyId], references: [id])
-  pointOfSale    PointOfSale     @relation(fields: [pointOfSaleId], references: [id])
-  voucherType    VoucherType     @relation(fields: [voucherTypeId], references: [id])
-  party          Party           @relation(fields: [partyId], references: [id])
-  relatedVoucher Voucher?        @relation("VoucherRelation", fields: [relatedVoucherId], references: [id])
-  relatedByNotes Voucher[]       @relation("VoucherRelation")
-  lines          VoucherLine[]
-  stockMovements StockMovement[]
+  company                  Company                   @relation(fields: [companyId], references: [id])
+  pointOfSale              PointOfSale               @relation(fields: [pointOfSaleId], references: [id])
+  voucherType              VoucherType               @relation(fields: [voucherTypeId], references: [id])
+  party                    Party                     @relation(fields: [partyId], references: [id])
+  relatedVoucher           Voucher?                  @relation("VoucherRelation", fields: [relatedVoucherId], references: [id])
+  relatedByNotes           Voucher[]                 @relation("VoucherRelation")
+  lines                    VoucherLine[]
+  stockMovements           StockMovement[]
+  paymentAllocations       PaymentAllocation[]
+  customerAccountMovements CustomerAccountMovement[]
+  supplierAccountMovements SupplierAccountMovement[]
 
   @@unique([companyId, pointOfSaleId, voucherTypeId, number])
   @@index([companyId, createdAt])
@@ -648,4 +664,192 @@ model VoucherLineTax {
 
   @@id([voucherLineId, taxId])
   @@map("voucher_line_taxes")
+}
+
+/// Catálogo global de plataforma (como VoucherType/Role) — Sprint 3.4,
+/// docs/sprint-3/04-tesoreria.md §0.5. requiresCashMovement/
+/// requiresBankMovement no tienen lector todavía (Sprint 3.5).
+model PaymentMethod {
+  id                   String  @id @default(uuid())
+  code                 String  @unique
+  name                 String
+  requiresCheckDetail  Boolean @default(false) @map("requires_check_detail")
+  requiresCardDetail   Boolean @default(false) @map("requires_card_detail")
+  requiresCashMovement Boolean @default(false) @map("requires_cash_movement")
+  requiresBankMovement Boolean @default(false) @map("requires_bank_movement")
+  isActive             Boolean @default(true) @map("is_active")
+
+  methodDetails PaymentMethodDetail[]
+
+  @@map("payment_methods")
+}
+
+enum CheckStatus {
+  EN_CARTERA
+  DEPOSITADO
+  RECHAZADO
+  COBRADO
+}
+
+/// Sin lógica de transición de estado en este sub-sprint (§0.2 de
+/// docs/sprint-3/04-tesoreria.md) — status queda en EN_CARTERA al crear.
+model CheckDetail {
+  id        String      @id @default(uuid())
+  number    String
+  bankName  String      @map("bank_name")
+  dueDate   DateTime    @map("due_date")
+  status    CheckStatus @default(EN_CARTERA)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  methodDetail PaymentMethodDetail?
+
+  @@map("check_details")
+}
+
+/// Deliberadamente mínimo, sin ciclo de vida propio (§0.6).
+model CardDetail {
+  id                String   @id @default(uuid())
+  authorizationCode String?  @map("authorization_code")
+  batchNumber       String?  @map("batch_number")
+  settlementEntity  String?  @map("settlement_entity")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  methodDetail PaymentMethodDetail?
+
+  @@map("card_details")
+}
+
+enum PaymentDirection {
+  COLLECTION
+  PAYMENT
+}
+
+/// Cobro/pago (RN-PAY-01 a 09). `id` sin @default: uuidv7(), tabla de
+/// alto volumen. Inmutable una vez creado (RN-PAY-06).
+model Payment {
+  id              String           @id
+  companyId       String           @map("company_id")
+  partyId         String           @map("party_id")
+  direction       PaymentDirection
+  date            DateTime
+  currency        String
+  exchangeRate    Decimal          @default(1) @map("exchange_rate") @db.Decimal(10, 4)
+  totalAmount     Decimal          @map("total_amount") @db.Decimal(14, 2)
+  createdByUserId String           @map("created_by_user_id")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  company       Company               @relation(fields: [companyId], references: [id])
+  party         Party                 @relation(fields: [partyId], references: [id])
+  allocations   PaymentAllocation[]
+  methodDetails PaymentMethodDetail[]
+
+  @@index([companyId, createdAt])
+  @@index([partyId])
+  @@map("payments")
+}
+
+/// Imputación de un Payment a un Voucher (RN-PAY-03/04/05) — permite
+/// pagos parciales y pagos que cubren varios comprobantes.
+model PaymentAllocation {
+  id            String  @id
+  paymentId     String  @map("payment_id")
+  voucherId     String  @map("voucher_id")
+  amountApplied Decimal @map("amount_applied") @db.Decimal(14, 2)
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+  voucher Voucher @relation(fields: [voucherId], references: [id])
+
+  @@index([paymentId])
+  @@index([voucherId])
+  @@map("payment_allocations")
+}
+
+/// Reparto de un Payment entre varios medios (RN-PAY-02/07).
+model PaymentMethodDetail {
+  id              String  @id
+  paymentId       String  @map("payment_id")
+  paymentMethodId String  @map("payment_method_id")
+  amount          Decimal @db.Decimal(14, 2)
+  reference       String?
+  checkDetailId   String? @unique @map("check_detail_id")
+  cardDetailId    String? @unique @map("card_detail_id")
+
+  payment       Payment       @relation(fields: [paymentId], references: [id])
+  paymentMethod PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+  checkDetail   CheckDetail?  @relation(fields: [checkDetailId], references: [id])
+  cardDetail    CardDetail?   @relation(fields: [cardDetailId], references: [id])
+
+  @@index([paymentId])
+  @@map("payment_method_details")
+}
+
+enum CurrentAccountMovementType {
+  DEBIT
+  CREDIT
+}
+
+/// RN-CTA-01: se crea implícitamente (upsert) en el primer movimiento,
+/// sin alta manual — mismo patrón que Stock (Sprint 3.2).
+model CustomerAccount {
+  id             String  @id @default(uuid())
+  companyId      String  @map("company_id")
+  customerId     String  @unique @map("customer_id")
+  currentBalance Decimal @default(0) @map("current_balance") @db.Decimal(14, 2)
+
+  company   Company                   @relation(fields: [companyId], references: [id])
+  customer  Customer                  @relation(fields: [customerId], references: [id])
+  movements CustomerAccountMovement[]
+
+  @@map("customer_accounts")
+}
+
+/// RN-CTA-02/03: inmutable, balanceAfter es snapshot. DEBIT aumenta el
+/// saldo, CREDIT lo disminuye (convención unificada, §0.3).
+model CustomerAccountMovement {
+  id                String                     @id
+  customerAccountId String                     @map("customer_account_id")
+  type              CurrentAccountMovementType
+  amount            Decimal                    @db.Decimal(14, 2)
+  balanceAfter      Decimal                    @map("balance_after") @db.Decimal(14, 2)
+  voucherId         String?                    @map("voucher_id")
+  paymentId         String?                    @map("payment_id")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+
+  customerAccount CustomerAccount @relation(fields: [customerAccountId], references: [id])
+  voucher         Voucher?        @relation(fields: [voucherId], references: [id])
+
+  @@index([customerAccountId, createdAt])
+  @@map("customer_account_movements")
+}
+
+/// RN-CTA-01: análogo a CustomerAccount.
+model SupplierAccount {
+  id             String  @id @default(uuid())
+  companyId      String  @map("company_id")
+  supplierId     String  @unique @map("supplier_id")
+  currentBalance Decimal @default(0) @map("current_balance") @db.Decimal(14, 2)
+
+  company   Company                   @relation(fields: [companyId], references: [id])
+  supplier  Supplier                  @relation(fields: [supplierId], references: [id])
+  movements SupplierAccountMovement[]
+
+  @@map("supplier_accounts")
+}
+
+/// RN-CTA-02/03: análogo a CustomerAccountMovement.
+model SupplierAccountMovement {
+  id                String                     @id
+  supplierAccountId String                     @map("supplier_account_id")
+  type              CurrentAccountMovementType
+  amount            Decimal                    @db.Decimal(14, 2)
+  balanceAfter      Decimal                    @map("balance_after") @db.Decimal(14, 2)
+  voucherId         String?                    @map("voucher_id")
+  paymentId         String?                    @map("payment_id")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+
+  supplierAccount SupplierAccount @relation(fields: [supplierAccountId], references: [id])
+  voucher         Voucher?        @relation(fields: [voucherId], references: [id])
+
+  @@index([supplierAccountId, createdAt])
+  @@map("supplier_account_movements")
 }

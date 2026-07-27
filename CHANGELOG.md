@@ -6,6 +6,62 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.8.0] - 2026-07-27
+
+Sprint 3, Sub-sprint 4: Tesorería (Pagos y Cuentas Corrientes). Cuarto
+módulo del núcleo financiero, según
+`docs/sprint-3/00-arquitectura-nucleo-financiero.md` §1.7, 1.8, 13-15
+(incluye la Decisión 1.7: cuentas separadas Cliente/Proveedor).
+
+### Agregado
+
+- **Cuentas corrientes separadas** (`CustomerAccount`/`SupplierAccount` +
+  sus `...Movement`): se materializan automáticamente en el primer
+  movimiento (mismo patrón que `Stock`), con una convención de signo
+  unificada entre ambas (saldo positivo = nos deben, negativo = les
+  debemos). `GET /companies/:id/customers/:id/current-account`,
+  `GET /companies/:id/suppliers/:id/current-account`.
+- **`Voucher` ahora afecta la cuenta corriente**: retrofit de
+  `CreateVoucherUseCase` (Sprint 3.3) — una Factura de Venta sube el saldo
+  del cliente, una Factura de Compra baja el del proveedor, una Nota de
+  Crédito revierte el efecto, todo dentro de la misma transacción que crea
+  el comprobante.
+- **Pagos y cobros** (`Payment` + `PaymentAllocation` +
+  `PaymentMethodDetail`): un pago puede cubrir uno o varios comprobantes
+  (total o parcialmente) y repartirse entre varios medios de pago a la
+  vez. `POST/GET /companies/:id/payments`,
+  `GET /companies/:id/payments/:id`.
+- **Medios de pago** (`PaymentMethod`, catálogo global sembrado: Efectivo,
+  Cheque, Transferencia, Tarjeta de Débito/Crédito, Cuenta Corriente), con
+  `CheckDetail` (número, banco, fecha de cobro, estado) y `CardDetail`
+  para los medios que lo requieren. `GET /payment-methods`.
+- **`ApplyCustomerAccountMovementService`/`ApplySupplierAccountMovementService`**:
+  mismo principio que `ApplyStockMovementService` (Sprint 3.3) — reciben
+  la transacción abierta en vez de crear la suya propia, para que
+  Comprobantes y Pagos puedan aplicar su efecto de cuenta corriente
+  atómicamente junto con el resto de sus escrituras.
+
+### Corregido / actualizado
+
+- `VoucherType` gana la columna `affectsCurrentAccount`
+  (`DEBIT`/`CREDIT`/`NONE`), completada retroactivamente en los 7 tipos ya
+  sembrados según su `flow`/`isCreditNote`.
+
+### Pruebas
+
+- 255/255 tests unitarios (23 nuevos: 21 de Tesorería + 2 del retrofit de
+  `CreateVoucherUseCase`).
+- 18/18 tests de integración contra Postgres real (3 nuevos: camino feliz
+  Factura→cobro parcial, pago con Cheque, rollback).
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: Factura de Venta, cobro parcial,
+  cobro del resto combinando dos medios, Factura de Compra, pago a
+  proveedor con cheque, y rechazo de sobre-imputación — saldos verificados
+  exactos en cada paso. Se detectó y corrigió un bug real durante esta
+  verificación (ver `docs/sprint-3/04-tesoreria.md` §7, hallazgo 2): un
+  error de Prisma al mezclar escritura por FK escalar con escritura
+  anidada por relación al crear `PaymentMethodDetail` con `CheckDetail`.
+
 ## [0.7.0] - 2026-07-27
 
 Sprint 3, Sub-sprint 3: Comprobantes (Facturas y Notas de Crédito, Venta y

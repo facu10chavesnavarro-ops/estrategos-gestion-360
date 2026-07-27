@@ -43,6 +43,19 @@ import { StockMovementRepository } from '../inventory/domain/repositories/stock-
 import { PrismaStockMovementRepository } from '../inventory/infrastructure/persistence/prisma-stock-movement.repository';
 import { ApplyStockMovementService } from '../inventory/application/services/apply-stock-movement.service';
 
+import { CustomerAccountRepository, CustomerAccountMovementRepository } from '../treasury/domain/repositories/customer-account.repository';
+import {
+  PrismaCustomerAccountRepository,
+  PrismaCustomerAccountMovementRepository,
+} from '../treasury/infrastructure/persistence/prisma-customer-account.repository';
+import { SupplierAccountRepository, SupplierAccountMovementRepository } from '../treasury/domain/repositories/supplier-account.repository';
+import {
+  PrismaSupplierAccountRepository,
+  PrismaSupplierAccountMovementRepository,
+} from '../treasury/infrastructure/persistence/prisma-supplier-account.repository';
+import { ApplyCustomerAccountMovementService } from '../treasury/application/services/apply-customer-account-movement.service';
+import { ApplySupplierAccountMovementService } from '../treasury/application/services/apply-supplier-account-movement.service';
+
 import { AuditLogRepository } from '../../common/domain/repositories/audit-log.repository';
 import { PrismaAuditLogRepository } from '../../common/infrastructure/persistence/prisma-audit-log.repository';
 import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
@@ -64,6 +77,8 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     ListVouchersUseCase,
     GetVoucherByIdUseCase,
     ApplyStockMovementService,
+    ApplyCustomerAccountMovementService,
+    ApplySupplierAccountMovementService,
     { provide: PointOfSaleRepository, useClass: PrismaPointOfSaleRepository },
     { provide: VoucherTypeRepository, useClass: PrismaVoucherTypeRepository },
     { provide: VoucherCounterRepository, useClass: PrismaVoucherCounterRepository },
@@ -77,6 +92,10 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: WarehouseRepository, useClass: PrismaWarehouseRepository },
     { provide: StockRepository, useClass: PrismaStockRepository },
     { provide: StockMovementRepository, useClass: PrismaStockMovementRepository },
+    { provide: CustomerAccountRepository, useClass: PrismaCustomerAccountRepository },
+    { provide: CustomerAccountMovementRepository, useClass: PrismaCustomerAccountMovementRepository },
+    { provide: SupplierAccountRepository, useClass: PrismaSupplierAccountRepository },
+    { provide: SupplierAccountMovementRepository, useClass: PrismaSupplierAccountMovementRepository },
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
     { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],

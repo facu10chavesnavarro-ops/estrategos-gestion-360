@@ -9,10 +9,19 @@ import { PrismaSupplierRepository } from '../../src/modules/suppliers/infrastruc
 import { PrismaItemRepository } from '../../src/modules/catalog/infrastructure/persistence/prisma-item.repository';
 import { PrismaTaxRepository } from '../../src/modules/catalog/infrastructure/persistence/prisma-tax.repository';
 import { PrismaCompanyRepository } from '../../src/modules/companies/infrastructure/persistence/prisma-company.repository';
-import { PrismaWarehouseRepository } from '../../src/modules/inventory/infrastructure/persistence/prisma-warehouse.repository';
 import { PrismaStockRepository } from '../../src/modules/inventory/infrastructure/persistence/prisma-stock.repository';
 import { PrismaStockMovementRepository } from '../../src/modules/inventory/infrastructure/persistence/prisma-stock-movement.repository';
 import { ApplyStockMovementService } from '../../src/modules/inventory/application/services/apply-stock-movement.service';
+import {
+  PrismaCustomerAccountRepository,
+  PrismaCustomerAccountMovementRepository,
+} from '../../src/modules/treasury/infrastructure/persistence/prisma-customer-account.repository';
+import {
+  PrismaSupplierAccountRepository,
+  PrismaSupplierAccountMovementRepository,
+} from '../../src/modules/treasury/infrastructure/persistence/prisma-supplier-account.repository';
+import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/application/services/apply-customer-account-movement.service';
+import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
 import { PrismaAuditLogRepository } from '../../src/common/infrastructure/persistence/prisma-audit-log.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { CreateVoucherUseCase } from '../../src/modules/vouchers/application/use-cases/create-voucher.use-case';
@@ -36,12 +45,23 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
   const itemRepository = new PrismaItemRepository(prisma);
   const taxRepository = new PrismaTaxRepository(prisma);
   const companyRepository = new PrismaCompanyRepository(prisma);
-  const warehouseRepository = new PrismaWarehouseRepository(prisma);
   const stockRepository = new PrismaStockRepository(prisma);
   const stockMovementRepository = new PrismaStockMovementRepository(prisma);
   const applyStockMovementService = new ApplyStockMovementService(
     stockRepository,
     stockMovementRepository,
+  );
+  const customerAccountRepository = new PrismaCustomerAccountRepository(prisma);
+  const customerAccountMovementRepository = new PrismaCustomerAccountMovementRepository(prisma);
+  const supplierAccountRepository = new PrismaSupplierAccountRepository(prisma);
+  const supplierAccountMovementRepository = new PrismaSupplierAccountMovementRepository(prisma);
+  const applyCustomerAccountMovementService = new ApplyCustomerAccountMovementService(
+    customerAccountRepository,
+    customerAccountMovementRepository,
+  );
+  const applySupplierAccountMovementService = new ApplySupplierAccountMovementService(
+    supplierAccountRepository,
+    supplierAccountMovementRepository,
   );
   const unitOfWork = new PrismaUnitOfWork(prisma);
 
@@ -53,6 +73,7 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
   let pointOfSaleId: string;
   let voucherTypeId: string;
   let requestingUserId: string;
+  let customerId: string;
 
   function makeUseCase(auditLogRepository: AuditLogRepository) {
     return new CreateVoucherUseCase(
@@ -66,6 +87,8 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
       taxRepository,
       companyRepository,
       applyStockMovementService,
+      applyCustomerAccountMovementService,
+      applySupplierAccountMovementService,
       auditLogRepository,
       unitOfWork,
     );
@@ -119,7 +142,8 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
       data: { companyId, legalName: 'Cliente de Prueba SRL' },
     });
     partyId = party.id;
-    await prisma.customer.create({ data: { partyId, companyId } });
+    const customer = await prisma.customer.create({ data: { partyId, companyId } });
+    customerId = customer.id;
 
     const pointOfSale = await prisma.pointOfSale.create({
       data: { companyId, branchId, code: '0001', name: 'Casa Central' },
@@ -179,6 +203,17 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
       where: { action: 'voucher.create', entityId: voucher.id },
     });
     expect(auditEntries).toHaveLength(1);
+
+    // RN-CTA-04: una Factura de Venta (affectsCurrentAccount = DEBIT) sube el saldo del cliente.
+    const customerAccount = await prisma.customerAccount.findUnique({ where: { customerId } });
+    expect(customerAccount?.currentBalance.toFixed(2)).toBe('1000.00');
+    const accountMovements = await prisma.customerAccountMovement.findMany({
+      where: { customerAccountId: customerAccount!.id },
+    });
+    expect(accountMovements).toHaveLength(1);
+    expect(accountMovements[0].type).toBe('DEBIT');
+    expect(accountMovements[0].voucherId).toBe(voucher.id);
+    expect(accountMovements[0].balanceAfter.toFixed(2)).toBe('1000.00');
   });
 
   it('rollback: si falla la auditoría, no queda Voucher, VoucherLine, StockMovement ni cambio en Stock', async () => {
@@ -224,6 +259,10 @@ describe('CreateVoucherUseCase (integración, DB real)', () => {
       },
     });
     expect(counter).toBeNull();
+
+    // Tampoco quedó un efecto huérfano en la cuenta corriente.
+    const customerAccount = await prisma.customerAccount.findUnique({ where: { customerId } });
+    expect(customerAccount).toBeNull();
   });
 
   it('RN-VOU-02: concurrencia de numeración — dos altas en paralelo obtienen números consecutivos sin duplicados', async () => {

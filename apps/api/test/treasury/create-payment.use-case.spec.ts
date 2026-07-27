@@ -1,0 +1,450 @@
+import { CreatePaymentUseCase } from '../../src/modules/treasury/application/use-cases/create-payment.use-case';
+import { PaymentMethodRepository } from '../../src/modules/treasury/domain/repositories/payment-method.repository';
+import { PaymentMethodEntity } from '../../src/modules/treasury/domain/entities/payment-method.entity';
+import { PaymentRepository } from '../../src/modules/treasury/domain/repositories/payment.repository';
+import { PaymentEntity } from '../../src/modules/treasury/domain/entities/payment.entity';
+import { CustomerRepository } from '../../src/modules/customers/domain/repositories/customer.repository';
+import { CustomerEntity } from '../../src/modules/customers/domain/entities/customer.entity';
+import { SupplierRepository } from '../../src/modules/suppliers/domain/repositories/supplier.repository';
+import { SupplierEntity } from '../../src/modules/suppliers/domain/entities/supplier.entity';
+import { VoucherRepository } from '../../src/modules/vouchers/domain/repositories/voucher.repository';
+import { VoucherEntity } from '../../src/modules/vouchers/domain/entities/voucher.entity';
+import { CompanyRepository } from '../../src/modules/companies/domain/repositories/company.repository';
+import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
+import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/application/services/apply-customer-account-movement.service';
+import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
+import { CustomerAccountMovementEntity } from '../../src/modules/treasury/domain/entities/customer-account.entity';
+import { SupplierAccountMovementEntity } from '../../src/modules/treasury/domain/entities/supplier-account.entity';
+import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
+import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
+import {
+  InvalidPaymentCounterpartyError,
+  EmptyPaymentMethodDetailsError,
+  InvalidPaymentMethodError,
+  MissingCheckDetailError,
+  AllocationExceedsPaymentAmountError,
+  InvalidAllocationVoucherError,
+  VoucherOverpaidError,
+} from '../../src/modules/treasury/domain/errors/payment.errors';
+import { createFakeUnitOfWork } from '../support/fake-unit-of-work';
+
+function makePaymentMethod(overrides: Partial<PaymentMethodEntity> = {}): PaymentMethodEntity {
+  return new PaymentMethodEntity(
+    overrides.id ?? 'method-efectivo',
+    overrides.code ?? 'EFECTIVO',
+    overrides.name ?? 'Efectivo',
+    overrides.requiresCheckDetail ?? false,
+    overrides.requiresCardDetail ?? false,
+    overrides.requiresCashMovement ?? true,
+    overrides.requiresBankMovement ?? false,
+    overrides.isActive ?? true,
+  );
+}
+
+function makeCustomer(overrides: Partial<CustomerEntity> = {}): CustomerEntity {
+  return new CustomerEntity(
+    overrides.id ?? 'customer-1',
+    overrides.partyId ?? 'party-1',
+    overrides.companyId ?? 'company-1',
+    overrides.legalName ?? 'Cliente SRL',
+    overrides.taxId ?? null,
+    overrides.taxCondition ?? null,
+    overrides.email ?? null,
+    overrides.phone ?? null,
+    overrides.address ?? null,
+    overrides.contactName ?? null,
+    overrides.notes ?? null,
+    overrides.paymentTermDays ?? null,
+    overrides.creditLimit ?? null,
+    overrides.isActive ?? true,
+  );
+}
+
+function makeSupplier(overrides: Partial<SupplierEntity> = {}): SupplierEntity {
+  return new SupplierEntity(
+    overrides.id ?? 'supplier-1',
+    overrides.partyId ?? 'party-1',
+    overrides.companyId ?? 'company-1',
+    overrides.legalName ?? 'Proveedor SRL',
+    overrides.taxId ?? null,
+    overrides.taxCondition ?? null,
+    overrides.email ?? null,
+    overrides.phone ?? null,
+    overrides.address ?? null,
+    overrides.contactName ?? null,
+    overrides.notes ?? null,
+    overrides.paymentTermDays ?? null,
+    overrides.bankName ?? null,
+    overrides.bankAccountHolder ?? null,
+    overrides.bankCbu ?? null,
+    overrides.isActive ?? true,
+  );
+}
+
+function makeCompany(overrides: Partial<CompanyEntity> = {}): CompanyEntity {
+  return new CompanyEntity(
+    overrides.id ?? 'company-1',
+    overrides.tenantId ?? 'tenant-1',
+    overrides.legalName ?? 'Empresa Piloto SRL',
+    overrides.taxId ?? null,
+    overrides.taxCondition ?? null,
+    overrides.activity ?? null,
+    overrides.address ?? null,
+    overrides.contactName ?? null,
+    overrides.contactEmail ?? null,
+    overrides.contactPhone ?? null,
+    overrides.logoUrl ?? null,
+    overrides.currency ?? 'ARS',
+    overrides.timezone ?? 'America/Argentina/Jujuy',
+    overrides.allowNegativeStock ?? false,
+    overrides.isActive ?? true,
+  );
+}
+
+function makeVoucher(overrides: Partial<VoucherEntity> = {}): VoucherEntity {
+  return new VoucherEntity(
+    overrides.id ?? 'voucher-1',
+    overrides.companyId ?? 'company-1',
+    overrides.branchId ?? 'branch-1',
+    overrides.pointOfSaleId ?? 'pos-1',
+    overrides.voucherTypeId ?? 'voucher-type-fa-a',
+    overrides.number ?? 1,
+    overrides.partyId ?? 'party-1',
+    overrides.warehouseId ?? null,
+    overrides.issueDate ?? new Date(),
+    overrides.currency ?? 'ARS',
+    overrides.exchangeRate ?? '1',
+    overrides.relatedVoucherId ?? null,
+    overrides.subtotal ?? '1000.00',
+    overrides.taxTotal ?? '210.00',
+    overrides.total ?? '1210.00',
+    overrides.cae ?? null,
+    overrides.caeExpirationDate ?? null,
+    overrides.createdByUserId ?? 'user-1',
+    overrides.createdAt ?? new Date(),
+    overrides.lines ?? [],
+  );
+}
+
+function makePayment(overrides: Partial<PaymentEntity> = {}): PaymentEntity {
+  return new PaymentEntity(
+    overrides.id ?? 'payment-1',
+    overrides.companyId ?? 'company-1',
+    overrides.partyId ?? 'party-1',
+    overrides.direction ?? 'COLLECTION',
+    overrides.date ?? new Date(),
+    overrides.currency ?? 'ARS',
+    overrides.exchangeRate ?? '1',
+    overrides.totalAmount ?? '1210.00',
+    overrides.createdByUserId ?? 'user-1',
+    overrides.createdAt ?? new Date(),
+    overrides.allocations ?? [],
+    overrides.methodDetails ?? [],
+  );
+}
+
+describe('CreatePaymentUseCase', () => {
+  function makeSut() {
+    const paymentMethodRepository = {
+      findById: jest.fn(),
+      findAllActive: jest.fn(),
+    } as jest.Mocked<PaymentMethodRepository>;
+    const paymentRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAllByCompany: jest.fn(),
+      sumAllocatedAmountForVoucher: jest.fn(),
+    } as jest.Mocked<PaymentRepository>;
+    const customerRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByPartyId: jest.fn(),
+      findAllByCompany: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<CustomerRepository>;
+    const supplierRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByPartyId: jest.fn(),
+      findAllByCompany: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<SupplierRepository>;
+    const voucherRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAllByCompany: jest.fn(),
+    } as jest.Mocked<VoucherRepository>;
+    const companyRepository = {
+      create: jest.fn(),
+      findAllForUser: jest.fn(),
+      findById: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<CompanyRepository>;
+    const applyCustomerAccountMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyCustomerAccountMovementService>;
+    const applySupplierAccountMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplySupplierAccountMovementService>;
+    const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
+
+    const useCase = new CreatePaymentUseCase(
+      paymentMethodRepository,
+      paymentRepository,
+      customerRepository,
+      supplierRepository,
+      voucherRepository,
+      companyRepository,
+      applyCustomerAccountMovementService,
+      applySupplierAccountMovementService,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
+
+    companyRepository.findById.mockResolvedValue(makeCompany());
+    customerRepository.findByPartyId.mockResolvedValue(makeCustomer());
+    supplierRepository.findByPartyId.mockResolvedValue(makeSupplier());
+    paymentMethodRepository.findById.mockResolvedValue(makePaymentMethod());
+    paymentRepository.sumAllocatedAmountForVoucher.mockResolvedValue('0');
+    paymentRepository.create.mockResolvedValue(makePayment());
+    voucherRepository.findById.mockResolvedValue(makeVoucher());
+    applyCustomerAccountMovementService.apply.mockResolvedValue(
+      {} as CustomerAccountMovementEntity,
+    );
+    applySupplierAccountMovementService.apply.mockResolvedValue(
+      {} as SupplierAccountMovementEntity,
+    );
+
+    return {
+      paymentMethodRepository,
+      paymentRepository,
+      customerRepository,
+      supplierRepository,
+      voucherRepository,
+      companyRepository,
+      applyCustomerAccountMovementService,
+      applySupplierAccountMovementService,
+      auditLogRepository,
+      useCase,
+    };
+  }
+
+  const baseInput = {
+    requestingUserId: 'user-1',
+    requestingRoleName: 'Propietario',
+    companyId: 'company-1',
+    partyId: 'party-1',
+    direction: 'COLLECTION' as const,
+    methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '1210' }],
+  };
+
+  it('rechaza si el rol no autoriza', async () => {
+    const { useCase } = makeSut();
+
+    await expect(
+      useCase.execute({ ...baseInput, requestingRoleName: 'Empleado' }),
+    ).rejects.toThrow(RoleNotAuthorizedError);
+  });
+
+  it('rechaza si no hay medios de pago', async () => {
+    const { useCase } = makeSut();
+
+    await expect(useCase.execute({ ...baseInput, methodDetails: [] })).rejects.toThrow(
+      EmptyPaymentMethodDetailsError,
+    );
+  });
+
+  it('RN-PAY-01: rechaza si el cliente no está activo (COLLECTION)', async () => {
+    const { useCase, customerRepository } = makeSut();
+    customerRepository.findByPartyId.mockResolvedValue(makeCustomer({ isActive: false }));
+
+    await expect(useCase.execute(baseInput)).rejects.toThrow(InvalidPaymentCounterpartyError);
+  });
+
+  it('RN-PAY-01: rechaza si el proveedor no está activo (PAYMENT)', async () => {
+    const { useCase, supplierRepository } = makeSut();
+    supplierRepository.findByPartyId.mockResolvedValue(makeSupplier({ isActive: false }));
+
+    await expect(
+      useCase.execute({ ...baseInput, direction: 'PAYMENT' }),
+    ).rejects.toThrow(InvalidPaymentCounterpartyError);
+  });
+
+  it('rechaza si un medio de pago no existe o está inactivo', async () => {
+    const { useCase, paymentMethodRepository } = makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(null);
+
+    await expect(useCase.execute(baseInput)).rejects.toThrow(InvalidPaymentMethodError);
+  });
+
+  it('RN-PAY-07: rechaza CHEQUE sin CheckDetail', async () => {
+    const { useCase, paymentMethodRepository } = makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(
+      makePaymentMethod({ id: 'method-cheque', code: 'CHEQUE', requiresCheckDetail: true }),
+    );
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        methodDetails: [{ paymentMethodId: 'method-cheque', amount: '1210' }],
+      }),
+    ).rejects.toThrow(MissingCheckDetailError);
+  });
+
+  it('cobro total de una factura: totalAmount se calcula sumando los medios, imputación 1 a 1', async () => {
+    const { useCase, paymentRepository, applyCustomerAccountMovementService } = makeSut();
+
+    await useCase.execute({
+      ...baseInput,
+      allocations: [{ voucherId: 'voucher-1', amountApplied: '1210' }],
+    });
+
+    const createCall = paymentRepository.create.mock.calls[0][0];
+    expect(createCall.totalAmount).toBe('1210.00');
+    expect(createCall.allocations).toEqual([
+      expect.objectContaining({ voucherId: 'voucher-1', amountApplied: '1210.00' }),
+    ]);
+    expect(applyCustomerAccountMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ customerId: 'customer-1', type: 'CREDIT', amount: '1210.00' }),
+      expect.anything(),
+    );
+  });
+
+  it('cobro parcial: queda saldo pendiente sin rechazo', async () => {
+    const { useCase, paymentRepository, voucherRepository } = makeSut();
+    voucherRepository.findById.mockResolvedValue(makeVoucher({ total: '1210.00' }));
+
+    await useCase.execute({
+      ...baseInput,
+      methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '500' }],
+      allocations: [{ voucherId: 'voucher-1', amountApplied: '500' }],
+    });
+
+    const createCall = paymentRepository.create.mock.calls[0][0];
+    expect(createCall.totalAmount).toBe('500.00');
+  });
+
+  it('cobro que cubre dos facturas a la vez', async () => {
+    const { useCase, paymentRepository, voucherRepository } = makeSut();
+    voucherRepository.findById.mockImplementation(async (id) =>
+      makeVoucher({ id, total: '600.00' }),
+    );
+
+    await useCase.execute({
+      ...baseInput,
+      methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '1200' }],
+      allocations: [
+        { voucherId: 'voucher-1', amountApplied: '600' },
+        { voucherId: 'voucher-2', amountApplied: '600' },
+      ],
+    });
+
+    const createCall = paymentRepository.create.mock.calls[0][0];
+    expect(createCall.allocations).toHaveLength(2);
+  });
+
+  it('pago repartido entre Efectivo y Transferencia', async () => {
+    const { useCase, paymentMethodRepository, paymentRepository } = makeSut();
+    paymentMethodRepository.findById.mockImplementation(async (id) =>
+      id === 'method-transferencia'
+        ? makePaymentMethod({ id: 'method-transferencia', code: 'TRANSFERENCIA', requiresCashMovement: false, requiresBankMovement: true })
+        : makePaymentMethod(),
+    );
+
+    await useCase.execute({
+      ...baseInput,
+      methodDetails: [
+        { paymentMethodId: 'method-efectivo', amount: '500' },
+        { paymentMethodId: 'method-transferencia', amount: '710' },
+      ],
+    });
+
+    const createCall = paymentRepository.create.mock.calls[0][0];
+    expect(createCall.totalAmount).toBe('1210.00');
+    expect(createCall.methodDetails).toHaveLength(2);
+  });
+
+  it('RN-PAY-03: rechaza si la suma de imputaciones de este pago supera el monto total', async () => {
+    const { useCase } = makeSut();
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '500' }],
+        allocations: [{ voucherId: 'voucher-1', amountApplied: '600' }],
+      }),
+    ).rejects.toThrow(AllocationExceedsPaymentAmountError);
+  });
+
+  it('RN-PAY-04: rechaza un comprobante de otra contraparte', async () => {
+    const { useCase, voucherRepository } = makeSut();
+    voucherRepository.findById.mockResolvedValue(makeVoucher({ partyId: 'otra-contraparte' }));
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        allocations: [{ voucherId: 'voucher-1', amountApplied: '1210' }],
+      }),
+    ).rejects.toThrow(InvalidAllocationVoucherError);
+  });
+
+  it('RN-PAY-04: rechaza un comprobante inexistente', async () => {
+    const { useCase, voucherRepository } = makeSut();
+    voucherRepository.findById.mockResolvedValue(null);
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        allocations: [{ voucherId: 'no-existe', amountApplied: '1210' }],
+      }),
+    ).rejects.toThrow(InvalidAllocationVoucherError);
+  });
+
+  it('RN-PAY-05: rechaza sobre-imputación acumulada entre pagos distintos', async () => {
+    const { useCase, paymentRepository, voucherRepository } = makeSut();
+    voucherRepository.findById.mockResolvedValue(makeVoucher({ total: '1000.00' }));
+    paymentRepository.sumAllocatedAmountForVoucher.mockResolvedValue('600.00');
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '500' }],
+        allocations: [{ voucherId: 'voucher-1', amountApplied: '500' }],
+      }),
+    ).rejects.toThrow(VoucherOverpaidError);
+  });
+
+  it('RN-PAY-06/09: registra una única auditoría con metadata { direction, partyId, totalAmount }', async () => {
+    const { useCase, auditLogRepository, paymentRepository } = makeSut();
+    paymentRepository.create.mockResolvedValue(
+      makePayment({ direction: 'COLLECTION', partyId: 'party-1', totalAmount: '1210.00' }),
+    );
+
+    await useCase.execute(baseInput);
+
+    expect(auditLogRepository.record).toHaveBeenCalledTimes(1);
+    expect(auditLogRepository.record).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'payment.create',
+        metadata: { direction: 'COLLECTION', partyId: 'party-1', totalAmount: '1210.00' },
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('un PAYMENT (pago a proveedor) aplica un movimiento DEBIT en la cuenta del proveedor', async () => {
+    const { useCase, applySupplierAccountMovementService, applyCustomerAccountMovementService } =
+      makeSut();
+
+    await useCase.execute({ ...baseInput, direction: 'PAYMENT' });
+
+    expect(applySupplierAccountMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ supplierId: 'supplier-1', type: 'DEBIT', amount: '1210.00' }),
+      expect.anything(),
+    );
+    expect(applyCustomerAccountMovementService.apply).not.toHaveBeenCalled();
+  });
+});

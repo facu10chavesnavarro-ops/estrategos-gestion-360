@@ -18,6 +18,10 @@ import { CompanyRepository } from '../../src/modules/companies/domain/repositori
 import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { ApplyStockMovementService } from '../../src/modules/inventory/application/services/apply-stock-movement.service';
 import { StockMovementEntity } from '../../src/modules/inventory/domain/entities/stock-movement.entity';
+import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/application/services/apply-customer-account-movement.service';
+import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
+import { CustomerAccountMovementEntity } from '../../src/modules/treasury/domain/entities/customer-account.entity';
+import { SupplierAccountMovementEntity } from '../../src/modules/treasury/domain/entities/supplier-account.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import { InsufficientStockError } from '../../src/modules/inventory/domain/errors/stock-movement.errors';
@@ -39,6 +43,7 @@ function makeVoucherType(overrides: Partial<VoucherTypeEntity> = {}): VoucherTyp
     overrides.name ?? 'Factura A',
     overrides.flow ?? 'SALE',
     overrides.affectsStock ?? 'OUT',
+    overrides.affectsCurrentAccount ?? 'DEBIT',
     overrides.requiresCae ?? true,
     overrides.isCreditNote ?? false,
     overrides.relatedVoucherRequired ?? false,
@@ -266,6 +271,12 @@ describe('CreateVoucherUseCase', () => {
     const applyStockMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplyStockMovementService>;
+    const applyCustomerAccountMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyCustomerAccountMovementService>;
+    const applySupplierAccountMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplySupplierAccountMovementService>;
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
 
     const useCase = new CreateVoucherUseCase(
@@ -279,6 +290,8 @@ describe('CreateVoucherUseCase', () => {
       taxRepository,
       companyRepository,
       applyStockMovementService,
+      applyCustomerAccountMovementService,
+      applySupplierAccountMovementService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -287,6 +300,12 @@ describe('CreateVoucherUseCase', () => {
     pointOfSaleRepository.findById.mockResolvedValue(makePointOfSale());
     companyRepository.findById.mockResolvedValue(makeCompany());
     customerRepository.findByPartyId.mockResolvedValue(makeCustomer());
+    applyCustomerAccountMovementService.apply.mockResolvedValue(
+      {} as CustomerAccountMovementEntity,
+    );
+    applySupplierAccountMovementService.apply.mockResolvedValue(
+      {} as SupplierAccountMovementEntity,
+    );
     supplierRepository.findByPartyId.mockResolvedValue(makeSupplier());
     itemRepository.findById.mockResolvedValue(makeItem());
     taxRepository.findById.mockResolvedValue(null);
@@ -305,6 +324,8 @@ describe('CreateVoucherUseCase', () => {
       taxRepository,
       companyRepository,
       applyStockMovementService,
+      applyCustomerAccountMovementService,
+      applySupplierAccountMovementService,
       auditLogRepository,
       useCase,
     };
@@ -430,7 +451,13 @@ describe('CreateVoucherUseCase', () => {
   it('Factura de Compra: ingresa stock (PURCHASE_IN)', async () => {
     const { useCase, voucherTypeRepository, applyStockMovementService } = makeSut();
     voucherTypeRepository.findById.mockResolvedValue(
-      makeVoucherType({ id: 'voucher-type-fc', code: 'FC', flow: 'PURCHASE', affectsStock: 'IN' }),
+      makeVoucherType({
+        id: 'voucher-type-fc',
+        code: 'FC',
+        flow: 'PURCHASE',
+        affectsStock: 'IN',
+        affectsCurrentAccount: 'CREDIT',
+      }),
     );
 
     await useCase.execute({ ...baseInput, voucherTypeId: 'voucher-type-fc' });
@@ -445,6 +472,55 @@ describe('CreateVoucherUseCase', () => {
     );
   });
 
+  it('RN-CTA-04: Factura de Venta (affectsCurrentAccount = DEBIT) aumenta la cuenta corriente del cliente', async () => {
+    const { useCase, voucherRepository, applyCustomerAccountMovementService, applySupplierAccountMovementService } =
+      makeSut();
+    voucherRepository.create.mockResolvedValue(makeVoucher({ total: '1210.00' }));
+
+    await useCase.execute(baseInput);
+
+    expect(applyCustomerAccountMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        customerId: 'customer-1',
+        type: 'DEBIT',
+        amount: '1210.00',
+        voucherId: 'voucher-1',
+      }),
+      expect.anything(),
+    );
+    expect(applySupplierAccountMovementService.apply).not.toHaveBeenCalled();
+  });
+
+  it('RN-CTA-04: Factura de Compra (affectsCurrentAccount = CREDIT) disminuye la cuenta corriente del proveedor', async () => {
+    const { useCase, voucherTypeRepository, voucherRepository, applySupplierAccountMovementService, applyCustomerAccountMovementService } =
+      makeSut();
+    voucherTypeRepository.findById.mockResolvedValue(
+      makeVoucherType({
+        id: 'voucher-type-fc',
+        code: 'FC',
+        flow: 'PURCHASE',
+        affectsStock: 'IN',
+        affectsCurrentAccount: 'CREDIT',
+      }),
+    );
+    voucherRepository.create.mockResolvedValue(makeVoucher({ total: '1800.00' }));
+
+    await useCase.execute({ ...baseInput, voucherTypeId: 'voucher-type-fc' });
+
+    expect(applySupplierAccountMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: 'company-1',
+        supplierId: 'supplier-1',
+        type: 'CREDIT',
+        amount: '1800.00',
+        voucherId: 'voucher-1',
+      }),
+      expect.anything(),
+    );
+    expect(applyCustomerAccountMovementService.apply).not.toHaveBeenCalled();
+  });
+
   it('Nota de Crédito: exige relatedVoucherId (RN-VOU-08)', async () => {
     const { useCase, voucherTypeRepository } = makeSut();
     voucherTypeRepository.findById.mockResolvedValue(
@@ -454,6 +530,7 @@ describe('CreateVoucherUseCase', () => {
         isCreditNote: true,
         relatedVoucherRequired: true,
         affectsStock: 'IN',
+        affectsCurrentAccount: 'CREDIT',
       }),
     );
 
@@ -471,6 +548,7 @@ describe('CreateVoucherUseCase', () => {
         isCreditNote: true,
         relatedVoucherRequired: true,
         affectsStock: 'IN',
+        affectsCurrentAccount: 'CREDIT',
       }),
     );
     voucherRepository.findById.mockResolvedValue(makeVoucher({ partyId: 'otra-contraparte' }));
@@ -484,9 +562,14 @@ describe('CreateVoucherUseCase', () => {
     ).rejects.toThrow(InvalidRelatedVoucherError);
   });
 
-  it('Nota de Crédito: revierte la dirección del efecto de stock (RETURN_IN)', async () => {
-    const { useCase, voucherTypeRepository, voucherRepository, applyStockMovementService } =
-      makeSut();
+  it('Nota de Crédito: revierte la dirección del efecto de stock (RETURN_IN) y de cuenta corriente (CREDIT)', async () => {
+    const {
+      useCase,
+      voucherTypeRepository,
+      voucherRepository,
+      applyStockMovementService,
+      applyCustomerAccountMovementService,
+    } = makeSut();
     voucherTypeRepository.findById.mockResolvedValue(
       makeVoucherType({
         id: 'voucher-type-nc-a',
@@ -494,9 +577,13 @@ describe('CreateVoucherUseCase', () => {
         isCreditNote: true,
         relatedVoucherRequired: true,
         affectsStock: 'IN',
+        affectsCurrentAccount: 'CREDIT',
       }),
     );
     voucherRepository.findById.mockResolvedValue(makeVoucher({ partyId: 'party-1' }));
+    voucherRepository.create.mockResolvedValue(
+      makeVoucher({ id: 'voucher-nc-1', total: '1000.00' }),
+    );
 
     await useCase.execute({
       ...baseInput,
@@ -506,6 +593,15 @@ describe('CreateVoucherUseCase', () => {
 
     expect(applyStockMovementService.apply).toHaveBeenCalledWith(
       expect.objectContaining({ direction: 'IN', type: 'RETURN_IN' }),
+      expect.anything(),
+    );
+    expect(applyCustomerAccountMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customerId: 'customer-1',
+        type: 'CREDIT',
+        amount: '1000.00',
+        voucherId: 'voucher-nc-1',
+      }),
       expect.anything(),
     );
   });

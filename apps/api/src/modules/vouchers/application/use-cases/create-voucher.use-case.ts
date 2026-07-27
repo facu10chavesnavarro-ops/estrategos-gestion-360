@@ -14,6 +14,8 @@ import { TaxRepository } from '../../../catalog/domain/repositories/tax.reposito
 import { CompanyRepository } from '../../../companies/domain/repositories/company.repository';
 import { ApplyStockMovementService } from '../../../inventory/application/services/apply-stock-movement.service';
 import { StockMovementType } from '../../../inventory/domain/entities/stock-movement.entity';
+import { ApplyCustomerAccountMovementService } from '../../../treasury/application/services/apply-customer-account-movement.service';
+import { ApplySupplierAccountMovementService } from '../../../treasury/application/services/apply-supplier-account-movement.service';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
@@ -65,6 +67,8 @@ export class CreateVoucherUseCase {
     private readonly taxRepository: TaxRepository,
     private readonly companyRepository: CompanyRepository,
     private readonly applyStockMovementService: ApplyStockMovementService,
+    private readonly applyCustomerAccountMovementService: ApplyCustomerAccountMovementService,
+    private readonly applySupplierAccountMovementService: ApplySupplierAccountMovementService,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -96,16 +100,20 @@ export class CreateVoucherUseCase {
 
     const company = await this.companyRepository.findById(input.companyId);
 
+    let customerId: string | undefined;
+    let supplierId: string | undefined;
     if (voucherType.flow === 'SALE') {
       const customer = await this.customerRepository.findByPartyId(input.partyId);
       if (!customer || customer.companyId !== input.companyId || !customer.isActive) {
         throw new InvalidCounterpartyError();
       }
+      customerId = customer.id;
     } else {
       const supplier = await this.supplierRepository.findByPartyId(input.partyId);
       if (!supplier || supplier.companyId !== input.companyId || !supplier.isActive) {
         throw new InvalidCounterpartyError();
       }
+      supplierId = supplier.id;
     }
 
     if (voucherType.relatedVoucherRequired) {
@@ -241,6 +249,33 @@ export class CreateVoucherUseCase {
               voucherId: voucher.id,
               userId: input.requestingUserId,
               allowNegativeStock,
+            },
+            ctx,
+          );
+        }
+      }
+
+      // RN-CTA-04: retrofit de Sprint 3.4 (docs/sprint-3/04-tesoreria.md §0.1).
+      if (voucherType.affectsCurrentAccount !== 'NONE') {
+        if (customerId) {
+          await this.applyCustomerAccountMovementService.apply(
+            {
+              companyId: input.companyId,
+              customerId,
+              type: voucherType.affectsCurrentAccount,
+              amount: voucher.total,
+              voucherId: voucher.id,
+            },
+            ctx,
+          );
+        } else if (supplierId) {
+          await this.applySupplierAccountMovementService.apply(
+            {
+              companyId: input.companyId,
+              supplierId,
+              type: voucherType.affectsCurrentAccount,
+              amount: voucher.total,
+              voucherId: voucher.id,
             },
             ctx,
           );

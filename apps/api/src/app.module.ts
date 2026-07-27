@@ -9,6 +9,7 @@ import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 import { VouchersModule } from './modules/vouchers/vouchers.module';
+import { TreasuryModule } from './modules/treasury/treasury.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 
 @Module({
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
     CatalogModule,
     InventoryModule,
     VouchersModule,
+    TreasuryModule,
   ],
   providers: [
     // Guard global: por defecto TODO endpoint requiere autenticación
