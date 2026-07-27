@@ -80,7 +80,9 @@ export class CreateVoucherUseCase {
       throw new EmptyVoucherLinesError();
     }
     for (const line of input.lines) {
-      if (!(new Decimal(line.quantity).isPositive())) {
+      // Decimal.isPositive() de decimal.js incluye 0 (solo excluye
+      // negativos) — se usa greaterThan(0) para "estrictamente > 0".
+      if (!(new Decimal(line.quantity).greaterThan(0))) {
         throw new InvalidVoucherLineQuantityError();
       }
     }

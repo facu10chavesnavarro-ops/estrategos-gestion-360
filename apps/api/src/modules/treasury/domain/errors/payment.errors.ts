@@ -58,3 +58,35 @@ export class VoucherOverpaidError extends Error {
     this.name = 'VoucherOverpaidError';
   }
 }
+
+/** RN-PAY-10: algún medio requiere caja pero no se indicó cashSessionId. */
+export class MissingCashSessionError extends Error {
+  constructor() {
+    super('Debe indicar la sesión de caja para un medio de pago en efectivo.');
+    this.name = 'MissingCashSessionError';
+  }
+}
+
+/** RN-PAY-10: la sesión indicada no existe, no está abierta o es de otra empresa. */
+export class InvalidCashSessionError extends Error {
+  constructor() {
+    super('La sesión de caja indicada no existe, no está abierta o no corresponde a esta empresa.');
+    this.name = 'InvalidCashSessionError';
+  }
+}
+
+/** RN-PAY-10: algún medio requiere banco pero no se indicó bankAccountId. */
+export class MissingBankAccountError extends Error {
+  constructor() {
+    super('Debe indicar la cuenta bancaria para este medio de pago.');
+    this.name = 'MissingBankAccountError';
+  }
+}
+
+/** RN-PAY-10: la cuenta indicada no existe, no está activa o es de otra empresa. */
+export class InvalidBankAccountError extends Error {
+  constructor() {
+    super('La cuenta bancaria indicada no existe, no está activa o no corresponde a esta empresa.');
+    this.name = 'InvalidBankAccountError';
+  }
+}

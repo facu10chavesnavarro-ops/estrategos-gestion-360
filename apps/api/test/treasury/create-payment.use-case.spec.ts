@@ -13,8 +13,16 @@ import { CompanyRepository } from '../../src/modules/companies/domain/repositori
 import { CompanyEntity } from '../../src/modules/companies/domain/entities/company.entity';
 import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/application/services/apply-customer-account-movement.service';
 import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
+import { ApplyCashMovementService } from '../../src/modules/treasury/application/services/apply-cash-movement.service';
+import { ApplyBankMovementService } from '../../src/modules/treasury/application/services/apply-bank-movement.service';
 import { CustomerAccountMovementEntity } from '../../src/modules/treasury/domain/entities/customer-account.entity';
 import { SupplierAccountMovementEntity } from '../../src/modules/treasury/domain/entities/supplier-account.entity';
+import { CashSessionRepository } from '../../src/modules/treasury/domain/repositories/cash-session.repository';
+import { CashSessionEntity } from '../../src/modules/treasury/domain/entities/cash-session.entity';
+import { CashMovementEntity } from '../../src/modules/treasury/domain/entities/cash-movement.entity';
+import { BankAccountRepository } from '../../src/modules/treasury/domain/repositories/bank-account.repository';
+import { BankAccountEntity } from '../../src/modules/treasury/domain/entities/bank-account.entity';
+import { BankMovementEntity } from '../../src/modules/treasury/domain/entities/bank-movement.entity';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { RoleNotAuthorizedError } from '../../src/common/domain/errors/authorization.error';
 import {
@@ -25,6 +33,10 @@ import {
   AllocationExceedsPaymentAmountError,
   InvalidAllocationVoucherError,
   VoucherOverpaidError,
+  MissingCashSessionError,
+  InvalidCashSessionError,
+  MissingBankAccountError,
+  InvalidBankAccountError,
 } from '../../src/modules/treasury/domain/errors/payment.errors';
 import { createFakeUnitOfWork } from '../support/fake-unit-of-work';
 
@@ -143,6 +155,35 @@ function makePayment(overrides: Partial<PaymentEntity> = {}): PaymentEntity {
   );
 }
 
+function makeCashSession(overrides: Partial<CashSessionEntity> = {}): CashSessionEntity {
+  return new CashSessionEntity(
+    overrides.id ?? 'session-1',
+    overrides.cashRegisterId ?? 'register-1',
+    overrides.openedByUserId ?? 'user-1',
+    overrides.openingBalance ?? '0.00',
+    overrides.openedAt ?? new Date(),
+    overrides.closedByUserId ?? null,
+    overrides.closingBalance ?? null,
+    overrides.expectedBalance ?? null,
+    overrides.difference ?? null,
+    overrides.closedAt ?? null,
+  );
+}
+
+function makeBankAccount(overrides: Partial<BankAccountEntity> = {}): BankAccountEntity {
+  return new BankAccountEntity(
+    overrides.id ?? 'bank-account-1',
+    overrides.companyId ?? 'company-1',
+    overrides.bankName ?? 'Banco Nación',
+    overrides.accountType ?? 'CHECKING',
+    overrides.accountNumber ?? null,
+    overrides.cbu ?? null,
+    overrides.alias ?? null,
+    overrides.currency ?? 'ARS',
+    overrides.isActive ?? true,
+  );
+}
+
 describe('CreatePaymentUseCase', () => {
   function makeSut() {
     const paymentMethodRepository = {
@@ -183,12 +224,32 @@ describe('CreatePaymentUseCase', () => {
       update: jest.fn(),
       setActive: jest.fn(),
     } as jest.Mocked<CompanyRepository>;
+    const cashSessionRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findOpenByCashRegister: jest.fn(),
+      findAllByCashRegister: jest.fn(),
+      close: jest.fn(),
+    } as jest.Mocked<CashSessionRepository>;
+    const bankAccountRepository = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findAllByCompany: jest.fn(),
+      update: jest.fn(),
+      setActive: jest.fn(),
+    } as jest.Mocked<BankAccountRepository>;
     const applyCustomerAccountMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplyCustomerAccountMovementService>;
     const applySupplierAccountMovementService = {
       apply: jest.fn(),
     } as unknown as jest.Mocked<ApplySupplierAccountMovementService>;
+    const applyCashMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyCashMovementService>;
+    const applyBankMovementService = {
+      apply: jest.fn(),
+    } as unknown as jest.Mocked<ApplyBankMovementService>;
     const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
 
     const useCase = new CreatePaymentUseCase(
@@ -198,8 +259,12 @@ describe('CreatePaymentUseCase', () => {
       supplierRepository,
       voucherRepository,
       companyRepository,
+      cashSessionRepository,
+      bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      applyCashMovementService,
+      applyBankMovementService,
       auditLogRepository,
       createFakeUnitOfWork(),
     );
@@ -211,12 +276,16 @@ describe('CreatePaymentUseCase', () => {
     paymentRepository.sumAllocatedAmountForVoucher.mockResolvedValue('0');
     paymentRepository.create.mockResolvedValue(makePayment());
     voucherRepository.findById.mockResolvedValue(makeVoucher());
+    cashSessionRepository.findById.mockResolvedValue(makeCashSession());
+    bankAccountRepository.findById.mockResolvedValue(makeBankAccount());
     applyCustomerAccountMovementService.apply.mockResolvedValue(
       {} as CustomerAccountMovementEntity,
     );
     applySupplierAccountMovementService.apply.mockResolvedValue(
       {} as SupplierAccountMovementEntity,
     );
+    applyCashMovementService.apply.mockResolvedValue({} as CashMovementEntity);
+    applyBankMovementService.apply.mockResolvedValue({} as BankMovementEntity);
 
     return {
       paymentMethodRepository,
@@ -225,8 +294,12 @@ describe('CreatePaymentUseCase', () => {
       supplierRepository,
       voucherRepository,
       companyRepository,
+      cashSessionRepository,
+      bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      applyCashMovementService,
+      applyBankMovementService,
       auditLogRepository,
       useCase,
     };
@@ -239,6 +312,7 @@ describe('CreatePaymentUseCase', () => {
     partyId: 'party-1',
     direction: 'COLLECTION' as const,
     methodDetails: [{ paymentMethodId: 'method-efectivo', amount: '1210' }],
+    cashSessionId: 'session-1',
   };
 
   it('rechaza si el rol no autoriza', async () => {
@@ -360,6 +434,7 @@ describe('CreatePaymentUseCase', () => {
         { paymentMethodId: 'method-efectivo', amount: '500' },
         { paymentMethodId: 'method-transferencia', amount: '710' },
       ],
+      bankAccountId: 'bank-account-1',
     });
 
     const createCall = paymentRepository.create.mock.calls[0][0];
@@ -446,5 +521,163 @@ describe('CreatePaymentUseCase', () => {
       expect.anything(),
     );
     expect(applyCustomerAccountMovementService.apply).not.toHaveBeenCalled();
+  });
+
+  it('RN-PAY-10: un cobro en efectivo genera un CashMovement IN ligado al Payment', async () => {
+    const { useCase, applyCashMovementService, applyBankMovementService } = makeSut();
+
+    await useCase.execute(baseInput);
+
+    expect(applyCashMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cashSessionId: 'session-1',
+        type: 'IN',
+        amount: '1210.00',
+        paymentId: 'payment-1',
+      }),
+      expect.anything(),
+    );
+    expect(applyBankMovementService.apply).not.toHaveBeenCalled();
+  });
+
+  it('RN-PAY-10: un pago en efectivo (PAYMENT) genera un CashMovement OUT', async () => {
+    const { useCase, applyCashMovementService } = makeSut();
+
+    await useCase.execute({ ...baseInput, direction: 'PAYMENT' });
+
+    expect(applyCashMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'OUT' }),
+      expect.anything(),
+    );
+  });
+
+  it('RN-PAY-10: rechaza un medio en efectivo sin cashSessionId', async () => {
+    const { useCase } = makeSut();
+
+    await expect(
+      useCase.execute({ ...baseInput, cashSessionId: undefined }),
+    ).rejects.toThrow(MissingCashSessionError);
+  });
+
+  it('RN-PAY-10: rechaza si la sesión de caja no está abierta', async () => {
+    const { useCase, cashSessionRepository } = makeSut();
+    cashSessionRepository.findById.mockResolvedValue(
+      makeCashSession({ closedAt: new Date() }),
+    );
+
+    await expect(useCase.execute(baseInput)).rejects.toThrow(InvalidCashSessionError);
+  });
+
+  it('RN-PAY-10: rechaza si la sesión de caja no existe', async () => {
+    const { useCase, cashSessionRepository } = makeSut();
+    cashSessionRepository.findById.mockResolvedValue(null);
+
+    await expect(useCase.execute(baseInput)).rejects.toThrow(InvalidCashSessionError);
+  });
+
+  it('RN-PAY-10: una Transferencia genera un BankMovement DEPOSIT y exige bankAccountId', async () => {
+    const {
+      useCase,
+      paymentMethodRepository,
+      applyBankMovementService,
+      applyCashMovementService,
+    } = makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(
+      makePaymentMethod({
+        id: 'method-transferencia',
+        code: 'TRANSFERENCIA',
+        requiresCashMovement: false,
+        requiresBankMovement: true,
+      }),
+    );
+
+    await useCase.execute({
+      ...baseInput,
+      methodDetails: [{ paymentMethodId: 'method-transferencia', amount: '1210' }],
+      cashSessionId: undefined,
+      bankAccountId: 'bank-account-1',
+    });
+
+    expect(applyBankMovementService.apply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bankAccountId: 'bank-account-1',
+        type: 'DEPOSIT',
+        amount: '1210.00',
+        paymentId: 'payment-1',
+      }),
+      expect.anything(),
+    );
+    expect(applyCashMovementService.apply).not.toHaveBeenCalled();
+  });
+
+  it('RN-PAY-10: rechaza una Transferencia sin bankAccountId', async () => {
+    const { useCase, paymentMethodRepository } = makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(
+      makePaymentMethod({
+        id: 'method-transferencia',
+        code: 'TRANSFERENCIA',
+        requiresCashMovement: false,
+        requiresBankMovement: true,
+      }),
+    );
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        methodDetails: [{ paymentMethodId: 'method-transferencia', amount: '1210' }],
+        cashSessionId: undefined,
+      }),
+    ).rejects.toThrow(MissingBankAccountError);
+  });
+
+  it('RN-PAY-10: rechaza si la cuenta bancaria no está activa', async () => {
+    const { useCase, paymentMethodRepository, bankAccountRepository } = makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(
+      makePaymentMethod({
+        id: 'method-transferencia',
+        code: 'TRANSFERENCIA',
+        requiresCashMovement: false,
+        requiresBankMovement: true,
+      }),
+    );
+    bankAccountRepository.findById.mockResolvedValue(makeBankAccount({ isActive: false }));
+
+    await expect(
+      useCase.execute({
+        ...baseInput,
+        methodDetails: [{ paymentMethodId: 'method-transferencia', amount: '1210' }],
+        cashSessionId: undefined,
+        bankAccountId: 'bank-account-1',
+      }),
+    ).rejects.toThrow(InvalidBankAccountError);
+  });
+
+  it('un medio que no requiere caja ni banco (ej. Cheque) no genera CashMovement ni BankMovement', async () => {
+    const { useCase, paymentMethodRepository, applyCashMovementService, applyBankMovementService } =
+      makeSut();
+    paymentMethodRepository.findById.mockResolvedValue(
+      makePaymentMethod({
+        id: 'method-cheque',
+        code: 'CHEQUE',
+        requiresCheckDetail: true,
+        requiresCashMovement: false,
+        requiresBankMovement: false,
+      }),
+    );
+
+    await useCase.execute({
+      ...baseInput,
+      methodDetails: [
+        {
+          paymentMethodId: 'method-cheque',
+          amount: '1210',
+          checkDetail: { number: '123', bankName: 'Banco', dueDate: '2026-09-01' },
+        },
+      ],
+      cashSessionId: undefined,
+    });
+
+    expect(applyCashMovementService.apply).not.toHaveBeenCalled();
+    expect(applyBankMovementService.apply).not.toHaveBeenCalled();
   });
 });

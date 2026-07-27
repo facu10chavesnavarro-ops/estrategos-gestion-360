@@ -36,6 +36,10 @@ export interface CreatePaymentUseCaseInput {
   exchangeRate?: string;
   methodDetails: CreatePaymentMethodDetailUseCaseInput[];
   allocations?: CreatePaymentAllocationUseCaseInput[];
+  /** RN-PAY-10: obligatorio si algún medio requiere movimiento de caja. */
+  cashSessionId?: string;
+  /** RN-PAY-10: obligatorio si algún medio requiere movimiento bancario. */
+  bankAccountId?: string;
 }
 
 export interface ListPaymentsUseCaseInput {

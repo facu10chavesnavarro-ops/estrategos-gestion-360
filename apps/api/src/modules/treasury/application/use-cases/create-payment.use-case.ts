@@ -10,8 +10,12 @@ import { CustomerRepository } from '../../../customers/domain/repositories/custo
 import { SupplierRepository } from '../../../suppliers/domain/repositories/supplier.repository';
 import { VoucherRepository } from '../../../vouchers/domain/repositories/voucher.repository';
 import { CompanyRepository } from '../../../companies/domain/repositories/company.repository';
+import { CashSessionRepository } from '../../domain/repositories/cash-session.repository';
+import { BankAccountRepository } from '../../domain/repositories/bank-account.repository';
 import { ApplyCustomerAccountMovementService } from '../services/apply-customer-account-movement.service';
 import { ApplySupplierAccountMovementService } from '../services/apply-supplier-account-movement.service';
+import { ApplyCashMovementService } from '../services/apply-cash-movement.service';
+import { ApplyBankMovementService } from '../services/apply-bank-movement.service';
 import { AuditLogRepository } from '../../../../common/domain/repositories/audit-log.repository';
 import { UnitOfWork } from '../../../../common/domain/transaction/unit-of-work.port';
 import { assertRoleIn } from '../../../../common/domain/rules/assert-role';
@@ -27,14 +31,18 @@ import {
   AllocationExceedsPaymentAmountError,
   InvalidAllocationVoucherError,
   VoucherOverpaidError,
+  MissingCashSessionError,
+  InvalidCashSessionError,
+  MissingBankAccountError,
+  InvalidBankAccountError,
 } from '../../domain/errors/payment.errors';
 
 /**
- * RN-PAY-01 a 09. `totalAmount` nunca se informa: se calcula sumando los
+ * RN-PAY-01 a 10. `totalAmount` nunca se informa: se calcula sumando los
  * medios de pago (§0.1 de docs/sprint-3/04-tesoreria.md, mismo principio
  * que RN-VOU-09). Genera siempre un movimiento de cuenta corriente
- * (RN-CTA-04); no genera todavía CashMovement/BankMovement (§0.2, diferido
- * a Sprint 3.5).
+ * (RN-CTA-04) y, desde Sprint 3.5, también un CashMovement/BankMovement
+ * cuando algún medio lo requiere (RN-PAY-10).
  */
 @Injectable()
 export class CreatePaymentUseCase {
@@ -45,8 +53,12 @@ export class CreatePaymentUseCase {
     private readonly supplierRepository: SupplierRepository,
     private readonly voucherRepository: VoucherRepository,
     private readonly companyRepository: CompanyRepository,
+    private readonly cashSessionRepository: CashSessionRepository,
+    private readonly bankAccountRepository: BankAccountRepository,
     private readonly applyCustomerAccountMovementService: ApplyCustomerAccountMovementService,
     private readonly applySupplierAccountMovementService: ApplySupplierAccountMovementService,
+    private readonly applyCashMovementService: ApplyCashMovementService,
+    private readonly applyBankMovementService: ApplyBankMovementService,
     private readonly auditLogRepository: AuditLogRepository,
     private readonly unitOfWork: UnitOfWork,
   ) {}
@@ -79,6 +91,8 @@ export class CreatePaymentUseCase {
     // RN-PAY-07: valida el medio y exige CheckDetail cuando corresponde.
     const methodDetailsToCreate: RepositoryMethodDetailInput[] = [];
     let totalAmount = new Decimal(0);
+    let cashAmount = new Decimal(0);
+    let bankAmount = new Decimal(0);
     for (const detail of input.methodDetails) {
       const method = await this.paymentMethodRepository.findById(detail.paymentMethodId);
       if (!method || !method.isActive) {
@@ -89,6 +103,12 @@ export class CreatePaymentUseCase {
       }
       const amount = new Decimal(detail.amount);
       totalAmount = totalAmount.plus(amount);
+      if (method.requiresCashMovement) {
+        cashAmount = cashAmount.plus(amount);
+      }
+      if (method.requiresBankMovement) {
+        bankAmount = bankAmount.plus(amount);
+      }
       methodDetailsToCreate.push({
         id: uuidv7(),
         paymentMethodId: detail.paymentMethodId,
@@ -103,6 +123,34 @@ export class CreatePaymentUseCase {
           : undefined,
         cardDetail: detail.cardDetail,
       });
+    }
+
+    // RN-PAY-10: valida cashSessionId/bankAccountId antes de escribir nada.
+    // Nota: Decimal.isPositive() de decimal.js considera 0 como positivo
+    // (solo excluye negativos) — se usa greaterThan(0) para "estrictamente > 0".
+    if (cashAmount.greaterThan(0)) {
+      if (!input.cashSessionId) {
+        throw new MissingCashSessionError();
+      }
+      const cashSession = await this.cashSessionRepository.findById(
+        input.cashSessionId,
+        input.companyId,
+      );
+      if (!cashSession || !cashSession.isOpen) {
+        throw new InvalidCashSessionError();
+      }
+    }
+    if (bankAmount.greaterThan(0)) {
+      if (!input.bankAccountId) {
+        throw new MissingBankAccountError();
+      }
+      const bankAccount = await this.bankAccountRepository.findById(
+        input.bankAccountId,
+        input.companyId,
+      );
+      if (!bankAccount || !bankAccount.isActive) {
+        throw new InvalidBankAccountError();
+      }
     }
 
     // RN-PAY-03/04/05: valida las imputaciones antes de escribir nada.
@@ -174,6 +222,32 @@ export class CreatePaymentUseCase {
             type: 'DEBIT',
             amount: payment.totalAmount,
             paymentId: payment.id,
+          },
+          ctx,
+        );
+      }
+
+      // RN-PAY-10 (§0.1): un único CashMovement/BankMovement por pago,
+      // agrupado por requisito (no por medio individual).
+      if (cashAmount.greaterThan(0)) {
+        await this.applyCashMovementService.apply(
+          {
+            cashSessionId: input.cashSessionId as string,
+            type: input.direction === 'COLLECTION' ? 'IN' : 'OUT',
+            amount: cashAmount.toFixed(2),
+            paymentId: payment.id,
+          },
+          ctx,
+        );
+      }
+      if (bankAmount.greaterThan(0)) {
+        await this.applyBankMovementService.apply(
+          {
+            bankAccountId: input.bankAccountId as string,
+            type: input.direction === 'COLLECTION' ? 'DEPOSIT' : 'WITHDRAWAL',
+            amount: bankAmount.toFixed(2),
+            paymentId: payment.id,
+            date: payment.date,
           },
           ctx,
         );

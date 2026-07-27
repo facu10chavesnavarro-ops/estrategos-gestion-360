@@ -22,8 +22,14 @@ import {
 } from '../../src/modules/treasury/infrastructure/persistence/prisma-supplier-account.repository';
 import { PrismaPaymentMethodRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-payment-method.repository';
 import { PrismaPaymentRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-payment.repository';
+import { PrismaCashSessionRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-session.repository';
+import { PrismaCashMovementRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-cash-movement.repository';
+import { PrismaBankAccountRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-bank-account.repository';
+import { PrismaBankMovementRepository } from '../../src/modules/treasury/infrastructure/persistence/prisma-bank-movement.repository';
 import { ApplyCustomerAccountMovementService } from '../../src/modules/treasury/application/services/apply-customer-account-movement.service';
 import { ApplySupplierAccountMovementService } from '../../src/modules/treasury/application/services/apply-supplier-account-movement.service';
+import { ApplyCashMovementService } from '../../src/modules/treasury/application/services/apply-cash-movement.service';
+import { ApplyBankMovementService } from '../../src/modules/treasury/application/services/apply-bank-movement.service';
 import { PrismaAuditLogRepository } from '../../src/common/infrastructure/persistence/prisma-audit-log.repository';
 import { AuditLogRepository } from '../../src/common/domain/repositories/audit-log.repository';
 import { CreateVoucherUseCase } from '../../src/modules/vouchers/application/use-cases/create-voucher.use-case';
@@ -66,6 +72,12 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
   );
   const paymentMethodRepository = new PrismaPaymentMethodRepository(prisma);
   const paymentRepository = new PrismaPaymentRepository(prisma);
+  const cashSessionRepository = new PrismaCashSessionRepository(prisma);
+  const cashMovementRepository = new PrismaCashMovementRepository(prisma);
+  const bankAccountRepository = new PrismaBankAccountRepository(prisma);
+  const bankMovementRepository = new PrismaBankMovementRepository(prisma);
+  const applyCashMovementService = new ApplyCashMovementService(cashMovementRepository);
+  const applyBankMovementService = new ApplyBankMovementService(bankMovementRepository);
   const unitOfWork = new PrismaUnitOfWork(prisma);
 
   let companyId: string;
@@ -78,6 +90,7 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
   let requestingUserId: string;
   let efectivoMethodId: string;
   let invoiceVoucherId: string;
+  let cashSessionId: string;
 
   function makeCreateVoucherUseCase(auditLogRepository: AuditLogRepository) {
     return new CreateVoucherUseCase(
@@ -106,8 +119,12 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
       supplierRepository,
       voucherRepository,
       companyRepository,
+      cashSessionRepository,
+      bankAccountRepository,
       applyCustomerAccountMovementService,
       applySupplierAccountMovementService,
+      applyCashMovementService,
+      applyBankMovementService,
       auditLogRepository,
       unitOfWork,
     );
@@ -174,6 +191,18 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
     });
     requestingUserId = user.id;
 
+    const cashRegister = await prisma.cashRegister.create({
+      data: { companyId, branchId, name: 'Caja Principal' },
+    });
+    const cashSession = await prisma.cashSession.create({
+      data: {
+        cashRegisterId: cashRegister.id,
+        openedByUserId: requestingUserId,
+        openingBalance: '0',
+      },
+    });
+    cashSessionId = cashSession.id;
+
     // Factura de Venta real (vía el caso de uso de Sprint 3.3) para tener un
     // comprobante y un saldo de cuenta corriente genuinos antes de cobrar.
     const createVoucherUseCase = makeCreateVoucherUseCase(new PrismaAuditLogRepository(prisma));
@@ -207,6 +236,7 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
       direction: 'COLLECTION',
       methodDetails: [{ paymentMethodId: efectivoMethodId, amount: '500' }],
       allocations: [{ voucherId: invoiceVoucherId, amountApplied: '500' }],
+      cashSessionId,
     });
 
     const paymentRows = await prisma.payment.findMany({ where: { id: payment.id } });
@@ -233,6 +263,14 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
     expect(movements).toHaveLength(1);
     expect(movements[0].type).toBe('CREDIT');
     expect(movements[0].balanceAfter.toFixed(2)).toBe('710.00');
+
+    // RN-PAY-10: Efectivo genera un CashMovement IN ligado al Payment.
+    const cashMovements = await prisma.cashMovement.findMany({
+      where: { cashSessionId, paymentId: payment.id },
+    });
+    expect(cashMovements).toHaveLength(1);
+    expect(cashMovements[0].type).toBe('IN');
+    expect(cashMovements[0].amount.toFixed(2)).toBe('500.00');
 
     const auditEntries = await prisma.auditLog.findMany({
       where: { action: 'payment.create', entityId: payment.id },
@@ -286,6 +324,7 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
         direction: 'COLLECTION',
         methodDetails: [{ paymentMethodId: efectivoMethodId, amount: '500' }],
         allocations: [{ voucherId: invoiceVoucherId, amountApplied: '500' }],
+        cashSessionId,
       }),
     ).rejects.toThrow('fallo forzado de auditoría');
 
@@ -303,5 +342,9 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
       where: { customerAccountId: customerAccount!.id },
     });
     expect(movementsAfterInvoiceOnly).toHaveLength(1); // solo el de la factura, ninguno del cobro
+
+    // Tampoco queda un CashMovement huérfano.
+    const cashMovements = await prisma.cashMovement.findMany({ where: { cashSessionId } });
+    expect(cashMovements).toHaveLength(0);
   });
 });

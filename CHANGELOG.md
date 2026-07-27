@@ -6,6 +6,63 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [0.9.0] - 2026-07-27
+
+Sprint 3, Sub-sprint 5: Caja y Bancos. Quinto y último sub-sprint del
+núcleo financiero, según `docs/sprint-3/00-arquitectura-nucleo-financiero.md`
+§11-12 (Decisión 11.2: caja por sucursal con sesiones por turno). Cierra
+el plan completo de Sprint 3 (§18).
+
+### Agregado
+
+- **Caja** (`CashRegister` + `CashSession` + `CashMovement`): una o más
+  cajas físicas por sucursal, cada una con a lo sumo una sesión abierta a
+  la vez. Al cerrar una sesión se calculan y guardan `expectedBalance`
+  (saldo esperado según los movimientos) y `difference` (contra el
+  `closingBalance` informado). `/companies/:id/branches/:branchId/cash-registers`,
+  `/companies/:id/cash-sessions/:id`.
+- **Bancos** (`BankAccount` + `BankMovement`): cuentas bancarias propias
+  de la empresa con sus movimientos (depósito/extracción).
+  `isReconciled` queda siempre `false` — sin lógica de conciliación en
+  este sub-sprint. `/companies/:id/bank-accounts`.
+- **`Payment` ahora genera `CashMovement`/`BankMovement`** (cierre de
+  Sprint 3.4): un cobro/pago en Efectivo exige `cashSessionId` (sesión
+  abierta) y genera un `CashMovement`; uno en Transferencia/Tarjeta exige
+  `bankAccountId` (cuenta activa) y genera un `BankMovement` — ambos en
+  la misma transacción que crea el pago.
+- **Movimientos manuales de caja/banco**: además de los automáticos
+  desde un `Payment`, se pueden registrar movimientos manuales (aporte
+  del dueño, gasto bancario) con motivo/descripción obligatorios.
+- **`ApplyCashMovementService`/`ApplyBankMovementService`**: mismo
+  principio que `ApplyStockMovementService`/
+  `ApplyCustomerAccountMovementService` — reciben la transacción abierta
+  para poder combinarse atómicamente con la creación del `Payment`.
+
+### Corregido
+
+- **Bug real de `decimal.js`**: `Decimal.isPositive()` considera `0`
+  como positivo (solo excluye negativos), no "estrictamente > 0". Afectaba
+  la validación de montos en `CreatePaymentUseCase`/
+  `CreateCashMovementUseCase`/`CreateBankMovementUseCase` (código nuevo de
+  este sub-sprint) y, retroactivamente, una cantidad de línea en `0` en
+  `CreateVoucherUseCase` (Sprint 3.3) que no se rechazaba. Corregido
+  usando `.greaterThan(0)` en los 4 lugares; detectado por la suite de
+  tests unitarios, no por `tsc`/`eslint`.
+
+### Pruebas
+
+- 296/296 tests unitarios (41 nuevos de este sub-sprint).
+- 21/21 tests de integración contra Postgres real (3 nuevos: camino feliz
+  de `CashSession` con `expectedBalance` exacto, rollback de apertura,
+  RN-CASH-02).
+- `tsc --noEmit`, `eslint` y `nest build` sin errores.
+- Regresión end-to-end manual con `curl`: alta de caja y cuenta bancaria,
+  apertura de sesión, Factura de Venta, cobro parcial en efectivo
+  (`CashMovement` verificado), cobro del resto por transferencia
+  (`BankMovement` verificado), movimiento manual con motivo, cierre de
+  sesión con `expectedBalance` exacto ($600, `difference` = 0), y rechazo
+  de un cobro en efectivo sin sesión de caja indicada.
+
 ## [0.8.0] - 2026-07-27
 
 Sprint 3, Sub-sprint 4: Tesorería (Pagos y Cuentas Corrientes). Cuarto

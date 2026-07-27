@@ -11,9 +11,38 @@ import {
   AllocationExceedsPaymentAmountError,
   InvalidAllocationVoucherError,
   VoucherOverpaidError,
+  MissingCashSessionError,
+  InvalidCashSessionError,
+  MissingBankAccountError,
+  InvalidBankAccountError,
 } from '../domain/errors/payment.errors';
+import {
+  CashRegisterNotFoundError,
+  InvalidCashRegisterBranchError,
+  CashRegisterAlreadyInTargetStateError,
+  CashSessionNotFoundError,
+  CashRegisterAlreadyHasOpenSessionError,
+  InvalidOpeningBalanceError,
+  CashSessionAlreadyClosedError,
+  MissingCashMovementReasonError,
+  CashSessionNotOpenError,
+  InvalidCashMovementAmountError,
+} from '../domain/errors/cash.errors';
+import {
+  BankAccountNotFoundError,
+  BankAccountAlreadyInTargetStateError,
+  MissingBankMovementDescriptionError,
+  InvalidBankMovementAmountError,
+} from '../domain/errors/bank.errors';
 
-const NOT_FOUND_ERRORS = [PaymentNotFoundError, CustomerNotFoundError, SupplierNotFoundError];
+const NOT_FOUND_ERRORS = [
+  PaymentNotFoundError,
+  CustomerNotFoundError,
+  SupplierNotFoundError,
+  CashRegisterNotFoundError,
+  CashSessionNotFoundError,
+  BankAccountNotFoundError,
+];
 
 const BAD_REQUEST_ERRORS = [
   InvalidPaymentCounterpartyError,
@@ -23,6 +52,21 @@ const BAD_REQUEST_ERRORS = [
   AllocationExceedsPaymentAmountError,
   InvalidAllocationVoucherError,
   VoucherOverpaidError,
+  MissingCashSessionError,
+  InvalidCashSessionError,
+  MissingBankAccountError,
+  InvalidBankAccountError,
+  InvalidCashRegisterBranchError,
+  CashRegisterAlreadyInTargetStateError,
+  CashRegisterAlreadyHasOpenSessionError,
+  InvalidOpeningBalanceError,
+  CashSessionAlreadyClosedError,
+  MissingCashMovementReasonError,
+  CashSessionNotOpenError,
+  InvalidCashMovementAmountError,
+  BankAccountAlreadyInTargetStateError,
+  MissingBankMovementDescriptionError,
+  InvalidBankMovementAmountError,
 ];
 
 export function mapTreasuryError(error: unknown): never {

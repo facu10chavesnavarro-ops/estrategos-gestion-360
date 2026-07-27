@@ -41,4 +41,14 @@ export class CreatePaymentRequestDto {
   @ValidateNested({ each: true })
   @Type(() => PaymentAllocationRequestDto)
   allocations?: PaymentAllocationRequestDto[];
+
+  /** RN-PAY-10: obligatorio si algún medio requiere movimiento de caja. */
+  @IsOptional()
+  @IsString()
+  cashSessionId?: string;
+
+  /** RN-PAY-10: obligatorio si algún medio requiere movimiento bancario. */
+  @IsOptional()
+  @IsString()
+  bankAccountId?: string;
 }
