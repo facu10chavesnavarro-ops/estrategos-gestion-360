@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateManualJournalEntryUseCase } from '../../application/use-cases/create-manual-journal-entry.use-case';
 import { ListJournalEntriesUseCase } from '../../application/use-cases/list-journal-entries.use-case';
 import { GetJournalEntryByIdUseCase } from '../../application/use-cases/get-journal-entry-by-id.use-case';
@@ -14,6 +14,7 @@ import { mapAccountingError } from '../map-accounting-error';
 
 /** Libro Diario (§5): listado cronológico de asientos por empresa. */
 @ApiTags('Contabilidad')
+@ApiBearerAuth()
 @Controller('companies/:companyId/journal-entries')
 @UseGuards(CompanyContextGuard)
 export class JournalEntriesController {
@@ -25,6 +26,7 @@ export class JournalEntriesController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Libro Diario: listar los asientos de la empresa por rango de fechas' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -36,6 +38,10 @@ export class JournalEntriesController {
   }
 
   @Post()
+  @ApiOperation({
+    summary: 'Crear un asiento manual',
+    description: 'Debe balancear (Σ debit = Σ credit) y cada cuenta debe ser imputable.',
+  })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -57,6 +63,7 @@ export class JournalEntriesController {
   }
 
   @Get(':journalEntryId')
+  @ApiOperation({ summary: 'Obtener un asiento por id, con sus líneas' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('journalEntryId') journalEntryId: string,
@@ -71,6 +78,12 @@ export class JournalEntriesController {
   }
 
   @Post(':journalEntryId/reverse')
+  @ApiOperation({
+    summary: 'Revertir un asiento',
+    description:
+      'Los asientos son inmutables: la corrección es un nuevo asiento que ' +
+      'invierte débitos y créditos del original. Rechaza si ya fue revertido.',
+  })
   async reverse(
     @Param('companyId') companyId: string,
     @Param('journalEntryId') journalEntryId: string,

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreatePaymentUseCase } from '../../application/use-cases/create-payment.use-case';
 import { ListPaymentsUseCase } from '../../application/use-cases/list-payments.use-case';
 import { GetPaymentByIdUseCase } from '../../application/use-cases/get-payment-by-id.use-case';
@@ -13,6 +13,7 @@ import { mapTreasuryError } from '../map-treasury-error';
 import { PaymentDirection } from '../../domain/entities/payment.entity';
 
 @ApiTags('Tesorería')
+@ApiBearerAuth()
 @Controller('companies/:companyId/payments')
 @UseGuards(CompanyContextGuard)
 export class PaymentsController {
@@ -23,6 +24,7 @@ export class PaymentsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar cobros/pagos, con filtros por contraparte, sentido y fecha' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -42,6 +44,14 @@ export class PaymentsController {
   }
 
   @Post()
+  @ApiOperation({
+    summary: 'Registrar un cobro (COLLECTION) o un pago (PAYMENT)',
+    description:
+      'El monto total se calcula sumando los medios de pago informados. ' +
+      'Genera el movimiento de cuenta corriente y, si algún medio lo ' +
+      'requiere, el CashMovement/BankMovement correspondiente — y, con ' +
+      'Contabilidad activa, su asiento. Todo en la misma transacción.',
+  })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -63,6 +73,7 @@ export class PaymentsController {
   }
 
   @Get(':paymentId')
+  @ApiOperation({ summary: 'Obtener un cobro/pago por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('paymentId') paymentId: string,

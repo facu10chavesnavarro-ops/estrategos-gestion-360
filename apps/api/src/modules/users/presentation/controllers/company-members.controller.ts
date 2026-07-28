@@ -10,9 +10,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapUserError } from '../map-user-error';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Miembros de empresa')
+@ApiBearerAuth()
 @Controller('companies/:companyId/members')
 @UseGuards(CompanyContextGuard)
 export class CompanyMembersController {
@@ -24,6 +25,7 @@ export class CompanyMembersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar los miembros (usuarios) de una empresa' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -33,6 +35,7 @@ export class CompanyMembersController {
   }
 
   @Patch(':userId/role')
+  @ApiOperation({ summary: 'Cambiar el rol de un miembro dentro de la empresa' })
   async changeRole(
     @Param('companyId') companyId: string,
     @Param('userId') targetUserId: string,
@@ -57,6 +60,7 @@ export class CompanyMembersController {
   }
 
   @Post(':userId/deactivate')
+  @ApiOperation({ summary: 'Desactivar el acceso de un miembro a la empresa' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('userId') targetUserId: string,
@@ -79,6 +83,7 @@ export class CompanyMembersController {
   }
 
   @Post(':userId/activate')
+  @ApiOperation({ summary: 'Reactivar el acceso de un miembro a la empresa' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('userId') targetUserId: string,

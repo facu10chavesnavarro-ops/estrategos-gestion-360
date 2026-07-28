@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreatePointOfSaleUseCase } from '../../application/use-cases/create-point-of-sale.use-case';
 import { UpdatePointOfSaleUseCase } from '../../application/use-cases/update-point-of-sale.use-case';
 import { GetPointOfSaleByIdUseCase } from '../../application/use-cases/get-point-of-sale-by-id.use-case';
@@ -16,6 +16,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapVoucherError } from '../map-voucher-error';
 
 @ApiTags('Puntos de venta')
+@ApiBearerAuth()
 @Controller('companies/:companyId/branches/:branchId/points-of-sale')
 @UseGuards(CompanyContextGuard)
 export class PointsOfSaleController {
@@ -29,6 +30,7 @@ export class PointsOfSaleController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar los puntos de venta de una sucursal' })
   async list(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -39,6 +41,7 @@ export class PointsOfSaleController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un punto de venta' })
   async create(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -62,6 +65,7 @@ export class PointsOfSaleController {
   }
 
   @Get(':pointOfSaleId')
+  @ApiOperation({ summary: 'Obtener un punto de venta por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('pointOfSaleId') pointOfSaleId: string,
@@ -76,6 +80,7 @@ export class PointsOfSaleController {
   }
 
   @Patch(':pointOfSaleId')
+  @ApiOperation({ summary: 'Actualizar un punto de venta' })
   async update(
     @Param('companyId') companyId: string,
     @Param('pointOfSaleId') pointOfSaleId: string,
@@ -99,6 +104,7 @@ export class PointsOfSaleController {
   }
 
   @Post(':pointOfSaleId/deactivate')
+  @ApiOperation({ summary: 'Desactivar un punto de venta' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('pointOfSaleId') pointOfSaleId: string,
@@ -120,6 +126,7 @@ export class PointsOfSaleController {
   }
 
   @Post(':pointOfSaleId/activate')
+  @ApiOperation({ summary: 'Reactivar un punto de venta' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('pointOfSaleId') pointOfSaleId: string,

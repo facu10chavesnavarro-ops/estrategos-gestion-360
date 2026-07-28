@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateItemUseCase } from '../../application/use-cases/create-item.use-case';
 import { UpdateItemUseCase } from '../../application/use-cases/update-item.use-case';
 import { GetItemByIdUseCase } from '../../application/use-cases/get-item-by-id.use-case';
@@ -17,6 +17,7 @@ import { mapCatalogError } from '../map-catalog-error';
 import { ItemType } from '../../domain/entities/item.entity';
 
 @ApiTags('Ítems')
+@ApiBearerAuth()
 @Controller('companies/:companyId/items')
 @UseGuards(CompanyContextGuard)
 export class ItemsController {
@@ -30,6 +31,7 @@ export class ItemsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar ítems (productos y servicios), con filtros' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -49,6 +51,7 @@ export class ItemsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un ítem (producto o servicio)' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -70,6 +73,7 @@ export class ItemsController {
   }
 
   @Get(':itemId')
+  @ApiOperation({ summary: 'Obtener un ítem por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('itemId') itemId: string,
@@ -84,6 +88,7 @@ export class ItemsController {
   }
 
   @Patch(':itemId')
+  @ApiOperation({ summary: 'Actualizar un ítem' })
   async update(
     @Param('companyId') companyId: string,
     @Param('itemId') itemId: string,
@@ -107,6 +112,7 @@ export class ItemsController {
   }
 
   @Post(':itemId/deactivate')
+  @ApiOperation({ summary: 'Desactivar un ítem' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('itemId') itemId: string,
@@ -128,6 +134,7 @@ export class ItemsController {
   }
 
   @Post(':itemId/activate')
+  @ApiOperation({ summary: 'Reactivar un ítem' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('itemId') itemId: string,

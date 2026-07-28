@@ -11,7 +11,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreatePriceListUseCase } from '../../application/use-cases/create-price-list.use-case';
 import { UpdatePriceListUseCase } from '../../application/use-cases/update-price-list.use-case';
 import { ListPriceListsUseCase } from '../../application/use-cases/list-price-lists.use-case';
@@ -31,6 +31,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapCatalogError } from '../map-catalog-error';
 
 @ApiTags('Listas de precios')
+@ApiBearerAuth()
 @Controller('companies/:companyId/price-lists')
 @UseGuards(CompanyContextGuard)
 export class PriceListsController {
@@ -46,6 +47,7 @@ export class PriceListsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar listas de precios' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -59,6 +61,7 @@ export class PriceListsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una lista de precios' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -80,6 +83,7 @@ export class PriceListsController {
   }
 
   @Patch(':priceListId')
+  @ApiOperation({ summary: 'Actualizar una lista de precios' })
   async update(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,
@@ -103,6 +107,7 @@ export class PriceListsController {
   }
 
   @Post(':priceListId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una lista de precios' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,
@@ -124,6 +129,7 @@ export class PriceListsController {
   }
 
   @Post(':priceListId/activate')
+  @ApiOperation({ summary: 'Reactivar una lista de precios' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,
@@ -145,6 +151,7 @@ export class PriceListsController {
   }
 
   @Get(':priceListId/items')
+  @ApiOperation({ summary: 'Listar los precios de ítems dentro de una lista' })
   async listItems(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,
@@ -159,6 +166,7 @@ export class PriceListsController {
   }
 
   @Put(':priceListId/items/:itemId')
+  @ApiOperation({ summary: 'Fijar (o reemplazar) el precio de un ítem en una lista' })
   async setItem(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,
@@ -185,6 +193,7 @@ export class PriceListsController {
 
   @Delete(':priceListId/items/:itemId')
   @HttpCode(204)
+  @ApiOperation({ summary: 'Quitar el precio de un ítem de una lista' })
   async removeItem(
     @Param('companyId') companyId: string,
     @Param('priceListId') priceListId: string,

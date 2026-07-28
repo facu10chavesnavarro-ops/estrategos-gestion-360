@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateCategoryUseCase } from '../../application/use-cases/create-category.use-case';
 import { UpdateCategoryUseCase } from '../../application/use-cases/update-category.use-case';
 import { GetCategoryByIdUseCase } from '../../application/use-cases/get-category-by-id.use-case';
@@ -16,6 +16,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapCatalogError } from '../map-catalog-error';
 
 @ApiTags('Categorías')
+@ApiBearerAuth()
 @Controller('companies/:companyId/categories')
 @UseGuards(CompanyContextGuard)
 export class CategoriesController {
@@ -29,6 +30,7 @@ export class CategoriesController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar categorías de catálogo' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -42,6 +44,7 @@ export class CategoriesController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una categoría (opcionalmente con padre)' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -63,6 +66,7 @@ export class CategoriesController {
   }
 
   @Get(':categoryId')
+  @ApiOperation({ summary: 'Obtener una categoría por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('categoryId') categoryId: string,
@@ -77,6 +81,12 @@ export class CategoriesController {
   }
 
   @Patch(':categoryId')
+  @ApiOperation({
+    summary: 'Actualizar una categoría',
+    description:
+      'Incluye el mapeo contable opcional (salesAccountId/purchasesAccountId, Sprint 4) ' +
+      'usado por el motor de asientos automáticos.',
+  })
   async update(
     @Param('companyId') companyId: string,
     @Param('categoryId') categoryId: string,
@@ -100,6 +110,7 @@ export class CategoriesController {
   }
 
   @Post(':categoryId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una categoría' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('categoryId') categoryId: string,
@@ -121,6 +132,7 @@ export class CategoriesController {
   }
 
   @Post(':categoryId/activate')
+  @ApiOperation({ summary: 'Reactivar una categoría' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('categoryId') categoryId: string,

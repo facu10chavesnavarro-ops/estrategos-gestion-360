@@ -9,9 +9,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapUserError } from '../map-user-error';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Invitaciones')
+@ApiBearerAuth()
 @Controller('companies/:companyId/invitations')
 @UseGuards(CompanyContextGuard)
 export class CompanyInvitationsController {
@@ -22,6 +23,7 @@ export class CompanyInvitationsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar las invitaciones emitidas por una empresa' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -31,6 +33,7 @@ export class CompanyInvitationsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Invitar a un usuario nuevo a la empresa con un rol' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -53,6 +56,7 @@ export class CompanyInvitationsController {
   }
 
   @Post(':invitationId/revoke')
+  @ApiOperation({ summary: 'Revocar una invitación pendiente' })
   async revoke(
     @Param('companyId') companyId: string,
     @Param('invitationId') invitationId: string,

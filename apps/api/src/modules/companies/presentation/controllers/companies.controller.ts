@@ -14,9 +14,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { mapCompanyError } from '../map-company-error';
 import { assertSameCompany } from '../assert-same-company';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Empresas')
+@ApiBearerAuth()
 @Controller()
 export class CompaniesController {
   constructor(
@@ -30,12 +31,14 @@ export class CompaniesController {
 
   /** GET /me/companies — empresas autorizadas del usuario logueado. */
   @Get('me/companies')
+  @ApiOperation({ summary: 'Listar las empresas a las que accede el usuario autenticado' })
   async listMyCompanies(@CurrentUserId() userId: string) {
     return this.listMyCompaniesUseCase.execute(userId);
   }
 
   /** POST /companies — RN-EMP-03: requiere rol de tenant, no pasa por CompanyContextGuard (la empresa aún no existe). */
   @Post('companies')
+  @ApiOperation({ summary: 'Crear una empresa nueva dentro del tenant del usuario' })
   async create(
     @CurrentUserId() userId: string,
     @Body() body: CreateCompanyRequestDto,
@@ -52,6 +55,7 @@ export class CompaniesController {
 
   @Get('companies/:id')
   @UseGuards(CompanyContextGuard)
+  @ApiOperation({ summary: 'Obtener los datos de una empresa por id' })
   async getById(
     @Param('id') id: string,
     @CurrentCompanyId() companyId: string,
@@ -66,6 +70,7 @@ export class CompaniesController {
 
   @Patch('companies/:id')
   @UseGuards(CompanyContextGuard)
+  @ApiOperation({ summary: 'Actualizar los datos de una empresa' })
   async update(
     @Param('id') id: string,
     @CurrentUserId() userId: string,
@@ -88,6 +93,7 @@ export class CompaniesController {
 
   @Post('companies/:id/deactivate')
   @UseGuards(CompanyContextGuard)
+  @ApiOperation({ summary: 'Desactivar una empresa (alta lógica, no elimina datos)' })
   async deactivate(
     @Param('id') id: string,
     @CurrentUserId() userId: string,
@@ -110,6 +116,7 @@ export class CompaniesController {
 
   @Post('companies/:id/activate')
   @UseGuards(CompanyContextGuard)
+  @ApiOperation({ summary: 'Reactivar una empresa desactivada' })
   async activate(
     @Param('id') id: string,
     @CurrentUserId() userId: string,

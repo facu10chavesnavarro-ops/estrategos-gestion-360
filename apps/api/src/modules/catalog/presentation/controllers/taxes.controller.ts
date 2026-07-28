@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateTaxUseCase } from '../../application/use-cases/create-tax.use-case';
 import { UpdateTaxUseCase } from '../../application/use-cases/update-tax.use-case';
 import { CloseTaxUseCase } from '../../application/use-cases/close-tax.use-case';
@@ -14,6 +14,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapCatalogError } from '../map-catalog-error';
 
 @ApiTags('Impuestos')
+@ApiBearerAuth()
 @Controller('companies/:companyId/taxes')
 @UseGuards(CompanyContextGuard)
 export class TaxesController {
@@ -25,6 +26,7 @@ export class TaxesController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar impuestos, opcionalmente solo los vigentes' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -38,6 +40,7 @@ export class TaxesController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un impuesto (tasa y vigencia inmutables una vez creado)' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -59,6 +62,12 @@ export class TaxesController {
   }
 
   @Patch(':taxId')
+  @ApiOperation({
+    summary: 'Actualizar el nombre y el mapeo contable de un impuesto',
+    description:
+      'salesAccountId/purchasesAccountId (Sprint 4) son las cuentas de IVA ' +
+      'Débito/Crédito Fiscal usadas por el motor de asientos automáticos.',
+  })
   async update(
     @Param('companyId') companyId: string,
     @Param('taxId') taxId: string,
@@ -82,6 +91,7 @@ export class TaxesController {
   }
 
   @Post(':taxId/close')
+  @ApiOperation({ summary: 'Cerrar la vigencia de un impuesto (para reemplazarlo por uno nuevo)' })
   async close(
     @Param('companyId') companyId: string,
     @Param('taxId') taxId: string,

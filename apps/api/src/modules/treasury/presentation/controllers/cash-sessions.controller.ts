@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CloseCashSessionUseCase } from '../../application/use-cases/close-cash-session.use-case';
 import { CreateCashMovementUseCase } from '../../application/use-cases/create-cash-movement.use-case';
 import { ListCashMovementsUseCase } from '../../application/use-cases/list-cash-movements.use-case';
@@ -13,6 +13,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapTreasuryError } from '../map-treasury-error';
 
 @ApiTags('Tesorería')
+@ApiBearerAuth()
 @Controller('companies/:companyId/cash-sessions')
 @UseGuards(CompanyContextGuard)
 export class CashSessionsController {
@@ -23,6 +24,12 @@ export class CashSessionsController {
   ) {}
 
   @Post(':cashSessionId/close')
+  @ApiOperation({
+    summary: 'Cerrar una sesión de caja',
+    description:
+      'Calcula y persiste expectedBalance (según los movimientos) y ' +
+      'difference (contra el closingBalance informado).',
+  })
   async close(
     @Param('companyId') companyId: string,
     @Param('cashSessionId') cashSessionId: string,
@@ -46,6 +53,7 @@ export class CashSessionsController {
   }
 
   @Get(':cashSessionId/movements')
+  @ApiOperation({ summary: 'Listar los movimientos de una sesión de caja' })
   async listMovements(
     @Param('companyId') companyId: string,
     @Param('cashSessionId') cashSessionId: string,
@@ -56,6 +64,12 @@ export class CashSessionsController {
   }
 
   @Post(':cashSessionId/movements')
+  @ApiOperation({
+    summary: 'Registrar un movimiento manual de caja (ingreso o egreso)',
+    description:
+      'Exige `reason`. Con Contabilidad activa exige además ' +
+      'counterpartAccountId (RN-ACC-06) y genera su propio asiento.',
+  })
   async createMovement(
     @Param('companyId') companyId: string,
     @Param('cashSessionId') cashSessionId: string,

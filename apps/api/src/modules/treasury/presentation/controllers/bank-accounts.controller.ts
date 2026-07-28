@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateBankAccountUseCase } from '../../application/use-cases/create-bank-account.use-case';
 import { UpdateBankAccountUseCase } from '../../application/use-cases/update-bank-account.use-case';
 import { GetBankAccountByIdUseCase } from '../../application/use-cases/get-bank-account-by-id.use-case';
@@ -19,6 +19,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapTreasuryError } from '../map-treasury-error';
 
 @ApiTags('Tesorería')
+@ApiBearerAuth()
 @Controller('companies/:companyId/bank-accounts')
 @UseGuards(CompanyContextGuard)
 export class BankAccountsController {
@@ -34,6 +35,7 @@ export class BankAccountsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar las cuentas bancarias de la empresa' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -43,6 +45,7 @@ export class BankAccountsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una cuenta bancaria' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -64,6 +67,7 @@ export class BankAccountsController {
   }
 
   @Get(':bankAccountId')
+  @ApiOperation({ summary: 'Obtener una cuenta bancaria por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -78,6 +82,12 @@ export class BankAccountsController {
   }
 
   @Patch(':bankAccountId')
+  @ApiOperation({
+    summary: 'Actualizar una cuenta bancaria',
+    description:
+      'Incluye el mapeo contable opcional (glAccountId, Sprint 4) usado por ' +
+      'el motor de asientos automáticos y por los movimientos manuales.',
+  })
   async update(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -101,6 +111,7 @@ export class BankAccountsController {
   }
 
   @Post(':bankAccountId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una cuenta bancaria' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -122,6 +133,7 @@ export class BankAccountsController {
   }
 
   @Post(':bankAccountId/activate')
+  @ApiOperation({ summary: 'Reactivar una cuenta bancaria' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -143,6 +155,7 @@ export class BankAccountsController {
   }
 
   @Get(':bankAccountId/movements')
+  @ApiOperation({ summary: 'Listar los movimientos de una cuenta bancaria' })
   async listMovements(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,
@@ -153,6 +166,12 @@ export class BankAccountsController {
   }
 
   @Post(':bankAccountId/movements')
+  @ApiOperation({
+    summary: 'Registrar un movimiento manual de banco (depósito o extracción)',
+    description:
+      'Exige `description`. Con Contabilidad activa exige además ' +
+      'counterpartAccountId (RN-ACC-06) y genera su propio asiento.',
+  })
   async createMovement(
     @Param('companyId') companyId: string,
     @Param('bankAccountId') bankAccountId: string,

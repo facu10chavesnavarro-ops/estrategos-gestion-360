@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ActivateAccountingUseCase } from '../../application/use-cases/activate-accounting.use-case';
 import { GetAccountingSettingsUseCase } from '../../application/use-cases/get-accounting-settings.use-case';
 import { UpdateAccountingSettingsUseCase } from '../../application/use-cases/update-accounting-settings.use-case';
@@ -15,6 +15,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapAccountingError } from '../map-accounting-error';
 
 @ApiTags('Contabilidad')
+@ApiBearerAuth()
 @Controller('companies/:companyId/accounting-settings')
 @UseGuards(CompanyContextGuard)
 export class AccountingSettingsController {
@@ -27,6 +28,14 @@ export class AccountingSettingsController {
   ) {}
 
   @Post('activate')
+  @ApiOperation({
+    summary: 'Activar Contabilidad para la empresa',
+    description:
+      'Clona el Plan de Cuentas estándar (18 cuentas) y crea AccountingSettings ' +
+      'con las cuentas de control (Deudores por Ventas, Proveedores). ' +
+      'Rechaza si ya estaba activada. Contabilidad es opcional: sin activar, ' +
+      'Vouchers y Payments funcionan exactamente igual que antes de este módulo.',
+  })
   async activate(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -46,6 +55,7 @@ export class AccountingSettingsController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Obtener la configuración contable de la empresa' })
   async get(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -59,6 +69,7 @@ export class AccountingSettingsController {
   }
 
   @Put()
+  @ApiOperation({ summary: 'Actualizar las cuentas de control (Deudores por Ventas / Proveedores)' })
   async update(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -80,6 +91,9 @@ export class AccountingSettingsController {
   }
 
   @Get('payment-method-account-mappings')
+  @ApiOperation({
+    summary: 'Listar el mapeo de cuentas contables por medio de pago y sentido',
+  })
   async listPaymentMethodMappings(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -89,6 +103,14 @@ export class AccountingSettingsController {
   }
 
   @Post('payment-method-account-mappings')
+  @ApiOperation({
+    summary: 'Mapear un medio de pago + sentido a una cuenta contable',
+    description:
+      'Necesario para medios que no mueven caja ni banco (ej. Cheque): ' +
+      'el mismo medio puede necesitar cuentas distintas según sea cobro ' +
+      '(activo, ej. "Valores a Depositar") o pago (pasivo, ej. "Cheques ' +
+      'Emitidos a Pagar").',
+  })
   async setPaymentMethodMapping(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,

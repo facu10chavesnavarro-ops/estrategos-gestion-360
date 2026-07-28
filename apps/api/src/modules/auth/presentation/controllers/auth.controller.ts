@@ -19,7 +19,7 @@ import {
   InvalidRefreshTokenError,
 } from '../../domain/errors/auth.errors';
 import { Public } from '../../../../common/decorators/public.decorator';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -33,6 +33,16 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Iniciar sesión',
+    description:
+      'Devuelve un access token (corta duración) y un refresh token ' +
+      '(rotable) junto con los datos básicos del usuario. No requiere ' +
+      'X-Company-Id: la selección de empresa es un paso posterior, vía ' +
+      'GET /companies para listar las empresas del usuario.',
+  })
+  @ApiResponse({ status: 200, description: 'Credenciales válidas.' })
+  @ApiResponse({ status: 401, description: 'Credenciales inválidas o usuario inactivo.' })
   async login(@Body() body: LoginRequestDto) {
     try {
       return await this.loginUseCase.execute(body);

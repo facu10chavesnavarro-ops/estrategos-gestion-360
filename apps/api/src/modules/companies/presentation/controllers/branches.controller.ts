@@ -13,9 +13,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { mapCompanyError } from '../map-company-error';
 import { assertSameCompany } from '../assert-same-company';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Sucursales')
+@ApiBearerAuth()
 @Controller('companies/:companyId/branches')
 @UseGuards(CompanyContextGuard)
 export class BranchesController {
@@ -28,6 +29,7 @@ export class BranchesController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar las sucursales de una empresa' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -37,6 +39,7 @@ export class BranchesController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una sucursal' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -58,6 +61,7 @@ export class BranchesController {
   }
 
   @Patch(':branchId')
+  @ApiOperation({ summary: 'Actualizar una sucursal' })
   async update(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -81,6 +85,7 @@ export class BranchesController {
   }
 
   @Post(':branchId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una sucursal' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -104,6 +109,7 @@ export class BranchesController {
   }
 
   @Post(':branchId/activate')
+  @ApiOperation({ summary: 'Reactivar una sucursal' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,

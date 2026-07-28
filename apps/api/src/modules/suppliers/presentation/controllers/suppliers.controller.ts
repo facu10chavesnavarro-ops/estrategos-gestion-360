@@ -15,9 +15,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapSupplierError } from '../map-supplier-error';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Proveedores')
+@ApiBearerAuth()
 @Controller('companies/:companyId/suppliers')
 @UseGuards(CompanyContextGuard)
 export class SuppliersController {
@@ -32,6 +33,7 @@ export class SuppliersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar proveedores, con búsqueda y filtro por estado' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -47,6 +49,7 @@ export class SuppliersController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un proveedor' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -68,6 +71,7 @@ export class SuppliersController {
   }
 
   @Get(':supplierId')
+  @ApiOperation({ summary: 'Obtener un proveedor por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('supplierId') supplierId: string,
@@ -82,6 +86,7 @@ export class SuppliersController {
   }
 
   @Patch(':supplierId')
+  @ApiOperation({ summary: 'Actualizar un proveedor' })
   async update(
     @Param('companyId') companyId: string,
     @Param('supplierId') supplierId: string,
@@ -105,6 +110,7 @@ export class SuppliersController {
   }
 
   @Post(':supplierId/deactivate')
+  @ApiOperation({ summary: 'Desactivar un proveedor' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('supplierId') supplierId: string,
@@ -126,6 +132,7 @@ export class SuppliersController {
   }
 
   @Post(':supplierId/activate')
+  @ApiOperation({ summary: 'Reactivar un proveedor' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('supplierId') supplierId: string,
@@ -147,6 +154,7 @@ export class SuppliersController {
   }
 
   @Post('import')
+  @ApiOperation({ summary: 'Importar proveedores en lote desde un CSV' })
   async import(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,

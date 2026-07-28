@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateCashRegisterUseCase } from '../../application/use-cases/create-cash-register.use-case';
 import { UpdateCashRegisterUseCase } from '../../application/use-cases/update-cash-register.use-case';
 import { GetCashRegisterByIdUseCase } from '../../application/use-cases/get-cash-register-by-id.use-case';
@@ -19,6 +19,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapTreasuryError } from '../map-treasury-error';
 
 @ApiTags('Tesorería')
+@ApiBearerAuth()
 @Controller('companies/:companyId/branches/:branchId/cash-registers')
 @UseGuards(CompanyContextGuard)
 export class CashRegistersController {
@@ -34,6 +35,7 @@ export class CashRegistersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar las cajas de una sucursal' })
   async list(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -44,6 +46,7 @@ export class CashRegistersController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una caja' })
   async create(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -67,6 +70,7 @@ export class CashRegistersController {
   }
 
   @Get(':cashRegisterId')
+  @ApiOperation({ summary: 'Obtener una caja por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,
@@ -81,6 +85,12 @@ export class CashRegistersController {
   }
 
   @Patch(':cashRegisterId')
+  @ApiOperation({
+    summary: 'Actualizar una caja',
+    description:
+      'Incluye el mapeo contable opcional (accountId, Sprint 4) usado por ' +
+      'el motor de asientos automáticos y por los movimientos manuales.',
+  })
   async update(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,
@@ -104,6 +114,7 @@ export class CashRegistersController {
   }
 
   @Post(':cashRegisterId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una caja' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,
@@ -125,6 +136,7 @@ export class CashRegistersController {
   }
 
   @Post(':cashRegisterId/activate')
+  @ApiOperation({ summary: 'Reactivar una caja' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,
@@ -146,6 +158,7 @@ export class CashRegistersController {
   }
 
   @Get(':cashRegisterId/sessions')
+  @ApiOperation({ summary: 'Listar las sesiones (turnos) históricas de una caja' })
   async listSessions(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,
@@ -156,6 +169,7 @@ export class CashRegistersController {
   }
 
   @Post(':cashRegisterId/sessions')
+  @ApiOperation({ summary: 'Abrir una sesión de caja (RN-CASH-02: solo una abierta por vez)' })
   async openSession(
     @Param('companyId') companyId: string,
     @Param('cashRegisterId') cashRegisterId: string,

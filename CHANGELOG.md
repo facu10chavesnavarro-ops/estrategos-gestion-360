@@ -6,6 +6,27 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [1.0.1] - 2026-07-27
+
+Documentación completa de la API (Swagger/OpenAPI), primer entregable de
+la preparación del frontend. Sin cambios de comportamiento.
+
+### Agregado
+
+- Plugin oficial `@nestjs/swagger` habilitado en `nest-cli.json`: infiere
+  en tiempo de compilación el esquema de cada DTO (tipos, opcional/
+  requerido, enums y validaciones vía `classValidatorShim`) sin necesidad
+  de mantener `@ApiProperty` a mano en cada campo — evita que la
+  documentación quede desactualizada respecto del código.
+- `@ApiOperation` con resumen (y descripción cuando el comportamiento no
+  es obvio) en los 91 endpoints de los 29 controllers del backend.
+- `@ApiBearerAuth()` en los 27 controllers protegidos por JWT; los 2
+  únicos endpoints públicos (`/auth/*`, `/invitations/:token`) quedan sin
+  el candado en la UI de Swagger, reflejando la realidad.
+- Verificado sirviendo la API real: `/api/docs` (Swagger UI) y
+  `/api/docs-json` (spec OpenAPI) exponen 91 rutas y 51 esquemas
+  completos.
+
 ## [1.0.0] - 2026-07-27
 
 **Backend MVP — versión congelada.** Cierra Sprints 0 a 4 como la primera

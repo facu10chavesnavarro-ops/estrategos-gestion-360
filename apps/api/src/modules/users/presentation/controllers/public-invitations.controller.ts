@@ -4,7 +4,7 @@ import { AcceptInvitationUseCase } from '../../application/use-cases/accept-invi
 import { AcceptInvitationRequestDto } from '../dto/accept-invitation-request.dto';
 import { Public } from '../../../../common/decorators/public.decorator';
 import { mapUserError } from '../map-user-error';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 
 /**
  * Sin sesión todavía: el usuario invitado no tiene token de acceso hasta
@@ -20,6 +20,7 @@ export class PublicInvitationsController {
 
   @Public()
   @Get(':token')
+  @ApiOperation({ summary: 'Ver la vista previa de una invitación (empresa, rol, email) sin sesión' })
   async preview(@Param('token') token: string) {
     try {
       return await this.getInvitationByTokenUseCase.execute(token);
@@ -31,6 +32,7 @@ export class PublicInvitationsController {
   @Public()
   @Post(':token/accept')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Aceptar una invitación: crea el usuario y su acceso a la empresa' })
   async accept(
     @Param('token') token: string,
     @Body() body: AcceptInvitationRequestDto,

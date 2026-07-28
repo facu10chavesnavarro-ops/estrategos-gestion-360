@@ -15,9 +15,10 @@ import { CurrentRoleName } from '../../../../common/decorators/current-role-name
 import { CompanyContextGuard } from '../../../../common/guards/company-context.guard';
 import { assertSameCompany } from '../../../companies/presentation/assert-same-company';
 import { mapCustomerError } from '../map-customer-error';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Clientes')
+@ApiBearerAuth()
 @Controller('companies/:companyId/customers')
 @UseGuards(CompanyContextGuard)
 export class CustomersController {
@@ -32,6 +33,7 @@ export class CustomersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar clientes, con búsqueda y filtro por estado' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -47,6 +49,7 @@ export class CustomersController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un cliente' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -68,6 +71,7 @@ export class CustomersController {
   }
 
   @Get(':customerId')
+  @ApiOperation({ summary: 'Obtener un cliente por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('customerId') customerId: string,
@@ -82,6 +86,7 @@ export class CustomersController {
   }
 
   @Patch(':customerId')
+  @ApiOperation({ summary: 'Actualizar un cliente' })
   async update(
     @Param('companyId') companyId: string,
     @Param('customerId') customerId: string,
@@ -105,6 +110,7 @@ export class CustomersController {
   }
 
   @Post(':customerId/deactivate')
+  @ApiOperation({ summary: 'Desactivar un cliente' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('customerId') customerId: string,
@@ -126,6 +132,7 @@ export class CustomersController {
   }
 
   @Post(':customerId/activate')
+  @ApiOperation({ summary: 'Reactivar un cliente' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('customerId') customerId: string,
@@ -147,6 +154,7 @@ export class CustomersController {
   }
 
   @Post('import')
+  @ApiOperation({ summary: 'Importar clientes en lote desde un CSV' })
   async import(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,

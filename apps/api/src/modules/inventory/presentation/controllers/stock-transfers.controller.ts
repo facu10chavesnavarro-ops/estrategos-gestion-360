@@ -1,5 +1,5 @@
 import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateStockTransferUseCase } from '../../application/use-cases/create-stock-transfer.use-case';
 import { CreateStockTransferRequestDto } from '../dto/create-stock-transfer-request.dto';
 import { CurrentUserId } from '../../../../common/decorators/current-user.decorator';
@@ -10,12 +10,14 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapInventoryError } from '../map-inventory-error';
 
 @ApiTags('Stock')
+@ApiBearerAuth()
 @Controller('companies/:companyId/stock-transfers')
 @UseGuards(CompanyContextGuard)
 export class StockTransfersController {
   constructor(private readonly createStockTransferUseCase: CreateStockTransferUseCase) {}
 
   @Post()
+  @ApiOperation({ summary: 'Transferir stock de un ítem entre dos depósitos' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,

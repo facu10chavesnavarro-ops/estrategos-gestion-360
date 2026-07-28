@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateVoucherUseCase } from '../../application/use-cases/create-voucher.use-case';
 import { ListVouchersUseCase } from '../../application/use-cases/list-vouchers.use-case';
 import { GetVoucherByIdUseCase } from '../../application/use-cases/get-voucher-by-id.use-case';
@@ -12,6 +12,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapVoucherError } from '../map-voucher-error';
 
 @ApiTags('Comprobantes')
+@ApiBearerAuth()
 @Controller('companies/:companyId/vouchers')
 @UseGuards(CompanyContextGuard)
 export class VouchersController {
@@ -22,6 +23,7 @@ export class VouchersController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar comprobantes, con filtros por contraparte, tipo y fecha' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -41,6 +43,14 @@ export class VouchersController {
   }
 
   @Post()
+  @ApiOperation({
+    summary: 'Confirmar un comprobante (Factura, Nota de Crédito, etc.)',
+    description:
+      'Crear = confirmar en una sola operación: numera, calcula totales, ' +
+      'snapshotea precios/impuestos y aplica los efectos de stock, cuenta ' +
+      'corriente y — con Contabilidad activa — el asiento correspondiente, ' +
+      'todo en la misma transacción. Es inmutable una vez creado.',
+  })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -62,6 +72,7 @@ export class VouchersController {
   }
 
   @Get(':voucherId')
+  @ApiOperation({ summary: 'Obtener un comprobante por id, con sus líneas' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('voucherId') voucherId: string,

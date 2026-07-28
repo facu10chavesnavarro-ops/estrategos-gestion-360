@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateChartOfAccountUseCase } from '../../application/use-cases/create-chart-of-account.use-case';
 import { UpdateChartOfAccountUseCase } from '../../application/use-cases/update-chart-of-account.use-case';
 import { GetChartOfAccountByIdUseCase } from '../../application/use-cases/get-chart-of-account-by-id.use-case';
@@ -17,6 +17,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapAccountingError } from '../map-accounting-error';
 
 @ApiTags('Contabilidad')
+@ApiBearerAuth()
 @Controller('companies/:companyId/chart-of-accounts')
 @UseGuards(CompanyContextGuard)
 export class ChartOfAccountsController {
@@ -31,6 +32,7 @@ export class ChartOfAccountsController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar el Plan de Cuentas de la empresa' })
   async list(
     @Param('companyId') companyId: string,
     @CurrentCompanyId() contextCompanyId: string,
@@ -44,6 +46,7 @@ export class ChartOfAccountsController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear una cuenta contable (opcionalmente con padre)' })
   async create(
     @Param('companyId') companyId: string,
     @CurrentUserId() userId: string,
@@ -65,6 +68,7 @@ export class ChartOfAccountsController {
   }
 
   @Get(':accountId')
+  @ApiOperation({ summary: 'Obtener una cuenta contable por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('accountId') accountId: string,
@@ -79,6 +83,10 @@ export class ChartOfAccountsController {
   }
 
   @Get(':accountId/ledger')
+  @ApiOperation({
+    summary: 'Libro Mayor de una cuenta',
+    description: 'Movimientos de la cuenta ordenados por fecha, con saldo acumulado.',
+  })
   async ledger(
     @Param('companyId') companyId: string,
     @Param('accountId') accountId: string,
@@ -93,6 +101,7 @@ export class ChartOfAccountsController {
   }
 
   @Patch(':accountId')
+  @ApiOperation({ summary: 'Actualizar una cuenta contable (nombre y/o padre)' })
   async update(
     @Param('companyId') companyId: string,
     @Param('accountId') accountId: string,
@@ -116,6 +125,7 @@ export class ChartOfAccountsController {
   }
 
   @Post(':accountId/deactivate')
+  @ApiOperation({ summary: 'Desactivar una cuenta contable (rechaza si es de sistema)' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('accountId') accountId: string,
@@ -137,6 +147,7 @@ export class ChartOfAccountsController {
   }
 
   @Post(':accountId/activate')
+  @ApiOperation({ summary: 'Reactivar una cuenta contable' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('accountId') accountId: string,

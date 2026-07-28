@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ListStockUseCase } from '../../application/use-cases/list-stock.use-case';
 import { ListStockMovementsUseCase } from '../../application/use-cases/list-stock-movements.use-case';
 import { CreateStockAdjustmentUseCase } from '../../application/use-cases/create-stock-adjustment.use-case';
@@ -13,6 +13,7 @@ import { mapInventoryError } from '../map-inventory-error';
 import { StockMovementType } from '../../domain/entities/stock-movement.entity';
 
 @ApiTags('Stock')
+@ApiBearerAuth()
 @Controller('companies/:companyId/warehouses/:warehouseId')
 @UseGuards(CompanyContextGuard)
 export class StockController {
@@ -23,6 +24,7 @@ export class StockController {
   ) {}
 
   @Get('stock')
+  @ApiOperation({ summary: 'Consultar el stock actual de un depósito, por ítem' })
   async listStock(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
@@ -34,6 +36,7 @@ export class StockController {
   }
 
   @Get('stock-movements')
+  @ApiOperation({ summary: 'Listar los movimientos de stock de un depósito, con filtros' })
   async listStockMovements(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
@@ -55,6 +58,7 @@ export class StockController {
   }
 
   @Post('stock-movements/adjustment')
+  @ApiOperation({ summary: 'Registrar un ajuste manual de stock (positivo o negativo)' })
   async createAdjustment(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,

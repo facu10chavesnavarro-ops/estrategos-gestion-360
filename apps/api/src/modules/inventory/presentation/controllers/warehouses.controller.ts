@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateWarehouseUseCase } from '../../application/use-cases/create-warehouse.use-case';
 import { UpdateWarehouseUseCase } from '../../application/use-cases/update-warehouse.use-case';
 import { GetWarehouseByIdUseCase } from '../../application/use-cases/get-warehouse-by-id.use-case';
@@ -16,6 +16,7 @@ import { assertSameCompany } from '../../../companies/presentation/assert-same-c
 import { mapInventoryError } from '../map-inventory-error';
 
 @ApiTags('Depósitos')
+@ApiBearerAuth()
 @Controller('companies/:companyId/branches/:branchId/warehouses')
 @UseGuards(CompanyContextGuard)
 export class WarehousesController {
@@ -29,6 +30,7 @@ export class WarehousesController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Listar los depósitos de una sucursal' })
   async list(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -39,6 +41,7 @@ export class WarehousesController {
   }
 
   @Post()
+  @ApiOperation({ summary: 'Crear un depósito' })
   async create(
     @Param('companyId') companyId: string,
     @Param('branchId') branchId: string,
@@ -62,6 +65,7 @@ export class WarehousesController {
   }
 
   @Get(':warehouseId')
+  @ApiOperation({ summary: 'Obtener un depósito por id' })
   async getById(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
@@ -76,6 +80,7 @@ export class WarehousesController {
   }
 
   @Patch(':warehouseId')
+  @ApiOperation({ summary: 'Actualizar un depósito' })
   async update(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
@@ -99,6 +104,7 @@ export class WarehousesController {
   }
 
   @Post(':warehouseId/deactivate')
+  @ApiOperation({ summary: 'Desactivar un depósito' })
   async deactivate(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
@@ -120,6 +126,7 @@ export class WarehousesController {
   }
 
   @Post(':warehouseId/activate')
+  @ApiOperation({ summary: 'Reactivar un depósito' })
   async activate(
     @Param('companyId') companyId: string,
     @Param('warehouseId') warehouseId: string,
