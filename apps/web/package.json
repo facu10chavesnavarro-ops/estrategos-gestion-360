@@ -3,13 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "npm run generate:types",
     "dev": "next dev",
+    "prebuild": "npm run generate:types",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate:types": "npm run generate --workspace=@estrategos/shared-types || echo \"[shared-types] no se pudo regenerar desde la API (¿esta corriendo en :3001?), se usan los tipos ya generados\""
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@estrategos/shared-types": "*",
     "@hookform/resolvers": "^5.5.7",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
