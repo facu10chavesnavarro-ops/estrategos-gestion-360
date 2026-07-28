@@ -172,10 +172,30 @@ una venta.
 
 ## 6. Responsividad
 
-Uso previsto es de escritorio (back-office administrativo, no una app de
-punto de venta para tablet/celular en esta etapa). El layout se adapta a
-tablet (sidebar colapsable a íconos) pero no se optimiza para teléfono en
-el MVP de frontend — las tablas de este dominio (líneas de comprobante,
-Libro Mayor) no son usables en una pantalla angosta sin un rediseño
-específico que no está en el alcance actual. Se deja como decisión
-explícita, no como omisión.
+**Actualizado tras aprobación del usuario:** el sistema debe ser
+utilizable en escritorio, tablet y móvil — no solo tolerarlo, sino dar una
+experiencia cuidada en los tres. Esto cambia el diseño de los componentes
+de tabla y formulario respecto a un diseño "solo escritorio":
+
+- **Escritorio** (≥1024px): layout de referencia — sidebar fijo expandido,
+  tablas con todas las columnas visibles, paneles laterales (`Sheet`) para
+  alta/edición simple.
+- **Tablet** (640–1023px): sidebar colapsable a íconos (ya previsto),
+  tablas con columnas secundarias ocultas tras un indicador "ver más" por
+  fila en vez de scroll horizontal permanente, paneles laterales pasan a
+  ocupar el ancho completo.
+- **Móvil** (<640px): sidebar se convierte en menú de hamburguesa a
+  pantalla completa; las tablas (`DataTable`, doc 01 §2) tienen una
+  variante de **lista de tarjetas** — cada fila se renderiza como una
+  tarjeta con la información priorizada (identificador + estado + 1-2
+  campos clave) en vez de una tabla con scroll horizontal, que es
+  inutilizable en una pantalla angosta; los formularios multi-columna
+  (Comprobante, Pago) pasan a una sola columna con navegación por pasos
+  (wizard) en vez de todo-en-una-pantalla.
+- Esta variante de tarjeta es responsabilidad de `DataTable` (doc 01 §2),
+  no de cada pantalla: se define una vez y la heredan las ~9 pantallas de
+  listado, manteniendo la consistencia visual exigida.
+- Tablas con muchas columnas numéricas (Libro Mayor, líneas de
+  Comprobante) usan formato compacto (montos abreviados, columnas menos
+  prioritarias ocultas primero) en vez de reducir el tamaño de fuente por
+  debajo del legible — nunca se sacrifica legibilidad por caber más datos.
