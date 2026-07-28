@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { Providers } from './providers';
 
 export const metadata: Metadata = {
   title: 'Estrategos Gestión 360',
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" className="font-sans">
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }
