@@ -1,5 +1,7 @@
-import { ApiError, apiFetch } from './http-client';
-import type { SessionCompany, SessionUser } from '../stores/use-session-store';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { ApiError } from './http-client';
+import { useSessionStore, type SessionUser } from '../stores/use-session-store';
 
 /**
  * Login/logout/sesión no pasan por TanStack Query (ver 01-organizacion-y-
@@ -37,6 +39,20 @@ export async function fetchSession(): Promise<{ authenticated: boolean }> {
   return res.json();
 }
 
-export async function fetchMyCompanies(): Promise<SessionCompany[]> {
-  return apiFetch<SessionCompany[]>('me/companies', '');
+/**
+ * Cierra sesión y limpia todo rastro client-side: el store de sesión y la
+ * caché de TanStack Query (para que un próximo login no arranque mostrando
+ * datos en caché de la empresa/usuario anterior).
+ */
+export function useLogout() {
+  const router = useRouter();
+  const clearSession = useSessionStore((state) => state.clearSession);
+  const queryClient = useQueryClient();
+
+  return async () => {
+    await logout();
+    clearSession();
+    queryClient.clear();
+    router.push('/login');
+  };
 }
