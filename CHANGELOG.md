@@ -6,6 +6,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [1.1.0] - 2026-07-29
+
+Endpoint nuevo pedido durante el desarrollo del Sprint F1 del frontend
+(`docs/frontend/04-sprint-f1-configuracion.md` §2.1, addendum): el
+frontend necesitaba una forma de reconstruir la sesión (usuario + rol en
+la empresa activa) al recargar la página, sin depender de estado
+guardado en el navegador. El backend sigue siendo la única fuente de
+verdad para autenticación y permisos.
+
+### Agregado
+
+- `GET /auth/me`: requiere JWT (no es público, a diferencia del resto de
+  `AuthController`). Devuelve `{ id, email, fullName, membership }`.
+  `membership` es `null` sin el header `X-Company-Id`; con él, resuelve
+  `{ companyId, roleId, roleName, isActive }` de la membresía del usuario
+  en esa empresa (o `null` si no es miembro) vía
+  `CompanyUserRepository.findMembershipWithRoleName` — mismo lookup que
+  ya usaba `CompanyContextGuard` internamente, ahora expuesto en el
+  response.
+- `CompanyUserRepository.findMembershipWithRoleName`: como
+  `findMembership`, pero además resuelve el nombre del rol (join contra
+  `Role`).
+
 ## [web-0.2.0] - 2026-07-28
 
 **Frontend Sprint F0 — Fundación.** Primer sprint de frontend versionado

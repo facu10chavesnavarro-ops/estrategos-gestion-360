@@ -27,24 +27,50 @@ alcance funcional), así que se documentan y se avanza directamente.
 
 ### 2.1 Cómo resolver "mi rol en la empresa activa"
 
-El backend no tiene un endpoint dedicado tipo `/companies/:id/me`.
+> **Superado durante la implementación de F1** — ver addendum al final de
+> esta sección. Se deja el razonamiento original porque explica por qué
+> se llegó a pedir el endpoint nuevo.
+
+El backend no tenía un endpoint dedicado tipo `/companies/:id/me`.
 `GET /me/companies` no incluye rol (se confirmó relevando
 `prisma-company.repository.ts::findAllForUser`, que descarta
 `roleId`/`roleName` de la membresía). El JWT tampoco lo lleva (solo firma
 `{ sub, email }`).
 
-**Decisión**: usar `GET /companies/:companyId/members` — accesible para
-**cualquier miembro activo** (no tiene `assertRoleIn`, a diferencia de
-las mutaciones) — y buscar la fila cuyo `userId` coincide con
-`useSessionStore().user.id`. Se expone como un hook
-`useCurrentMembership()` (TanStack Query, cacheado por `companyId`) en
-`lib/api/users.ts`, reutilizado por el layout de Configuración y por
-cualquier pantalla futura que necesite gatear UI por rol.
+**Decisión original**: usar `GET /companies/:companyId/members` —
+accesible para **cualquier miembro activo** (no tiene `assertRoleIn`, a
+diferencia de las mutaciones) — y buscar la fila cuyo `userId` coincide
+con `useSessionStore().user.id`.
 
-Es un llamado extra (ya se paga en la propia pantalla de Miembros, que
-necesita esa lista de todos modos), no un cambio de arquitectura. Si en
-un sprint futuro el volumen de miembros o la latencia lo justifican, se
-puede pedir al backend un endpoint dedicado — no bloquea F1.
+**Problema encontrado al probarlo en el navegador**: `useSessionStore`
+(decisión de F0) no persiste — es deliberado, la sesión "de verdad" vive
+en la cookie httpOnly. Pero eso significa que tras cualquier recarga de
+página (F5, abrir un link compartido, reabrir la pestaña) `user` vuelve a
+`null`, y con él la comparación `userId === user.id` deja de encontrar la
+fila propia — un admin real pierde silenciosamente el acceso a
+"Configuración → Usuarios" y a los controles de edición de Empresa hasta
+volver a loguearse. Verificado en vivo: con sesión recién logueada
+funciona, simulando una recarga se rompe.
+
+**Addendum — decisión final (aprobada explícitamente)**: en vez de
+persistir el perfil del usuario en el cliente (alternativa que sí se
+consideró, pero cambia la decisión de F0 de "cero estado de sesión
+guardado en el navegador"), se agregó un endpoint nuevo al backend:
+**`GET /auth/me`**. Requiere JWT (no es `@Public()`); si se envía
+`X-Company-Id` (opcional), además resuelve `{ roleId, roleName,
+isActive }` de la membresía en esa empresa vía
+`CompanyUserRepository.findMembershipWithRoleName` (reutiliza el mismo
+lookup que ya hacía `CompanyContextGuard`, ahora expuesto en un response
+body en vez de quedar solo en el `request` interno). El backend sigue
+siendo la única fuente de verdad para autenticación y permisos — el
+cliente nunca guarda nada de esto en `localStorage`/`sessionStorage`.
+
+El frontend llama a este endpoint al montar `[companyId]/layout.tsx`
+(donde `companyId` ya se conoce por la URL) y rehidrata
+`useSessionStore` con el resultado en cada carga — incluida una recarga
+completa. `useCurrentMembership()` (`lib/api/users.ts`) pasa de hacer el
+lookup manual sobre la lista de miembros a simplemente leer
+`useSessionStore().membership`, ya resuelto por el backend.
 
 ### 2.2 Estructura de "Configuración" en la navegación
 

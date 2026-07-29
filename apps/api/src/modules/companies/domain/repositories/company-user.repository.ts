@@ -49,6 +49,15 @@ export abstract class CompanyUserRepository {
     ctx?: TransactionContext,
   ): Promise<CompanyMembershipStatus | null>;
 
+  /** Como findMembership, pero además resuelve el nombre del rol — lo usa
+   * GET /auth/me para reconstruir la sesión (rol + permisos) sin depender
+   * de estado guardado en el cliente. */
+  abstract findMembershipWithRoleName(
+    userId: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<{ roleId: string; roleName: string; isActive: boolean } | null>;
+
   abstract updateRole(
     userId: string,
     companyId: string,

@@ -48,5 +48,8 @@ import { PrismaService } from '../../common/persistence/prisma.service';
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
     { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],
+  // CompanyUserRepository lo necesita AuthModule para GET /auth/me
+  // (resolver el rol del usuario en la empresa activa).
+  exports: [CompanyUserRepository],
 })
 export class CompaniesModule {}

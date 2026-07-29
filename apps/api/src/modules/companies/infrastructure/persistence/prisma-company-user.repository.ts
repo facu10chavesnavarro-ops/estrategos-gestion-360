@@ -86,6 +86,20 @@ export class PrismaCompanyUserRepository extends CompanyUserRepository {
     return row ? { roleId: row.roleId, isActive: row.isActive } : null;
   }
 
+  async findMembershipWithRoleName(
+    userId: string,
+    companyId: string,
+    ctx?: TransactionContext,
+  ): Promise<{ roleId: string; roleName: string; isActive: boolean } | null> {
+    const row = await resolveClient(this.prisma, ctx).companyUser.findUnique({
+      where: { userId_companyId: { userId, companyId } },
+      include: { role: true },
+    });
+    return row
+      ? { roleId: row.roleId, roleName: row.role.name, isActive: row.isActive }
+      : null;
+  }
+
   async updateRole(
     userId: string,
     companyId: string,

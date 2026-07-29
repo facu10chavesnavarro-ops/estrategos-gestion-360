@@ -102,6 +102,7 @@ describe('CreateInvitationUseCase', () => {
       hasActiveMembershipByEmail: jest.fn().mockResolvedValue(false),
       findAllByCompanyWithDetails: jest.fn(),
       findMembership: jest.fn(),
+      findMembershipWithRoleName: jest.fn(),
       updateRole: jest.fn(),
       setActive: jest.fn(),
     } as jest.Mocked<CompanyUserRepository>;
@@ -326,6 +327,7 @@ describe('GetInvitationByTokenUseCase / AcceptInvitationUseCase', () => {
       hasActiveMembershipByEmail: jest.fn(),
       findAllByCompanyWithDetails: jest.fn(),
       findMembership: jest.fn(),
+      findMembershipWithRoleName: jest.fn(),
       updateRole: jest.fn(),
       setActive: jest.fn(),
     } as jest.Mocked<CompanyUserRepository>;
