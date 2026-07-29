@@ -6,6 +6,51 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.2.0] - 2026-07-28
+
+**Frontend Sprint F0 — Fundación.** Primer sprint de frontend versionado
+(`docs/frontend/03-plan-de-implementacion.md`): sin pantallas de negocio
+todavía, pero con toda la base sobre la que se construyen F1-F8. Cierra
+con login, selector de empresa, AppShell y logout funcionando de punta a
+punta contra el backend real (Backend v1.0.1).
+
+### Agregado
+
+- **UI**: Tailwind CSS v4 + shadcn/ui (estilo `base-nova` sobre
+  `@base-ui/react`), reskineado con la paleta "libro contable" existente
+  (`--ink`, `--paper`, `--ledger-green`, etc.) en vez de aceptar el tema
+  gris por defecto.
+- **`packages/shared-types`**: tipos TypeScript generados desde el
+  OpenAPI del backend (`openapi-typescript`), sin tipos escritos a mano.
+- **BFF**: Route Handlers de Next.js (`/api/auth/*`, `/api/backend/*`)
+  que hacen de intermediario con el backend — el JWT vive únicamente en
+  cookies `httpOnly`/`sameSite=lax`, nunca en el navegador. Renovación de
+  sesión transparente: un 401 por access token vencido dispara una
+  rotación de tokens y un reintento automático antes de que el llamador
+  lo note.
+- **Estado**: TanStack Query para datos de servidor (`apiFetch<T>` +
+  `ApiError` tipado), Zustand para sesión y preferencias de UI
+  (`useSessionStore`, `useUiStore`).
+- **Flujo de autenticación completo**: login (React Hook Form + Zod),
+  selector de empresa (se salta automáticamente si el usuario tiene una
+  sola empresa asignada), logout, y guardas que redirigen a `/login`
+  ante cualquier acceso sin sesión válida.
+- **AppShell**: sidebar con los 9 módulos de negocio (placeholders
+  "próximamente" hasta F1-F8) + Configuración, topbar con
+  `CompanySwitcher` y menú de usuario, responsive completo (sidebar fijo
+  en escritorio, colapsable a íconos, menú móvil en `<640px`).
+- Tests: Vitest + Testing Library para el formulario de login, Playwright
+  para los 4 escenarios de e2e del sprint (login exitoso, login fallido,
+  logout, acceso sin sesión).
+
+### Corregido
+
+- `components/ui/input.tsx` y `button.tsx` (shadcn) no forwardeaban el
+  `ref` — rompía React Hook Form y cualquier composición vía
+  `render={<Button/>}` bajo React 18. Envueltos en `React.forwardRef`.
+- `DropdownMenuLabel` sin un `DropdownMenuGroup` padre hacía crashear el
+  menú de usuario (Base UI exige ese contexto para `MenuGroupLabel`).
+
 ## [1.0.1] - 2026-07-27
 
 Documentación completa de la API (Swagger/OpenAPI), primer entregable de
