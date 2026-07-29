@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Menu, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { useSessionStore } from '@/lib/stores/use-session-store';
 import { useUiStore } from '@/lib/stores/use-ui-store';
-import { useLogout } from '@/lib/api/auth';
+import { useLogout, useCurrentUser } from '@/lib/api/auth';
+import { ApiError } from '@/lib/api/http-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -38,11 +40,49 @@ export function AppShell({
   companyId: string;
   children: React.ReactNode;
 }) {
+  const router = useRouter();
   const user = useSessionStore((state) => state.user);
+  const setCurrentUser = useSessionStore((state) => state.setCurrentUser);
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const logout = useLogout();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  /**
+   * Backend como única fuente de verdad para sesión y permisos (ver
+   * addendum "GET /auth/me", docs/frontend/04-sprint-f1-configuracion.md):
+   * al montar esta empresa (login, F5 o cambio de empresa vía
+   * CompanySwitcher) se resuelve identidad + membresía contra el backend
+   * en vez de confiar en estado client-side. isLoading es true solo la
+   * primera vez para este companyId puntual — TanStack Query cachea el
+   * resultado, así que volver a una empresa ya visitada no vuelve a
+   * bloquear la UI.
+   */
+  const { data: currentUser, isLoading, isError, error } = useCurrentUser(companyId);
+
+  useEffect(() => {
+    if (currentUser) {
+      setCurrentUser(
+        { id: currentUser.id, email: currentUser.email, fullName: currentUser.fullName },
+        currentUser.membership,
+        companyId,
+      );
+    }
+  }, [currentUser, companyId, setCurrentUser]);
+
+  useEffect(() => {
+    if (isError && error instanceof ApiError && error.status === 401) {
+      router.replace('/login');
+    }
+  }, [isError, error, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--paper-card)]">
+        <p className="text-sm text-muted-foreground">Cargando sesión…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen flex-col">

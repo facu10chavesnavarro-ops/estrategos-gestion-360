@@ -32,4 +32,8 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Contabilidad", icon: BookOpen },
 ];
 
-export const CONFIG_NAV_ITEM: NavItem = { label: "Configuración", icon: Settings };
+export const CONFIG_NAV_ITEM: NavItem = {
+  label: "Configuración",
+  icon: Settings,
+  href: "configuracion/empresa",
+};

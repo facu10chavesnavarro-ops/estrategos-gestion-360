@@ -62,6 +62,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usuario autenticado y su membresía en la empresa activa
+         * @description Requiere Authorization: Bearer. Si se envía X-Company-Id, incluye rol y estado de la membresía en esa empresa (null si el usuario no es miembro); sin el header, devuelve solo la identidad.
+         */
+        get: operations["AuthController_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/companies": {
         parameters: {
             query?: never;
@@ -2082,6 +2102,31 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    AuthController_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Usuario autenticado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Token de acceso inválido, expirado o de un usuario inexistente/inactivo. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

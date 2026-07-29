@@ -6,6 +6,42 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.3.0] - 2026-07-29
+
+**Frontend Sprint F1 — Configuración.** Primer módulo de negocio del
+frontend (`docs/frontend/04-sprint-f1-configuracion.md`): administrar la
+empresa y su equipo de punta a punta. Entregable cumplido — invitar a un
+usuario, aceptar la invitación y verlo listado como miembro activo — con
+prueba E2E dedicada.
+
+### Agregado
+
+- **Pantalla Empresa** (`/[companyId]/configuracion/empresa`): edición de
+  datos generales/contacto/configuración regional y CRUD de sucursales
+  (activar/desactivar exige motivo, RN-003).
+- **Pantalla Usuarios** (`/[companyId]/configuracion/usuarios`), oculta
+  para roles sin permiso de gestión (fail-closed): tabs Miembros (cambio
+  de rol, activar/desactivar; la propia fila nunca ofrece autogestión,
+  RN-USR-12) e Invitaciones (crear con copia de link de un solo uso,
+  listar, revocar).
+- **Pantalla pública de aceptar invitación**
+  (`/invitaciones/[token]`): formulario de alta (nombre completo +
+  contraseña) para el usuario invitado, sin sesión previa.
+- **Componentes compartidos** reutilizables por el resto de sprints:
+  `DataTable` (TanStack Table, búsqueda sincronizada con la URL, variante
+  de tarjetas en móvil), `StatusBadge`, `ConfirmDialog` (con motivo
+  opcional obligatorio).
+- **Integración de `GET /auth/me`** (ver `[1.1.0]` más abajo): al montar
+  cada empresa, `AppShell` reconstruye identidad y membresía contra el
+  backend y bloquea el render hasta tenerlas — reemplaza el lookup
+  client-side contra la lista de miembros que se perdía en cada F5.
+  `useSessionStore` gana `membership`/`membershipCompanyId`;
+  `useCurrentMembership` pasa a leer del store en vez de buscar la fila
+  propia en `useMembers`.
+- Tests: componente (`MembersTable` — autogestión bloqueada, desactivar
+  con confirmación) y E2E (F5 en Configuración > Usuarios preserva los
+  permisos de admin; invitar → aceptar → listado como miembro activo).
+
 ## [1.1.0] - 2026-07-29
 
 Endpoint nuevo pedido durante el desarrollo del Sprint F1 del frontend

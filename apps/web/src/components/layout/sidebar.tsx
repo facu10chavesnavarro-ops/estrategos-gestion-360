@@ -75,7 +75,7 @@ export function SidebarNav({
         item={CONFIG_NAV_ITEM}
         companyId={companyId}
         collapsed={collapsed}
-        isActive={false}
+        isActive={pathname.startsWith(`/${companyId}/configuracion`)}
       />
     </nav>
   );

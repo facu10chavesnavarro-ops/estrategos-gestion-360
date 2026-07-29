@@ -17,10 +17,33 @@ export interface SessionCompany {
   isActive: boolean;
 }
 
+export interface SessionMembership {
+  companyId: string;
+  roleId: string;
+  roleName: string;
+  isActive: boolean;
+}
+
 interface SessionState {
   user: SessionUser | null;
   companies: SessionCompany[] | null;
+  membership: SessionMembership | null;
+  /** companyId para el que `membership` ya fue resuelto contra GET /auth/me
+   * (incluso si el resultado fue `null`, es decir "no es miembro"). Permite
+   * distinguir "todavía no se sabe" de "se confirmó que no hay membresía". */
+  membershipCompanyId: string | null;
   setSession: (user: SessionUser, companies: SessionCompany[]) => void;
+  /**
+   * Rehidrata la sesión desde GET /auth/me — ver addendum "GET /auth/me" en
+   * docs/frontend/04-sprint-f1-configuracion.md. El backend es la única
+   * fuente de verdad para usuario y permisos: esto se llama al montar cada
+   * `[companyId]/layout.tsx`, incluyendo tras un F5.
+   */
+  setCurrentUser: (
+    user: SessionUser,
+    membership: SessionMembership | null,
+    companyId: string,
+  ) => void;
   clearSession: () => void;
 }
 
@@ -34,6 +57,12 @@ interface SessionState {
 export const useSessionStore = create<SessionState>((set) => ({
   user: null,
   companies: null,
-  setSession: (user, companies) => set({ user, companies }),
-  clearSession: () => set({ user: null, companies: null }),
+  membership: null,
+  membershipCompanyId: null,
+  setSession: (user, companies) =>
+    set({ user, companies, membership: null, membershipCompanyId: null }),
+  setCurrentUser: (user, membership, companyId) =>
+    set({ user, membership, membershipCompanyId: companyId }),
+  clearSession: () =>
+    set({ user: null, companies: null, membership: null, membershipCompanyId: null }),
 }));
