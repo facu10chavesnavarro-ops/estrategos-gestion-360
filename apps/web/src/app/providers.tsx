@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api/http-client';
+import { Toaster } from '@/components/ui/sonner';
 
 function shouldRetry(failureCount: number, error: unknown) {
   // Un ApiError con status 4xx es un error de negocio/permisos, no algo que
@@ -30,5 +31,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      {children}
+      <Toaster />
+    </QueryClientProvider>
+  );
 }
