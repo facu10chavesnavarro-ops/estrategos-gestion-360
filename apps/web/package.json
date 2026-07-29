@@ -9,6 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "generate:types": "npm run generate --workspace=@estrategos/shared-types || echo \"[shared-types] no se pudo regenerar desde la API (¿esta corriendo en :3001?), se usan los tipos ya generados\""
   },
   "dependencies": {
@@ -32,13 +34,20 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.3",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22.7.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^6.0.4",
     "eslint-config-next": "14.2.35",
+    "jsdom": "^30.0.1",
     "postcss": "^8.4.31",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5.6.2"
+    "typescript": "^5.6.2",
+    "vitest": "^4.1.10"
   }
 }

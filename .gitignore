@@ -32,6 +32,9 @@ out/
 # --- Testing / cobertura ---
 coverage/
 .nyc_output/
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
 
 # --- Windows ---
 Thumbs.db
