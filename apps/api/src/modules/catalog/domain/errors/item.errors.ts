@@ -44,3 +44,18 @@ export class InvalidItemTaxError extends Error {
     this.name = 'InvalidItemTaxError';
   }
 }
+
+export class InvalidCostPriceError extends Error {
+  constructor() {
+    super('El costo no puede ser negativo.');
+    this.name = 'InvalidCostPriceError';
+  }
+}
+
+/** Mismo criterio que RN-CAT-05 (SKU), aplicado al código de barras. */
+export class DuplicateBarcodeError extends Error {
+  constructor() {
+    super('Ya existe un ítem con ese código de barras en esta empresa.');
+    this.name = 'DuplicateBarcodeError';
+  }
+}

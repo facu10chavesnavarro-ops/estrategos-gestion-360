@@ -28,10 +28,13 @@ export class PrismaItemRepository extends ItemRepository {
         sku: input.sku,
         name: input.name,
         description: input.description,
+        longDescription: input.longDescription,
+        barcode: input.barcode,
         categoryId: input.categoryId,
         unitOfMeasure: input.unitOfMeasure,
         tracksStock: input.tracksStock,
         minimumStock: input.minimumStock,
+        costPrice: input.costPrice,
         itemTaxes: { create: input.taxIds.map((taxId) => ({ taxId })) },
       },
       ...WITH_TAXES,
@@ -58,6 +61,18 @@ export class PrismaItemRepository extends ItemRepository {
   ): Promise<ItemEntity | null> {
     const raw = await resolveClient(this.prisma, ctx).item.findUnique({
       where: { companyId_sku: { companyId, sku } },
+      ...WITH_TAXES,
+    });
+    return raw ? ItemMapper.toDomain(raw) : null;
+  }
+
+  async findByBarcode(
+    companyId: string,
+    barcode: string,
+    ctx?: TransactionContext,
+  ): Promise<ItemEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).item.findUnique({
+      where: { companyId_barcode: { companyId, barcode } },
       ...WITH_TAXES,
     });
     return raw ? ItemMapper.toDomain(raw) : null;

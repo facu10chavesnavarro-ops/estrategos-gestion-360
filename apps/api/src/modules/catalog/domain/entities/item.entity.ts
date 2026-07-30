@@ -14,5 +14,8 @@ export class ItemEntity {
     public readonly minimumStock: string | null,
     public readonly isActive: boolean,
     public readonly taxIds: string[],
+    public readonly longDescription: string | null,
+    public readonly barcode: string | null,
+    public readonly costPrice: string | null,
   ) {}
 }

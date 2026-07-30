@@ -13,6 +13,8 @@ import {
   InvalidItemCategoryError,
   InvalidItemTaxError,
   ItemAlreadyInTargetStateError,
+  InvalidCostPriceError,
+  DuplicateBarcodeError,
 } from '../domain/errors/item.errors';
 import {
   TaxNotFoundError,
@@ -45,6 +47,8 @@ const BAD_REQUEST_ERRORS = [
   InvalidItemCategoryError,
   InvalidItemTaxError,
   ItemAlreadyInTargetStateError,
+  InvalidCostPriceError,
+  DuplicateBarcodeError,
   InvalidTaxRateError,
   InvalidTaxValidityError,
   TaxAlreadyClosedError,

@@ -16,6 +16,8 @@ import {
   InvalidItemCategoryError,
   InvalidItemTaxError,
   ItemAlreadyInTargetStateError,
+  InvalidCostPriceError,
+  DuplicateBarcodeError,
 } from '../../src/modules/catalog/domain/errors/item.errors';
 import {
   createFakeUnitOfWork,
@@ -36,6 +38,9 @@ function makeItem(overrides: Partial<ItemEntity> = {}): ItemEntity {
     overrides.minimumStock ?? null,
     overrides.isActive ?? true,
     overrides.taxIds ?? [],
+    overrides.longDescription ?? null,
+    overrides.barcode ?? null,
+    overrides.costPrice ?? null,
   );
 }
 
@@ -44,6 +49,7 @@ function makeItemRepository(): jest.Mocked<ItemRepository> {
     create: jest.fn(),
     findById: jest.fn(),
     findBySku: jest.fn(),
+    findByBarcode: jest.fn(),
     findAllByCompany: jest.fn(),
     update: jest.fn(),
     setActive: jest.fn(),
@@ -307,6 +313,62 @@ describe('CreateItemUseCase', () => {
 
     expect(result.taxIds).toEqual(['tax-1', 'tax-2']);
   });
+
+  it('rechaza un costPrice negativo', async () => {
+    const itemRepository = makeItemRepository();
+    const categoryRepository = makeCategoryRepository();
+    const taxRepository = makeTaxRepository();
+    const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
+    const useCase = new CreateItemUseCase(
+      itemRepository,
+      categoryRepository,
+      taxRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
+
+    await expect(
+      useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        type: 'PRODUCT',
+        sku: 'SKU-1',
+        name: 'X',
+        unitOfMeasure: 'unidad',
+        costPrice: '-1',
+      }),
+    ).rejects.toThrow(InvalidCostPriceError);
+  });
+
+  it('rechaza un código de barras ya usado en la empresa', async () => {
+    const itemRepository = makeItemRepository();
+    const categoryRepository = makeCategoryRepository();
+    const taxRepository = makeTaxRepository();
+    itemRepository.findBySku.mockResolvedValue(null);
+    itemRepository.findByBarcode.mockResolvedValue(makeItem({ barcode: '7791234567890' }));
+    const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
+    const useCase = new CreateItemUseCase(
+      itemRepository,
+      categoryRepository,
+      taxRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
+
+    await expect(
+      useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        type: 'PRODUCT',
+        sku: 'SKU-1',
+        name: 'X',
+        unitOfMeasure: 'unidad',
+        barcode: '7791234567890',
+      }),
+    ).rejects.toThrow(DuplicateBarcodeError);
+  });
 });
 
 describe('UpdateItemUseCase', () => {
@@ -415,6 +477,59 @@ describe('UpdateItemUseCase', () => {
       expect.objectContaining({ tracksStock: false }),
       FAKE_TRANSACTION_CONTEXT,
     );
+  });
+
+  it('rechaza un costPrice negativo', async () => {
+    const itemRepository = makeItemRepository();
+    const categoryRepository = makeCategoryRepository();
+    const taxRepository = makeTaxRepository();
+    itemRepository.findById.mockResolvedValue(makeItem());
+    const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
+    const useCase = new UpdateItemUseCase(
+      itemRepository,
+      categoryRepository,
+      taxRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
+
+    await expect(
+      useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        itemId: 'item-1',
+        costPrice: '-5',
+      }),
+    ).rejects.toThrow(InvalidCostPriceError);
+  });
+
+  it('rechaza cambiar a un código de barras ya usado por otro ítem', async () => {
+    const itemRepository = makeItemRepository();
+    const categoryRepository = makeCategoryRepository();
+    const taxRepository = makeTaxRepository();
+    itemRepository.findById.mockResolvedValue(makeItem({ barcode: null }));
+    itemRepository.findByBarcode.mockResolvedValue(
+      makeItem({ id: 'item-2', barcode: '7791234567890' }),
+    );
+    const auditLogRepository = { record: jest.fn() } as jest.Mocked<AuditLogRepository>;
+    const useCase = new UpdateItemUseCase(
+      itemRepository,
+      categoryRepository,
+      taxRepository,
+      auditLogRepository,
+      createFakeUnitOfWork(),
+    );
+
+    await expect(
+      useCase.execute({
+        requestingUserId: 'user-1',
+        requestingRoleName: 'Propietario',
+        companyId: 'company-1',
+        itemId: 'item-1',
+        barcode: '7791234567890',
+      }),
+    ).rejects.toThrow(DuplicateBarcodeError);
   });
 });
 

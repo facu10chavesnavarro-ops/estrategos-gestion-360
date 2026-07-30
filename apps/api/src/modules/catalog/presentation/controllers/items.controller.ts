@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateItemUseCase } from '../../application/use-cases/create-item.use-case';
 import { UpdateItemUseCase } from '../../application/use-cases/update-item.use-case';
@@ -6,8 +7,11 @@ import { GetItemByIdUseCase } from '../../application/use-cases/get-item-by-id.u
 import { ListItemsUseCase } from '../../application/use-cases/list-items.use-case';
 import { DeactivateItemUseCase } from '../../application/use-cases/deactivate-item.use-case';
 import { ActivateItemUseCase } from '../../application/use-cases/activate-item.use-case';
+import { ImportItemsUseCase } from '../../application/use-cases/import-items.use-case';
+import { ExportItemsUseCase } from '../../application/use-cases/export-items.use-case';
 import { CreateItemRequestDto } from '../dto/create-item-request.dto';
 import { UpdateItemRequestDto } from '../dto/update-item-request.dto';
+import { ImportRequestDto } from '../../../../common/presentation/dto/import-request.dto';
 import { CurrentUserId } from '../../../../common/decorators/current-user.decorator';
 import { CurrentCompanyId } from '../../../../common/decorators/current-company.decorator';
 import { CurrentRoleName } from '../../../../common/decorators/current-role-name.decorator';
@@ -28,6 +32,8 @@ export class ItemsController {
     private readonly listItemsUseCase: ListItemsUseCase,
     private readonly deactivateItemUseCase: DeactivateItemUseCase,
     private readonly activateItemUseCase: ActivateItemUseCase,
+    private readonly importItemsUseCase: ImportItemsUseCase,
+    private readonly exportItemsUseCase: ExportItemsUseCase,
   ) {}
 
   @Get()
@@ -48,6 +54,56 @@ export class ItemsController {
       isActive: isActive === undefined ? undefined : isActive === 'true',
       search,
     });
+  }
+
+  // Antes de ':itemId' a propósito: con el mismo shape de ruta (un solo
+  // segmento tras /items), Nest matchea en orden de declaración — si
+  // ':itemId' fuera primero, "export" caería ahí en vez de acá.
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @ApiOperation({ summary: 'Exportar ítems a CSV, respetando los mismos filtros que el listado' })
+  async export(
+    @Param('companyId') companyId: string,
+    @CurrentCompanyId() contextCompanyId: string,
+    @Res() res: Response,
+    @Query('type') type?: ItemType,
+    @Query('categoryId') categoryId?: string,
+    @Query('isActive') isActive?: string,
+    @Query('search') search?: string,
+  ) {
+    assertSameCompany(companyId, contextCompanyId);
+    const csv = await this.exportItemsUseCase.execute({
+      companyId: contextCompanyId,
+      type,
+      categoryId,
+      isActive: isActive === undefined ? undefined : isActive === 'true',
+      search,
+    });
+    res.setHeader('Content-Disposition', 'attachment; filename="items.csv"');
+    res.send(csv);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Importar ítems en lote desde un CSV' })
+  async import(
+    @Param('companyId') companyId: string,
+    @CurrentUserId() userId: string,
+    @CurrentCompanyId() contextCompanyId: string,
+    @CurrentRoleName() roleName: string,
+    @Body() body: ImportRequestDto,
+  ) {
+    assertSameCompany(companyId, contextCompanyId);
+    try {
+      return await this.importItemsUseCase.execute({
+        requestingUserId: userId,
+        requestingRoleName: roleName,
+        companyId: contextCompanyId,
+        csvContent: body.csvContent,
+        mode: body.mode ?? 'skip-new-only',
+      });
+    } catch (error) {
+      mapCatalogError(error);
+    }
   }
 
   @Post()

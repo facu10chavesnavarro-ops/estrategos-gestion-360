@@ -125,6 +125,9 @@ function makeItem(overrides: Partial<ItemEntity> = {}): ItemEntity {
     overrides.minimumStock ?? null,
     overrides.isActive ?? true,
     overrides.taxIds ?? [],
+    overrides.longDescription ?? null,
+    overrides.barcode ?? null,
+    overrides.costPrice ?? null,
   );
 }
 
@@ -273,6 +276,7 @@ describe('CreateVoucherUseCase', () => {
       create: jest.fn(),
       findById: jest.fn(),
       findBySku: jest.fn(),
+    findByBarcode: jest.fn(),
       findAllByCompany: jest.fn(),
       update: jest.fn(),
       setActive: jest.fn(),

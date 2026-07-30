@@ -24,6 +24,14 @@ export class UpdateItemRequestDto {
 
   @IsOptional()
   @IsString()
+  longDescription?: string | null;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string | null;
+
+  @IsOptional()
+  @IsString()
   categoryId?: string | null;
 
   @IsOptional()
@@ -37,6 +45,10 @@ export class UpdateItemRequestDto {
   @IsOptional()
   @IsString()
   minimumStock?: string | null;
+
+  @IsOptional()
+  @IsString()
+  costPrice?: string | null;
 
   @IsOptional()
   @IsArray()

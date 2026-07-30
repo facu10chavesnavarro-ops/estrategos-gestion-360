@@ -6,6 +6,43 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [1.2.0] - 2026-07-30
+
+Extensión del módulo `catalog` (Sprint 3) pedida durante el diseño del
+Sprint F3 del frontend, decidida explícitamente con el usuario: agregar
+código de barras, costo y descripción larga a `Item`, más importación y
+exportación CSV — mismo criterio que la extensión `GET /auth/me` durante
+F1 (backend evoluciona cuando el frontend detecta una necesidad real, no
+se rediseña de antemano).
+
+### Agregado
+
+- `Item.barcode` (string, único por empresa junto con `companyId` —
+  múltiples ítems sin código de barras conviven sin problema, Postgres no
+  aplica unicidad sobre `NULL`), `Item.costPrice` (`Decimal(14,2)`,
+  costo/precio de referencia asignable directamente en el ítem — distinto
+  de `Stock.averageCost`, que es un promedio *calculado* por movimientos
+  y vive en `inventory`), `Item.longDescription` (texto libre, sin límite
+  de formato, complementa a `description` que queda como resumen corto).
+- `DuplicateBarcodeError`, `InvalidCostPriceError` — mismo patrón que
+  `DuplicateSkuError`/validaciones existentes; validados en
+  `Create/UpdateItemUseCase`.
+- `POST /companies/:id/items/import`: importación CSV de ítems
+  reutilizando `CsvImportEngine` (motor genérico ya construido en F2).
+  Deduplica por `sku`. Deliberadamente fuera de alcance en esta primera
+  versión: `categoryId`/`taxIds` por CSV (el usuario no maneja esos ids
+  de memoria; se asignan luego desde la UI).
+- `GET /companies/:id/items/export`: **primera exportación CSV del
+  backend** (hasta ahora solo existía el sentido inverso). Respeta los
+  mismos filtros que el listado (`type`, `categoryId`, `isActive`,
+  `search`) para exportar exactamente lo que el usuario está viendo.
+  Serializador propio sin dependencias nuevas (`common/application/csv-
+  writer.ts`), mismo criterio que el generador de `uuidv7` — no sumar un
+  paquete para una sola necesidad puntual.
+- 13 tests unitarios nuevos (validación de costo/código de barras
+  duplicado, `ItemImportRowProcessor`, `ImportItemsUseCase`,
+  `ExportItemsUseCase`) — 373/373 tests totales.
+
 ## [web-0.4.0] - 2026-07-30
 
 **Frontend Sprint F2 — Clientes y Proveedores.** Segundo módulo de

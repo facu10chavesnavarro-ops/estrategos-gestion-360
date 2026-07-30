@@ -18,6 +18,9 @@ export class ItemMapper {
       raw.minimumStock?.toString() ?? null,
       raw.isActive,
       raw.itemTaxes.map((it) => it.taxId),
+      raw.longDescription,
+      raw.barcode,
+      raw.costPrice?.toString() ?? null,
     );
   }
 }

@@ -14,6 +14,8 @@ import {
   MinimumStockWithoutTrackingError,
   InvalidItemCategoryError,
   InvalidItemTaxError,
+  InvalidCostPriceError,
+  DuplicateBarcodeError,
 } from '../../domain/errors/item.errors';
 
 /** RN-CAT-01/02/05/06/07/08/11/14/15. */
@@ -38,10 +40,25 @@ export class CreateItemUseCase {
       throw new MinimumStockWithoutTrackingError();
     }
 
+    if (input.costPrice !== undefined && Number(input.costPrice) < 0) {
+      throw new InvalidCostPriceError();
+    }
+
     return this.unitOfWork.run(async (ctx) => {
       const existing = await this.itemRepository.findBySku(input.companyId, input.sku, ctx);
       if (existing) {
         throw new DuplicateSkuError();
+      }
+
+      if (input.barcode) {
+        const existingBarcode = await this.itemRepository.findByBarcode(
+          input.companyId,
+          input.barcode,
+          ctx,
+        );
+        if (existingBarcode) {
+          throw new DuplicateBarcodeError();
+        }
       }
 
       if (input.categoryId) {
@@ -64,6 +81,9 @@ export class CreateItemUseCase {
           tracksStock,
           minimumStock: input.minimumStock,
           taxIds,
+          longDescription: input.longDescription,
+          barcode: input.barcode,
+          costPrice: input.costPrice,
         },
         ctx,
       );

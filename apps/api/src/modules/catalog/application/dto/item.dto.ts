@@ -1,4 +1,5 @@
 import { ItemType } from '../../domain/entities/item.entity';
+import { ImportMode } from '../../../../common/domain/import/import.types';
 
 export interface CreateItemUseCaseInput {
   requestingUserId: string;
@@ -13,6 +14,9 @@ export interface CreateItemUseCaseInput {
   tracksStock?: boolean;
   minimumStock?: string;
   taxIds?: string[];
+  longDescription?: string;
+  barcode?: string;
+  costPrice?: string;
 }
 
 export interface UpdateItemUseCaseInput {
@@ -28,6 +32,9 @@ export interface UpdateItemUseCaseInput {
   tracksStock?: boolean;
   minimumStock?: string | null;
   taxIds?: string[];
+  longDescription?: string | null;
+  barcode?: string | null;
+  costPrice?: string | null;
 }
 
 export interface ChangeItemStateUseCaseInput {
@@ -43,4 +50,12 @@ export interface ListItemsUseCaseInput {
   categoryId?: string;
   isActive?: boolean;
   search?: string;
+}
+
+export interface ImportItemsUseCaseInput {
+  requestingUserId: string;
+  requestingRoleName: string;
+  companyId: string;
+  csvContent: string;
+  mode: ImportMode;
 }

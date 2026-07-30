@@ -15,6 +15,8 @@ import {
   MinimumStockWithoutTrackingError,
   InvalidItemCategoryError,
   InvalidItemTaxError,
+  InvalidCostPriceError,
+  DuplicateBarcodeError,
 } from '../../domain/errors/item.errors';
 
 /** RN-CAT-01/02/05/06/07/08/11/14/15. */
@@ -46,11 +48,25 @@ export class UpdateItemUseCase {
       throw new MinimumStockWithoutTrackingError();
     }
 
+    if (input.costPrice != null && Number(input.costPrice) < 0) {
+      throw new InvalidCostPriceError();
+    }
+
     return this.unitOfWork.run(async (ctx) => {
       if (input.sku && input.sku !== existing.sku) {
         const duplicate = await this.itemRepository.findBySku(input.companyId, input.sku, ctx);
         if (duplicate) {
           throw new DuplicateSkuError();
+        }
+      }
+      if (input.barcode && input.barcode !== existing.barcode) {
+        const duplicateBarcode = await this.itemRepository.findByBarcode(
+          input.companyId,
+          input.barcode,
+          ctx,
+        );
+        if (duplicateBarcode) {
+          throw new DuplicateBarcodeError();
         }
       }
       if (input.categoryId) {

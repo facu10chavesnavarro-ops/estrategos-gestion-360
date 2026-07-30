@@ -12,6 +12,9 @@ export interface CreateItemInput {
   tracksStock: boolean;
   minimumStock?: string;
   taxIds: string[];
+  longDescription?: string;
+  barcode?: string;
+  costPrice?: string;
 }
 
 export interface UpdateItemInput {
@@ -23,6 +26,9 @@ export interface UpdateItemInput {
   tracksStock?: boolean;
   minimumStock?: string | null;
   taxIds?: string[];
+  longDescription?: string | null;
+  barcode?: string | null;
+  costPrice?: string | null;
 }
 
 export interface ListItemsFilters {
@@ -42,6 +48,11 @@ export abstract class ItemRepository {
   abstract findBySku(
     companyId: string,
     sku: string,
+    ctx?: TransactionContext,
+  ): Promise<ItemEntity | null>;
+  abstract findByBarcode(
+    companyId: string,
+    barcode: string,
     ctx?: TransactionContext,
   ): Promise<ItemEntity | null>;
   abstract findAllByCompany(

@@ -43,6 +43,9 @@ function makeItem(overrides: Partial<ItemEntity> = {}): ItemEntity {
     overrides.minimumStock ?? null,
     overrides.isActive ?? true,
     overrides.taxIds ?? [],
+    overrides.longDescription ?? null,
+    overrides.barcode ?? null,
+    overrides.costPrice ?? null,
   );
 }
 
@@ -82,6 +85,7 @@ function makeItemRepository(): jest.Mocked<ItemRepository> {
     create: jest.fn(),
     findById: jest.fn(),
     findBySku: jest.fn(),
+    findByBarcode: jest.fn(),
     findAllByCompany: jest.fn(),
     update: jest.fn(),
     setActive: jest.fn(),

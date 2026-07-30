@@ -26,6 +26,14 @@ export class CreateItemRequestDto {
 
   @IsOptional()
   @IsString()
+  longDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  barcode?: string;
+
+  @IsOptional()
+  @IsString()
   categoryId?: string;
 
   @IsString()
@@ -39,6 +47,10 @@ export class CreateItemRequestDto {
   @IsOptional()
   @IsString()
   minimumStock?: string;
+
+  @IsOptional()
+  @IsString()
+  costPrice?: string;
 
   @IsOptional()
   @IsArray()

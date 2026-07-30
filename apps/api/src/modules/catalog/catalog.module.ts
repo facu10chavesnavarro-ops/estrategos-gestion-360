@@ -17,6 +17,9 @@ import { GetItemByIdUseCase } from './application/use-cases/get-item-by-id.use-c
 import { ListItemsUseCase } from './application/use-cases/list-items.use-case';
 import { DeactivateItemUseCase } from './application/use-cases/deactivate-item.use-case';
 import { ActivateItemUseCase } from './application/use-cases/activate-item.use-case';
+import { ImportItemsUseCase } from './application/use-cases/import-items.use-case';
+import { ExportItemsUseCase } from './application/use-cases/export-items.use-case';
+import { ItemImportRowProcessor } from './application/item-import-row-processor';
 
 import { CreateTaxUseCase } from './application/use-cases/create-tax.use-case';
 import { UpdateTaxUseCase } from './application/use-cases/update-tax.use-case';
@@ -49,11 +52,19 @@ import { PrismaAuditLogRepository } from '../../common/infrastructure/persistenc
 import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
 import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma-unit-of-work';
 import { PrismaService } from '../../common/persistence/prisma.service';
+import { CsvImportEngine } from '../../common/application/csv-import.engine';
+import { CsvParserPort } from '../../common/domain/import/csv-parser.port';
+import { CsvParseAdapter } from '../../common/infrastructure/csv-parse-adapter';
 
 @Module({
   controllers: [CategoriesController, ItemsController, TaxesController, PriceListsController],
   providers: [
     PrismaService,
+    CsvImportEngine,
+    ItemImportRowProcessor,
+    ImportItemsUseCase,
+    ExportItemsUseCase,
+    { provide: CsvParserPort, useClass: CsvParseAdapter },
     CreateCategoryUseCase,
     UpdateCategoryUseCase,
     GetCategoryByIdUseCase,
