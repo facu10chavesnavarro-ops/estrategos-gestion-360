@@ -34,4 +34,34 @@ export const queryKeys = {
     currentAccount: (companyId: string, supplierId: string) =>
       ['companies', companyId, 'suppliers', supplierId, 'current-account'] as const,
   },
+  categories: {
+    list: (companyId: string, isActive?: boolean) =>
+      ['companies', companyId, 'categories', { isActive }] as const,
+    detail: (companyId: string, categoryId: string) =>
+      ['companies', companyId, 'categories', categoryId] as const,
+  },
+  items: {
+    list: (
+      companyId: string,
+      filters: { type?: string; categoryId?: string; isActive?: boolean; search?: string },
+    ) => ['companies', companyId, 'items', filters] as const,
+    detail: (companyId: string, itemId: string) =>
+      ['companies', companyId, 'items', itemId] as const,
+  },
+  taxes: {
+    list: (companyId: string, onlyCurrentlyValid?: boolean) =>
+      ['companies', companyId, 'taxes', { onlyCurrentlyValid }] as const,
+  },
+  priceLists: {
+    list: (companyId: string, isActive?: boolean) =>
+      ['companies', companyId, 'price-lists', { isActive }] as const,
+    items: (companyId: string, priceListId: string) =>
+      ['companies', companyId, 'price-lists', priceListId, 'items'] as const,
+  },
+  inventory: {
+    warehousesByBranch: (companyId: string, branchId: string) =>
+      ['companies', companyId, 'branches', branchId, 'warehouses'] as const,
+    stock: (companyId: string, warehouseId: string, itemId: string) =>
+      ['companies', companyId, 'warehouses', warehouseId, 'stock', itemId] as const,
+  },
 };

@@ -662,6 +662,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/companies/{companyId}/items/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exportar ítems a CSV, respetando los mismos filtros que el listado */
+        get: operations["ItemsController_export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/companies/{companyId}/items/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Importar ítems en lote desde un CSV */
+        post: operations["ItemsController_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/companies/{companyId}/items/{itemId}": {
         parameters: {
             query?: never;
@@ -1801,20 +1835,26 @@ export interface components {
             sku: string;
             name: string;
             description?: string;
+            longDescription?: string;
+            barcode?: string;
             categoryId?: string;
             unitOfMeasure: string;
             tracksStock?: boolean;
             minimumStock?: string;
+            costPrice?: string;
             taxIds?: string[];
         };
         UpdateItemRequestDto: {
             sku?: string;
             name?: string;
             description?: string;
+            longDescription?: string | null;
+            barcode?: string | null;
             categoryId?: string | null;
             unitOfMeasure?: string;
             tracksStock?: boolean;
             minimumStock?: string | null;
+            costPrice?: string | null;
             taxIds?: string[];
         };
         TaxEntity: Record<string, never>;
@@ -3123,6 +3163,55 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ItemEntity"];
+                };
+            };
+        };
+    };
+    ItemsController_export: {
+        parameters: {
+            query: {
+                type: string;
+                categoryId: string;
+                isActive: string;
+                search: string;
+            };
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    ItemsController_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                companyId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequestDto"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
                 };
             };
         };

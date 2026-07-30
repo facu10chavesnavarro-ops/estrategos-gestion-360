@@ -43,6 +43,76 @@ se rediseña de antemano).
   duplicado, `ItemImportRowProcessor`, `ImportItemsUseCase`,
   `ExportItemsUseCase`) — 373/373 tests totales.
 
+## [web-0.5.0] - 2026-07-30
+
+**Frontend Sprint F3 — Catálogo de Productos y Servicios.** Tercer
+módulo de negocio (`docs/frontend/06-sprint-f3-catalogo.md`): mapea el
+módulo `catalog` del backend (Categorías, Ítems Producto/Servicio,
+Impuestos, Listas de precio). Escalado a decisión de arquitectura antes
+de implementar (`AskUserQuestion`): se extendió `Item` en el backend
+(código de barras, costo, descripción larga — ver `v1.2.0`), se
+implementó importación **y** exportación CSV, y "integración con Stock"
+se acotó a mostrar el stock actual en el detalle del ítem componiendo
+endpoints ya existentes de `inventory` — sin construir pantallas de
+Stock/Comprobantes, que siguen siendo F4/F5.
+
+### Agregado
+
+- **Pantalla Categorías** (`/catalogo/categorias`): árbol autorecursivo
+  (`CategoryTree`) construido en el cliente a partir del array plano
+  `Category[]`, alta/edición/subcategoría en `Sheet`, activar/desactivar.
+  El selector de categoría padre excluye la propia categoría y todos sus
+  descendientes para no ofrecer un ciclo que el backend rechazaría
+  (RN-CAT-03).
+- **Pantallas Productos/Servicios** (`/catalogo/productos`,
+  `/catalogo/servicios`): misma pantalla filtrada por `type` — listado
+  compartido (`ItemsPageContent`) y detalle compartido
+  (`ItemDetailContent`), evitando duplicar ~90% de JSX idéntico entre
+  ambas. Listado con búsqueda, filtro por estado, exportar CSV e importar
+  CSV (reutiliza `ImportDialog`/`CsvImportEngine` de F2). Alta/edición en
+  `ItemSheet`: SKU, nombre, código de barras, categoría, unidad de
+  medida, descripción corta/larga, costo, controla stock (solo
+  Productos, RN-CAT-07), stock mínimo, impuestos (multi-selección).
+- **Detalle de ítem**: datos + panel de "Stock actual"
+  (`ItemStockPanel`), visible solo si `tracksStock`. Sin endpoint nuevo:
+  `useItemStockAcrossWarehouses` compone `GET .../branches`, `GET
+  .../branches/:id/warehouses` y `GET .../warehouses/:id/stock?itemId=`
+  en dos etapas paralelas con `useQueries` (sucursales → depósitos por
+  sucursal → stock por depósito), decisión explícita para no ampliar el
+  alcance del sprint con un endpoint agregado de inventario.
+- **Pantalla Impuestos** (`/catalogo/impuestos`): alta con tipo (IVA/
+  Percepción/Retención) y tasa; edición limitada al nombre (tasa y
+  vigencia son inmutables por RN-CAT-10 — "editar" una tasa es cerrarla
+  y crear una nueva); "Cerrar vigencia" solo se ofrece sobre impuestos
+  actualmente vigentes.
+- **Pantalla Listas de precio** (`/catalogo/listas-de-precio` +
+  detalle): CRUD de listas (nombre, moneda, predeterminada) +
+  `PriceListItemsTable`, tabla editable inline de precios por ítem
+  (agregar ítem a la lista, editar precio con guardado en blur/Enter,
+  quitar). El detalle no llama a un GET-por-id inexistente: busca la
+  lista en el listado ya cacheado por `usePriceLists`.
+- **Layout Catálogo**: tabs Productos/Servicios/Categorías/Impuestos/
+  Listas de precio, ítem de sidebar "Catálogo" con `href` real
+  (reservado sin enlace desde F0). `SidebarNav` unifica el resaltado de
+  ítem activo (antes especial para "Configuración") en un único
+  `isNavItemActive` por primer segmento de ruta.
+- `lib/api/catalog/{categories,items,taxes,price-lists}.ts`, componente
+  `Checkbox` (shadcn/ui) para `tracksStock`/impuestos/`isDefault`.
+- Tests: componente (`CategoryTree` — árbol anidado, controles ocultos
+  sin rol de gestión, desactivar con confirmación, mensaje vacío;
+  `ItemsTable` — mismos casos + link al detalle según `basePath`) y E2E
+  dedicado (crear categoría → ítem con esa categoría e impuesto →
+  agregarlo a una lista de precios → importar un CSV de ítems).
+
+### Corregido
+
+- `ItemSheet` enviaba `type` también al **editar** un ítem — el backend
+  rechaza esa propiedad en el PATCH con 400 ("property type should not
+  exist") porque el tipo es inmutable tras crear (RN-CAT-06). Se
+  encontró en verificación manual (el 400 no rompía la UI de forma
+  visible: el `Sheet` simplemente no se cerraba). Fix: el payload de
+  edición ya no incluye `type`; solo se agrega al crear.
+
 ## [web-0.4.0] - 2026-07-30
 
 **Frontend Sprint F2 — Clientes y Proveedores.** Segundo módulo de

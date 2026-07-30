@@ -48,6 +48,18 @@ function NavLink({
   );
 }
 
+/**
+ * Un ítem de nav queda "activo" si la ruta actual cae dentro de su
+ * primer segmento (ej. href "catalogo/productos" activa tanto
+ * /catalogo/productos como /catalogo/servicios o /catalogo/categorias/
+ * [id] — la sección entera, no solo la pestaña por defecto).
+ */
+function isNavItemActive(pathname: string, companyId: string, href?: string): boolean {
+  if (!href) return false;
+  const section = href.split('/')[0];
+  return pathname === `/${companyId}/${section}` || pathname.startsWith(`/${companyId}/${section}/`);
+}
+
 export function SidebarNav({
   companyId,
   collapsed,
@@ -66,11 +78,7 @@ export function SidebarNav({
             item={item}
             companyId={companyId}
             collapsed={collapsed}
-            isActive={
-              Boolean(item.href) &&
-              (pathname === `/${companyId}/${item.href}` ||
-                pathname.startsWith(`/${companyId}/${item.href}/`))
-            }
+            isActive={isNavItemActive(pathname, companyId, item.href)}
           />
         ))}
       </div>
@@ -79,7 +87,7 @@ export function SidebarNav({
         item={CONFIG_NAV_ITEM}
         companyId={companyId}
         collapsed={collapsed}
-        isActive={pathname.startsWith(`/${companyId}/configuracion`)}
+        isActive={isNavItemActive(pathname, companyId, CONFIG_NAV_ITEM.href)}
       />
     </nav>
   );
