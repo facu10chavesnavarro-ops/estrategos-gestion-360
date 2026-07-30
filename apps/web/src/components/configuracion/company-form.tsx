@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { toast } from 'sonner';
 import { type Company, useUpdateCompany } from '@/lib/api/companies';
 import { ApiError } from '@/lib/api/http-client';
+import { omitEmptyStrings } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,7 +73,7 @@ export function CompanyForm({ company, readOnly }: { company: Company; readOnly:
 
   async function onSubmit(values: CompanyFormValues) {
     try {
-      await updateCompany.mutateAsync(values);
+      await updateCompany.mutateAsync(omitEmptyStrings(values));
       toast.success('Datos de la empresa actualizados');
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'No se pudieron guardar los cambios');

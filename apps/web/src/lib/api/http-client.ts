@@ -1,3 +1,18 @@
+/**
+ * El `ValidationPipe` global de Nest devuelve `message` como un array de
+ * strings cuando falla más de una regla de `class-validator` a la vez
+ * (ej. dejar "Correo" con un valor no vacío inválido y "Días de pago"
+ * fuera de rango en el mismo submit) — sin este join, esos casos caían al
+ * genérico "Ocurrió un error inesperado" en vez de mostrar el motivo real.
+ */
+function extractMessage(message: unknown): string {
+  if (typeof message === 'string') return message;
+  if (Array.isArray(message) && message.every((m) => typeof m === 'string')) {
+    return message.join(' ');
+  }
+  return 'Ocurrió un error inesperado';
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -40,7 +55,7 @@ export async function apiFetch<T>(
 
   if (!res.ok) {
     throw new ApiError(
-      typeof body?.message === 'string' ? body.message : 'Ocurrió un error inesperado',
+      extractMessage(body?.message),
       res.status,
       typeof body?.code === 'string' ? body.code : undefined,
     );

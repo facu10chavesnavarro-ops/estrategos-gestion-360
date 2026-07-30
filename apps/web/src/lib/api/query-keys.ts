@@ -18,4 +18,20 @@ export const queryKeys = {
     invitations: (companyId: string) => ['companies', companyId, 'invitations'] as const,
     roles: () => ['roles'] as const,
   },
+  customers: {
+    list: (companyId: string, filters: { search?: string; isActive?: boolean }) =>
+      ['companies', companyId, 'customers', filters] as const,
+    detail: (companyId: string, customerId: string) =>
+      ['companies', companyId, 'customers', customerId] as const,
+    currentAccount: (companyId: string, customerId: string) =>
+      ['companies', companyId, 'customers', customerId, 'current-account'] as const,
+  },
+  suppliers: {
+    list: (companyId: string, filters: { search?: string; isActive?: boolean }) =>
+      ['companies', companyId, 'suppliers', filters] as const,
+    detail: (companyId: string, supplierId: string) =>
+      ['companies', companyId, 'suppliers', supplierId] as const,
+    currentAccount: (companyId: string, supplierId: string) =>
+      ['companies', companyId, 'suppliers', supplierId, 'current-account'] as const,
+  },
 };

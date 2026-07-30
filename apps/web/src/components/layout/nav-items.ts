@@ -22,8 +22,8 @@ export interface NavItem {
 // entre módulos (Catálogo antes que Stock, Tesorería antes que Caja/Bancos).
 export const NAV_ITEMS: NavItem[] = [
   { label: "Inicio", icon: Home, href: "inicio" },
-  { label: "Clientes", icon: Users },
-  { label: "Proveedores", icon: Truck },
+  { label: "Clientes", icon: Users, href: "clientes" },
+  { label: "Proveedores", icon: Truck, href: "proveedores" },
   { label: "Catálogo", icon: Package },
   { label: "Stock", icon: Boxes },
   { label: "Comprobantes", icon: FileText },

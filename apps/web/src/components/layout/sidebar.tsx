@@ -66,7 +66,11 @@ export function SidebarNav({
             item={item}
             companyId={companyId}
             collapsed={collapsed}
-            isActive={Boolean(item.href) && pathname === `/${companyId}/${item.href}`}
+            isActive={
+              Boolean(item.href) &&
+              (pathname === `/${companyId}/${item.href}` ||
+                pathname.startsWith(`/${companyId}/${item.href}/`))
+            }
           />
         ))}
       </div>

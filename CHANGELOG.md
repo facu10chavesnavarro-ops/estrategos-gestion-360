@@ -6,6 +6,69 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.4.0] - 2026-07-30
+
+**Frontend Sprint F2 — Clientes y Proveedores.** Segundo módulo de
+negocio (`docs/frontend/05-sprint-f2-clientes-proveedores.md`): mapea los
+módulos `customers`/`suppliers` del backend (modelo `Party` compartido +
+rol). Entregable cumplido — alta, edición, baja e importación de
+clientes y proveedores — con prueba E2E dedicada (crear cliente, importar
+CSV de proveedores, desactivar uno y verificar que queda inactivo).
+
+### Agregado
+
+- **Pantallas Clientes/Proveedores** (`/[companyId]/clientes`,
+  `/[companyId]/proveedores`): listado con búsqueda (cliente, vía
+  `DataTable`) y filtro por estado (servidor, vía la URL), alta/edición en
+  panel lateral (`Sheet`), activar/desactivar sin motivo (a diferencia de
+  Empresa/Sucursal). A diferencia de "Usuarios" en F1, la sección es
+  visible para **cualquier miembro** — solo los controles de mutación se
+  ocultan según `ROLES_THAT_CAN_MANAGE_COMPANY`, reflejando que el
+  backend abre la lectura a todos.
+- **Detalle de Cliente/Proveedor** (`/clientes/[customerId]`,
+  `/proveedores/[supplierId]`): datos de solo lectura + cuenta corriente
+  embebida (`CurrentAccountPanel`: saldo actual + tabla de movimientos,
+  endpoint de `treasury` mostrado acá por decisión de UX del plan) +
+  botón "Editar" que abre el mismo `Sheet` que "+ Nuevo".
+- **Importación CSV** (`ImportDialog`, compartido entre ambas entidades):
+  lectura del archivo en el cliente (`File.text()`, el backend recibe
+  `csvContent` como texto plano en JSON, no `multipart/form-data`),
+  selector de modo (`skip-new-only`/`update-existing`/`skip-silently`) y
+  resumen de resultado (creados/actualizados/omitidos/rechazados con
+  motivo).
+- **Componentes compartidos** `components/parties/`: `PartyFormFields`
+  (fragmento de campos comunes del `Party`), `CurrentAccountPanel`,
+  `ImportDialog` — reutilizados por Clientes y Proveedores sin duplicar
+  JSX, mientras que tablas y formularios completos quedan concretos
+  (mismo criterio que `MembersTable`/`InvitationsTable` en F1).
+- `lib/api/customers.ts`, `lib/api/suppliers.ts`, `lib/api/import.ts`
+  (tipos `ImportMode`/`ImportSummary` compartidos).
+- Ítems de sidebar "Clientes"/"Proveedores" (reservados sin `href` desde
+  F0) ahora enlazan a sus pantallas reales.
+- Tests: componente (`CustomersTable` — controles de mutación ocultos sin
+  rol de gestión, desactivar con confirmación, editar) y E2E (crear
+  cliente → importar CSV de proveedores → desactivar uno → verificar
+  inactivo, sin afectar al resto).
+
+### Corregido
+
+- `apiFetch`/`ApiError` (`lib/api/http-client.ts`) mostraba "Ocurrió un
+  error inesperado" en vez del motivo real cuando `ValidationPipe` de
+  Nest rechazaba más de un campo a la vez — su `message` llega como
+  array de strings, no como string, y la extracción original solo
+  contemplaba el segundo caso. Afectaba a cualquier formulario, no solo a
+  los nuevos de F2.
+- `CustomerSheet`/`SupplierSheet`/`CompanyForm`: los campos opcionales
+  vacíos (ej. "Correo" sin completar) se enviaban como `''` en vez de
+  omitirse, y `@IsOptional() @IsEmail()` de `class-validator` **no**
+  trata `''` como "no informado" — el backend rechazaba altas/ediciones
+  válidas que dejaban un campo opcional en blanco. Se agrega
+  `omitEmptyStrings` (`lib/utils.ts`) y se aplica antes de cada submit.
+- `SidebarNav`: el resaltado de ítem activo comparaba con igualdad
+  estricta de ruta: al entrar al detalle de un cliente/proveedor
+  (`/clientes/[id]`), "Clientes" dejaba de verse resaltado. Ahora también
+  compara por prefijo, igual que ya hacía "Configuración".
+
 ## [web-0.3.0] - 2026-07-29
 
 **Frontend Sprint F1 — Configuración.** Primer módulo de negocio del
