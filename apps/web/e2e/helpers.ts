@@ -7,6 +7,16 @@ import type { Page } from '@playwright/test';
 export const ADMIN_EMAIL = 'admin@estrategos.local';
 export const ADMIN_PASSWORD = 'CambiarEsta123!';
 
+// Empresa dedicada a la suite E2E (Sprint F4, docs/frontend/07-sprint-f4-stock.md
+// §3.7) — nunca "Empresa Piloto SRL" ni ninguna otra, para no acumular
+// datos de negocio sobre una empresa real de otras pruebas manuales.
+// Se vacía por companyId antes de cada corrida completa (globalSetup en
+// playwright.config.ts + apps/api/prisma/reset-e2e-company.ts).
+// El botón del selector de empresa concatena legalName + taxId como su
+// nombre accesible — se matchea por ambos (no solo "Empresa E2E") para
+// no confundirla con otra empresa de nombre parecido creada a mano.
+export const E2E_COMPANY_NAME = /^Empresa E2E 30-00000000-1$/;
+
 /**
  * En modo dev, el HTML puede pintarse antes de que React hidrate: un click
  * "demasiado rápido" dispara el submit nativo del <form> (GET) en vez del
@@ -67,7 +77,7 @@ export async function loginAsAdmin(page: Page) {
   );
 
   if (page.url().includes('seleccionar-empresa')) {
-    await page.getByRole('button').first().click();
+    await page.getByRole('button', { name: E2E_COMPANY_NAME }).click();
   }
   // Generoso por la misma razón que submitWithHydrationRetry: primera vez
   // que se compila /[companyId]/inicio + el AppShell (incluye GET /auth/me).

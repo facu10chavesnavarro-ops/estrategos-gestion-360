@@ -25,7 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Clientes", icon: Users, href: "clientes" },
   { label: "Proveedores", icon: Truck, href: "proveedores" },
   { label: "Catálogo", icon: Package, href: "catalogo/productos" },
-  { label: "Stock", icon: Boxes },
+  { label: "Stock", icon: Boxes, href: "stock/general" },
   { label: "Comprobantes", icon: FileText },
   { label: "Tesorería", icon: Landmark },
   { label: "Caja y Bancos", icon: Wallet },

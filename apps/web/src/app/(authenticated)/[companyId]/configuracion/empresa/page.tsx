@@ -153,9 +153,6 @@ export default function EmpresaPage({ params }: { params: { companyId: string } 
           getRowId={(b) => b.id}
           searchPlaceholder="Buscar sucursal..."
           emptyMessage="Todavía no hay sucursales cargadas."
-          emptyAction={
-            canManage ? <Button onClick={openCreate}>+ Nueva sucursal</Button> : undefined
-          }
           renderMobileCard={(branch) => (
             <div className="flex items-start justify-between gap-2">
               <div>

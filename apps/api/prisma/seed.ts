@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { E2E_COMPANY_ID, E2E_BRANCH_ID } from './e2e-constants';
 
 const prisma = new PrismaClient();
 
@@ -203,6 +204,42 @@ async function main() {
     create: {
       userId: adminUser.id,
       companyId: pilotCompany.id,
+      roleId: adminRole!.id,
+    },
+  });
+
+  // Empresa dedicada a la suite E2E (Sprint F4, docs/frontend/07-sprint-f4-stock.md
+  // §3.7): id fijo para que reset-e2e-company.ts pueda apuntarle sin buscarla.
+  // Nunca la usa un usuario real ni una corrida manual — solo Playwright.
+  const e2eCompany = await prisma.company.upsert({
+    where: { id: E2E_COMPANY_ID },
+    update: {},
+    create: {
+      id: E2E_COMPANY_ID,
+      tenantId: tenant.id,
+      legalName: 'Empresa E2E',
+      taxId: '30-00000000-1',
+    },
+  });
+
+  await prisma.branch.upsert({
+    where: { id: E2E_BRANCH_ID },
+    update: {},
+    create: {
+      id: E2E_BRANCH_ID,
+      companyId: e2eCompany.id,
+      name: 'Sucursal E2E',
+    },
+  });
+
+  await prisma.companyUser.upsert({
+    where: {
+      userId_companyId: { userId: adminUser.id, companyId: e2eCompany.id },
+    },
+    update: {},
+    create: {
+      userId: adminUser.id,
+      companyId: e2eCompany.id,
       roleId: adminRole!.id,
     },
   });

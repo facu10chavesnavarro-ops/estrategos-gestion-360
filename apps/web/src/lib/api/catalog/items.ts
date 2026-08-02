@@ -1,8 +1,9 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '../http-client';
 import { queryKeys } from '../query-keys';
-import { useBranches } from '../companies';
 import type { ImportMode, ImportSummary } from '../import';
+import { useAllWarehouses } from '../inventory/warehouses';
+import type { Stock } from '../inventory/stock';
 
 export type ItemType = 'PRODUCT' | 'SERVICE';
 
@@ -169,23 +170,10 @@ export async function exportItemsCsv(companyId: string, filters: ItemFilters): P
 }
 
 // --- Stock actual del ítem, compuesto contra endpoints ya existentes de
-// inventory (ver docs/frontend/06-sprint-f3-catalogo.md §3.5) ---
-
-export interface Warehouse {
-  id: string;
-  companyId: string;
-  branchId: string;
-  name: string;
-  isActive: boolean;
-}
-
-export interface Stock {
-  companyId: string;
-  itemId: string;
-  warehouseId: string;
-  quantity: string;
-  averageCost: string;
-}
+// inventory (ver docs/frontend/06-sprint-f3-catalogo.md §3.5). Sprint F4
+// extrajo la composición sucursales→depósitos a useAllWarehouses
+// (lib/api/inventory/warehouses.ts) — esta función ahora solo agrega la
+// etapa de stock por ítem sobre esa base compartida, sin duplicarla. ---
 
 export interface ItemStockRow {
   branchId: string;
@@ -196,28 +184,9 @@ export interface ItemStockRow {
   averageCost: string;
 }
 
-/**
- * Etapa 1: sucursales activas → etapa 2 (en paralelo): depósitos de cada
- * sucursal → etapa 3 (en paralelo): stock de este ítem en cada depósito.
- * Sin backend nuevo — ver decisión 3.5 del doc de arquitectura de F3.
- */
 export function useItemStockAcrossWarehouses(companyId: string, itemId: string) {
-  const branches = useBranches(companyId);
-  const activeBranches = (branches.data ?? []).filter((b) => b.isActive);
-
-  const warehouseQueries = useQueries({
-    queries: activeBranches.map((branch) => ({
-      queryKey: queryKeys.inventory.warehousesByBranch(companyId, branch.id),
-      queryFn: () =>
-        apiFetch<Warehouse[]>(`companies/${companyId}/branches/${branch.id}/warehouses`, companyId),
-      enabled: Boolean(companyId) && branches.isSuccess,
-    })),
-  });
-
-  const warehousesLoaded = warehouseQueries.length === 0 || warehouseQueries.every((q) => q.isSuccess);
-  const warehouses = warehouseQueries.flatMap((q, i) =>
-    (q.data ?? []).map((w) => ({ ...w, branchName: activeBranches[i].name })),
-  );
+  const { warehouses, isLoading: warehousesLoading, isSuccess: warehousesLoaded } =
+    useAllWarehouses(companyId);
   const activeWarehouses = warehouses.filter((w) => w.isActive);
 
   const stockQueries = useQueries({
@@ -233,7 +202,7 @@ export function useItemStockAcrossWarehouses(companyId: string, itemId: string) 
   });
 
   const isLoading =
-    branches.isLoading || !warehousesLoaded || (stockQueries.length > 0 && stockQueries.some((q) => q.isLoading));
+    warehousesLoading || (stockQueries.length > 0 && stockQueries.some((q) => q.isLoading));
 
   const rows: ItemStockRow[] = activeWarehouses.map((warehouse, i) => {
     const stockForItem = stockQueries[i]?.data?.[0];

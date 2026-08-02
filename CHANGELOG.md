@@ -6,6 +6,113 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.6.0] - 2026-08-02
+
+**Frontend Sprint F4 — Stock.** Cuarto módulo de negocio
+(`docs/frontend/07-sprint-f4-stock.md`): mapea el módulo `inventory` del
+backend (Depósitos, Stock, Movimientos de stock) sin agregar lógica de
+negocio nueva. Escalado a decisión de arquitectura antes de implementar
+(`AskUserQuestion`): la suite E2E completa venía acumulando datos de
+cada corrida en la misma empresa sembrada, degradando el rendimiento;
+se aprobó una empresa "Empresa E2E" dedicada con reset por `companyId`
+antes de cada corrida completa (ver más abajo).
+
+### Agregado
+
+- **Pantalla Depósitos** (`/stock/depositos`): listado de todos los
+  depósitos de todas las sucursales activas (`useAllWarehouses`, ver
+  refactor abajo), alta/edición en `Sheet` (sucursal solo seleccionable
+  al crear — un depósito no cambia de sucursal), activar/desactivar con
+  confirmación, filtro por estado.
+- **Detalle de depósito** (`/stock/depositos/[warehouseId]`): no existe
+  un GET-por-id fuera del path anidado en sucursal, así que la pantalla
+  busca el depósito en el listado ya cacheado por `useAllWarehouses`
+  (mismo patrón que el detalle de lista de precios en F3). Header con
+  acciones Editar/Transferir/Ajustar, tabla de "Stock actual" por ítem
+  y "Historial de movimientos" con filtros (ítem, tipo, fecha).
+- **Ajuste de stock** (`stock-adjustment-sheet.tsx`): entrada/salida con
+  validación condicional (`costo unitario` requerido en entradas,
+  `motivo` requerido en salidas, replicando RN-STK-07 en el cliente sin
+  reimplementar la regla — el backend sigue siendo la fuente de verdad;
+  el rechazo real de stock insuficiente lo devuelve el backend y se
+  muestra tal cual). Selector de ítem limitado a productos con
+  `tracksStock=true` (RN-STK-13).
+- **Transferencias entre depósitos** (`/stock/transferencias`):
+  formulario origen/destino/ítem/cantidad/motivo, valida
+  origen≠destino en el cliente antes de enviar; acepta
+  `?fromWarehouseId=` para prellenar el origen al llegar desde el
+  detalle de un depósito. Redirige al depósito de destino al confirmar.
+- **Vista general de stock** (`/stock/general`): sin endpoint nuevo,
+  `useCompanyStockOverview` compone `useAllWarehouses` + una consulta
+  de stock por depósito activo (`useQueries`) cruzada con `useItems`
+  para nombre/SKU, filtrando cantidades en cero. Filtro por depósito.
+- **Stock por producto** (`/stock/productos`): selector de ítem
+  (productos con `tracksStock=true`) que reutiliza `ItemStockPanel`/
+  `useItemStockAcrossWarehouses` ya construidos en F3, con enlace "Ver
+  ficha del producto" de vuelta a Catálogo.
+- **Navegación Catálogo↔Stock**: la celda "Depósito" del panel de stock
+  en el detalle de ítem (F3) ahora enlaza a `/stock/depositos/:id`;
+  ítem de sidebar "Stock" activado con `href` real (antes reservado).
+- `lib/api/inventory/{warehouses,stock,stock-movements}.ts`: capa
+  centralizada de acceso al backend `inventory`. `useAllWarehouses`
+  generaliza a nivel de módulo la composición de dos etapas (sucursales
+  activas → depósitos de cada una) que F3 ya usaba de forma puntual
+  para stock de un ítem — `lib/api/catalog/items.ts` se refactorizó
+  para reusar este hook en `useItemStockAcrossWarehouses` en lugar de
+  duplicar la composición.
+- **Aislamiento de datos de prueba E2E** (decisión de arquitectura
+  aprobada explícitamente): "Empresa E2E" y "Sucursal E2E" con UUID fijo
+  sembradas en `prisma/seed.ts`; script standalone
+  `prisma/reset-e2e-company.ts` (`npm run reset:e2e`) que vacía
+  exclusivamente los datos de negocio de esa empresa por `companyId` en
+  orden seguro para las FK — nunca por coincidencia de texto, nunca
+  toca otras empresas ni datos reales; `globalSetup` de Playwright lo
+  ejecuta antes de cada corrida completa de la suite. `helpers.ts`
+  ahora selecciona esta empresa por nombre exacto al iniciar sesión en
+  vez de tomar la primera de la lista (ambiguo una vez que conviven
+  varias empresas en la base de desarrollo).
+- Tests: componente (`WarehousesTable` — controles ocultos sin rol de
+  gestión, desactivar con confirmación, link al detalle) y E2E dedicado
+  (crear depósito → ajustar stock → rechazo de salida sin stock
+  suficiente → consultar por producto/depósito → transferir →
+  persistencia tras recargar).
+
+### Corregido
+
+- `invitations-table.tsx` y la sección Sucursales de
+  `configuracion/empresa` pasaban `emptyAction` a `DataTable` además
+  del botón siempre visible del encabezado, duplicando el botón "+"
+  cuando la lista estaba vacía. Nunca se manifestó con la empresa
+  piloto (siempre tenía datos acumulados de sesiones previas); lo
+  expuso la nueva Empresa E2E, vacía en cada corrida. Se quitó el
+  `emptyAction` redundante en ambos lugares.
+- `auth.spec.ts` predataba los helpers `gotoAndSettle`/
+  `submitWithHydrationRetry` (creados durante F1-F3) y usaba
+  `page.goto` + fill/click directo, quedando expuesto a la misma
+  carrera de hidratación que esos helpers existen para evitar —
+  especialmente grave al ser el primer spec en tocar un servidor de
+  desarrollo recién levantado. Reescrito para usar los helpers
+  compartidos.
+- `useWarehouse`/`useUpdateWarehouse`/`useActivateWarehouse`/
+  `useDeactivateWarehouse` asumían inicialmente un endpoint
+  `companies/:id/warehouses/:warehouseId` que no existe:
+  `WarehousesController` requiere `branchId` en el path para **todas**
+  sus rutas. Corregido antes de manual testing (no llegó a producción):
+  se eliminó `useWarehouse` (el detalle busca en `useAllWarehouses`,
+  igual que el resto de los GET-por-id inexistentes del proyecto) y los
+  demás hooks pasaron a requerir `branchId` explícito.
+
+### Conocido / diferido
+
+- El trigger de los `Select` dinámicos (depósito, sucursal, ítem)
+  puede mostrar el valor crudo en vez de la etiqueta resuelta
+  inmediatamente después de seleccionar una opción, en ciertos casos de
+  timing de `@base-ui/react/select`. Es puramente cosmético — no afecta
+  el envío de datos ni las tablas/detalles, que siempre muestran la
+  etiqueta correcta — y preexiste desde F1 en el wrapper compartido
+  `components/ui/select.tsx`; no se corrigió en F4 para no arriesgar
+  regresiones en formularios de F1-F3 sin tiempo dedicado a probarlos.
+
 ## [1.2.0] - 2026-07-30
 
 Extensión del módulo `catalog` (Sprint 3) pedida durante el diseño del

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { gotoAndSettle, submitWithHydrationRetry } from './helpers';
 
 // Requiere apps/api corriendo en :3001 (con DB seedeada, ver
 // apps/api/prisma/seed.ts) y apps/web en :3000. Usuario de prueba
@@ -8,42 +9,61 @@ const TEST_PASSWORD = 'CambiarEsta123!';
 
 test.describe('Flujo de autenticación (Sprint F0)', () => {
   test('login exitoso lleva al selector de empresa o a inicio', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Correo').fill(TEST_EMAIL);
-    await page.getByLabel('Contraseña').fill(TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Ingresar' }).click();
-
-    await expect(page).toHaveURL(/\/(seleccionar-empresa|[0-9a-f-]+\/inicio)/, {
-      timeout: 10_000,
-    });
+    await gotoAndSettle(page, '/login');
+    await submitWithHydrationRetry(
+      page,
+      '/login',
+      async () => {
+        await page.getByLabel('Correo').fill(TEST_EMAIL);
+        await page.getByLabel('Contraseña').fill(TEST_PASSWORD);
+        await page.getByRole('button', { name: 'Ingresar' }).click();
+      },
+      /\/(seleccionar-empresa|[0-9a-f-]+\/inicio)/,
+    );
   });
 
   test('login fallido muestra el mensaje de error del backend', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Correo').fill(TEST_EMAIL);
-    await page.getByLabel('Contraseña').fill('contraseña-incorrecta');
-    await page.getByRole('button', { name: 'Ingresar' }).click();
+    await gotoAndSettle(page, '/login');
 
-    // Next.js inyecta su propio anunciador de rutas con role="alert" (vacío);
-    // el nuestro es el único <p role="alert"> con texto real.
-    await expect(page.locator('p[role="alert"]')).toHaveText('Credenciales inválidas', {
-      timeout: 10_000,
-    });
+    // Esta prueba no cambia de URL en el camino esperado (se queda en
+    // /login), así que submitWithHydrationRetry no aplica tal cual —
+    // reintenta a mano si la carrera de hidratación (ver helpers.ts)
+    // tira el submit a un GET nativo antes de que el alert aparezca.
+    const alert = page.locator('p[role="alert"]');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await page.getByLabel('Correo').fill(TEST_EMAIL);
+      await page.getByLabel('Contraseña').fill('contraseña-incorrecta');
+      await page.getByRole('button', { name: 'Ingresar' }).click();
+      try {
+        await expect(alert).toHaveText('Credenciales inválidas', { timeout: 10_000 });
+        break;
+      } catch (err) {
+        if (attempt === 3) throw err;
+        await gotoAndSettle(page, '/login');
+      }
+    }
     await expect(page).toHaveURL(/\/login$/);
   });
 
   test('logout limpia la sesión y redirige a /login', async ({ page }) => {
-    await page.goto('/login');
-    await page.getByLabel('Correo').fill(TEST_EMAIL);
-    await page.getByLabel('Contraseña').fill(TEST_PASSWORD);
-    await page.getByRole('button', { name: 'Ingresar' }).click();
+    await gotoAndSettle(page, '/login');
+    await submitWithHydrationRetry(
+      page,
+      '/login',
+      async () => {
+        await page.getByLabel('Correo').fill(TEST_EMAIL);
+        await page.getByLabel('Contraseña').fill(TEST_PASSWORD);
+        await page.getByRole('button', { name: 'Ingresar' }).click();
+      },
+      /\/(seleccionar-empresa|[0-9a-f-]+\/inicio)/,
+    );
 
-    // Si hay más de una empresa, elegir la primera para llegar al AppShell.
-    await page.waitForURL(/\/(seleccionar-empresa|[0-9a-f-]+\/inicio)/, { timeout: 10_000 });
+    // Si hay más de una empresa, elegir la primera para llegar al AppShell —
+    // a este test no le importa cuál, solo que el logout limpie la sesión.
     if (page.url().includes('seleccionar-empresa')) {
       await page.getByRole('button').first().click();
     }
-    await page.waitForURL(/\/[0-9a-f-]+\/inicio$/, { timeout: 10_000 });
+    await page.waitForURL(/\/[0-9a-f-]+\/inicio$/, { timeout: 20_000 });
 
     // El menú de usuario es siempre el último botón del topbar (después del
     // toggle de sidebar y el CompanySwitcher, ver components/layout/app-shell.tsx).

@@ -102,7 +102,6 @@ export function InvitationsTable({ companyId }: { companyId: string }) {
         getRowId={(i) => i.id}
         searchPlaceholder="Buscar invitación..."
         emptyMessage="Todavía no se enviaron invitaciones."
-        emptyAction={<CreateInvitationDialog companyId={companyId} />}
         renderMobileCard={(invitation) => (
           <div className="flex items-start justify-between gap-2">
             <div>

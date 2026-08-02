@@ -61,7 +61,12 @@ export const queryKeys = {
   inventory: {
     warehousesByBranch: (companyId: string, branchId: string) =>
       ['companies', companyId, 'branches', branchId, 'warehouses'] as const,
-    stock: (companyId: string, warehouseId: string, itemId: string) =>
+    stock: (companyId: string, warehouseId: string, itemId?: string) =>
       ['companies', companyId, 'warehouses', warehouseId, 'stock', itemId] as const,
+    stockMovements: (
+      companyId: string,
+      warehouseId: string,
+      filters: { itemId?: string; type?: string; from?: string; to?: string },
+    ) => ['companies', companyId, 'warehouses', warehouseId, 'stock-movements', filters] as const,
   },
 };

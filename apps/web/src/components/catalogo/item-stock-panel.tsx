@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useItemStockAcrossWarehouses } from '@/lib/api/catalog/items';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -44,7 +45,14 @@ export function ItemStockPanel({ companyId, itemId }: { companyId: string; itemI
                 {rows.map((row) => (
                   <TableRow key={row.warehouseId}>
                     <TableCell>{row.branchName}</TableCell>
-                    <TableCell>{row.warehouseName}</TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/${companyId}/stock/depositos/${row.warehouseId}`}
+                        className="hover:underline"
+                      >
+                        {row.warehouseName}
+                      </Link>
+                    </TableCell>
                     <TableCell className="font-mono">{row.quantity}</TableCell>
                     <TableCell className="font-mono">{row.averageCost}</TableCell>
                   </TableRow>
