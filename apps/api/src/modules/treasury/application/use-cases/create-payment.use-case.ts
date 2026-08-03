@@ -82,6 +82,20 @@ export class CreatePaymentUseCase {
   async execute(input: CreatePaymentUseCaseInput): Promise<PaymentEntity> {
     assertRoleIn(input.requestingRoleName, ROLES_THAT_CAN_MANAGE_COMPANY);
 
+    // RN-PAY-11: reintento idempotente — si ya existe un Payment con esta
+    // clave para esta empresa, se devuelve tal cual (sin re-crear nada,
+    // sin re-validar el resto del body) en vez de duplicar el pago y sus
+    // movimientos de cuenta corriente/caja/banco/asiento contable.
+    if (input.idempotencyKey) {
+      const existing = await this.paymentRepository.findByIdempotencyKey(
+        input.companyId,
+        input.idempotencyKey,
+      );
+      if (existing) {
+        return existing;
+      }
+    }
+
     if (!input.methodDetails || input.methodDetails.length === 0) {
       throw new EmptyPaymentMethodDetailsError();
     }
@@ -266,6 +280,7 @@ export class CreatePaymentUseCase {
           createdByUserId: input.requestingUserId,
           allocations: allocationsToCreate,
           methodDetails: methodDetailsToCreate,
+          idempotencyKey: input.idempotencyKey,
         },
         ctx,
       );

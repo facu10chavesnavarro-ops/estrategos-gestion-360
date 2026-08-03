@@ -30,7 +30,7 @@ export interface PaymentAllocationData {
   readonly amountApplied: string;
 }
 
-/** RN-PAY-01 a 09. Inmutable una vez creado (RN-PAY-06). */
+/** RN-PAY-01 a 10. Inmutable una vez creado (RN-PAY-06). */
 export class PaymentEntity {
   constructor(
     public readonly id: string,
@@ -45,5 +45,13 @@ export class PaymentEntity {
     public readonly createdAt: Date,
     public readonly allocations: PaymentAllocationData[],
     public readonly methodDetails: PaymentMethodDetailData[],
+    /**
+     * RN-PAY-11 (Sprint F6, frontend): clave de idempotencia opcional
+     * generada por el cliente. Si un segundo POST llega con la misma
+     * (companyId, idempotencyKey), CreatePaymentUseCase devuelve este
+     * mismo Payment ya creado en vez de duplicarlo — ver
+     * docs/frontend/09-sprint-f6-tesoreria.md §3.1.
+     */
+    public readonly idempotencyKey: string | null = null,
   ) {}
 }

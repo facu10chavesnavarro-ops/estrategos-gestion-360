@@ -304,6 +304,45 @@ describe('CreatePaymentUseCase (integración, DB real)', () => {
     expect(auditEntries).toHaveLength(1);
   });
 
+  it('RN-PAY-11: reintentar con la misma idempotencyKey no duplica el pago ni sus movimientos', async () => {
+    const auditLogRepository = new PrismaAuditLogRepository(prisma);
+    const useCase = makeCreatePaymentUseCase(auditLogRepository);
+    const input = {
+      requestingUserId,
+      requestingRoleName: 'Propietario',
+      companyId,
+      partyId,
+      direction: 'COLLECTION' as const,
+      methodDetails: [{ paymentMethodId: efectivoMethodId, amount: '500' }],
+      allocations: [{ voucherId: invoiceVoucherId, amountApplied: '500' }],
+      cashSessionId,
+      idempotencyKey: 'reintento-e2e-1',
+    };
+
+    const first = await useCase.execute(input);
+    const second = await useCase.execute(input); // simula un reintento de red del mismo intento
+
+    expect(second.id).toBe(first.id);
+
+    const paymentRows = await prisma.payment.findMany({ where: { companyId, partyId } });
+    expect(paymentRows).toHaveLength(1);
+
+    const cashMovements = await prisma.cashMovement.findMany({ where: { paymentId: first.id } });
+    expect(cashMovements).toHaveLength(1);
+
+    const customerAccount = await prisma.customerAccount.findUnique({ where: { customerId } });
+    // Si el reintento hubiera duplicado el pago, el saldo sería 210.00 (1210 - 500 - 500).
+    expect(customerAccount?.currentBalance.toFixed(2)).toBe('710.00');
+
+    // Filtrado por paymentId (no solo customerAccountId): el beforeEach ya
+    // generó un movimiento DEBIT propio al crear la factura — acá interesa
+    // contar únicamente los movimientos originados por ESTE Payment.
+    const movements = await prisma.customerAccountMovement.findMany({
+      where: { customerAccountId: customerAccount!.id, paymentId: first.id },
+    });
+    expect(movements).toHaveLength(1);
+  });
+
   it('RN-PAY-07: un pago con Cheque crea el CheckDetail (EN_CARTERA) enlazado por FK', async () => {
     const cheque = await prisma.paymentMethod.findUniqueOrThrow({ where: { code: 'CHEQUE' } });
     const auditLogRepository = new PrismaAuditLogRepository(prisma);

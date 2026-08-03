@@ -197,6 +197,55 @@ antes de cada corrida completa (ver más abajo).
   `components/ui/select.tsx`; no se corrigió en F4 para no arriesgar
   regresiones en formularios de F1-F3 sin tiempo dedicado a probarlos.
 
+## [1.3.0] - 2026-08-03
+
+Extensión del módulo `treasury` pedida durante el diseño del Sprint F6
+del frontend (Tesorería), escalada y decidida explícitamente con el
+usuario vía `AskUserQuestion`: el backend no protegía la creación de
+`Payment` (cobros/pagos) contra doble-submit ni reintentos de red —
+mismo hallazgo ya documentado como deuda pendiente en el Sprint F5
+(Comprobantes), pero acá el impacto es mayor porque un duplicado
+también duplica el movimiento real de caja/banco y el asiento contable
+automático, no solo un registro administrativo. El usuario pidió
+explícitamente no resolverlo solo deshabilitando botones en el
+frontend — se agrega protección real en el backend.
+
+### Agregado
+
+- `Payment.idempotencyKey` (string, opcional, único junto con
+  `companyId` — Postgres no aplica unicidad sobre `NULL`, así que los
+  pagos sin clave conviven sin problema). El frontend genera un id por
+  intento de envío (ej. UUID) y lo manda en el `POST`; si ya existe un
+  `Payment` con esa combinación, `CreatePaymentUseCase` devuelve ese
+  mismo pago tal cual en vez de crear uno nuevo — sin duplicar
+  imputaciones, movimiento de cuenta corriente, `CashMovement`/
+  `BankMovement` ni asiento contable. La verificación de idempotencia
+  ocurre **después** de validar el rol (RN-PAY-11 no permite saltear la
+  autorización con una clave ajena) pero **antes** de cualquier otra
+  validación de negocio — un reintento legítimo no vuelve a resolver
+  contraparte, medios de pago, sesión de caja ni imputaciones.
+- `PaymentRepository.findByIdempotencyKey(companyId, idempotencyKey)`.
+- 4 tests unitarios nuevos (sin clave no consulta nada; clave nueva
+  crea y persiste la clave; clave repetida devuelve el pago existente
+  sin re-crear ni re-validar; el rol se sigue exigiendo aun con clave) +
+  1 test de integración contra Postgres real (reintentar con la misma
+  clave no duplica el `Payment` ni sus movimientos de cuenta corriente/
+  caja — 402/402 tests totales).
+
+### Alcance explícitamente NO cubierto por esta extensión
+
+- No es un mecanismo de idempotencia genérico para toda la API (se
+  evaluó como alternativa un middleware HTTP con header
+  `Idempotency-Key` + tabla de requests con TTL, pero se descartó por
+  mayor alcance de diseño para esta necesidad puntual — puede
+  revisitarse a futuro si otros módulos lo necesitan, incluyendo
+  retroactivamente `vouchers` de F5).
+- No compara el resto del body de la request contra el pago existente
+  al detectar una clave repetida — asume que el llamador reutiliza la
+  misma clave únicamente para reintentos del mismo intento original,
+  igual que la convención de idempotency keys de otras APIs (ej.
+  Stripe).
+
 ## [1.2.0] - 2026-07-30
 
 Extensión del módulo `catalog` (Sprint 3) pedida durante el diseño del

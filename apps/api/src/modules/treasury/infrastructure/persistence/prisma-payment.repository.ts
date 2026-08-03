@@ -75,6 +75,7 @@ export class PrismaPaymentRepository extends PaymentRepository {
         exchangeRate: input.exchangeRate,
         totalAmount: input.totalAmount,
         createdByUserId: input.createdByUserId,
+        idempotencyKey: input.idempotencyKey,
         allocations: {
           create: input.allocations.map((allocation) => ({
             id: allocation.id,
@@ -135,5 +136,17 @@ export class PrismaPaymentRepository extends PaymentRepository {
       _sum: { amountApplied: true },
     });
     return (result._sum.amountApplied ?? new Prisma.Decimal(0)).toString();
+  }
+
+  async findByIdempotencyKey(
+    companyId: string,
+    idempotencyKey: string,
+    ctx?: TransactionContext,
+  ): Promise<PaymentEntity | null> {
+    const raw = await resolveClient(this.prisma, ctx).payment.findFirst({
+      where: { companyId, idempotencyKey },
+      ...WITH_RELATIONS,
+    });
+    return raw ? PaymentMapper.toDomain(raw) : null;
   }
 }

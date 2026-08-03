@@ -40,6 +40,7 @@ export interface CreatePaymentInput {
   createdByUserId: string;
   allocations: CreatePaymentAllocationInput[];
   methodDetails: CreatePaymentMethodDetailInput[];
+  idempotencyKey?: string;
 }
 
 export interface ListPaymentsFilters {
@@ -65,4 +66,10 @@ export abstract class PaymentRepository {
     voucherId: string,
     ctx?: TransactionContext,
   ): Promise<string>;
+  /** RN-PAY-11: para el chequeo de idempotencia antes de crear un pago nuevo. */
+  abstract findByIdempotencyKey(
+    companyId: string,
+    idempotencyKey: string,
+    ctx?: TransactionContext,
+  ): Promise<PaymentEntity | null>;
 }

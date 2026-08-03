@@ -50,7 +50,9 @@ export class PaymentsController {
       'El monto total se calcula sumando los medios de pago informados. ' +
       'Genera el movimiento de cuenta corriente y, si algún medio lo ' +
       'requiere, el CashMovement/BankMovement correspondiente — y, con ' +
-      'Contabilidad activa, su asiento. Todo en la misma transacción.',
+      'Contabilidad activa, su asiento. Todo en la misma transacción. ' +
+      'Si se informa idempotencyKey y ya existe un pago con esa clave ' +
+      'para la empresa, se devuelve ese pago tal cual (no se duplica).',
   })
   async create(
     @Param('companyId') companyId: string,

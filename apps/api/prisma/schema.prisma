@@ -757,6 +757,12 @@ model Payment {
   totalAmount     Decimal          @map("total_amount") @db.Decimal(14, 2)
   createdByUserId String           @map("created_by_user_id")
   createdAt       DateTime         @default(now()) @map("created_at")
+  /// Sprint F6 (frontend): clave de idempotencia opcional generada por el
+  /// cliente (un id por intento de envío). Postgres no aplica unicidad
+  /// sobre NULL, así que los pagos sin clave (creados antes de este
+  /// sprint, o por scripts/tests) conviven sin problema — la protección
+  /// solo aplica cuando el llamador decide usarla.
+  idempotencyKey  String?          @map("idempotency_key")
 
   company       Company               @relation(fields: [companyId], references: [id])
   party         Party                 @relation(fields: [partyId], references: [id])
@@ -765,6 +771,7 @@ model Payment {
   cashMovements CashMovement[]
   bankMovements BankMovement[]
 
+  @@unique([companyId, idempotencyKey])
   @@index([companyId, createdAt])
   @@index([partyId])
   @@map("payments")

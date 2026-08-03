@@ -40,6 +40,13 @@ export interface CreatePaymentUseCaseInput {
   cashSessionId?: string;
   /** RN-PAY-10: obligatorio si algún medio requiere movimiento bancario. */
   bankAccountId?: string;
+  /**
+   * RN-PAY-11 (Sprint F6): si se informa y ya existe un Payment con la
+   * misma (companyId, idempotencyKey), se devuelve ese Payment tal cual
+   * en vez de crear uno nuevo — protege contra doble-submit/reintentos
+   * de red sin depender solo del frontend.
+   */
+  idempotencyKey?: string;
 }
 
 export interface ListPaymentsUseCaseInput {

@@ -70,6 +70,7 @@ export class PaymentMapper {
           cardDetail,
         };
       }),
+      raw.idempotencyKey,
     );
   }
 }

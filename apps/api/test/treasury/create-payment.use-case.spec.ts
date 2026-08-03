@@ -164,6 +164,7 @@ function makePayment(overrides: Partial<PaymentEntity> = {}): PaymentEntity {
     overrides.createdAt ?? new Date(),
     overrides.allocations ?? [],
     overrides.methodDetails ?? [],
+    overrides.idempotencyKey ?? null,
   );
 }
 
@@ -219,6 +220,7 @@ describe('CreatePaymentUseCase', () => {
       findById: jest.fn(),
       findAllByCompany: jest.fn(),
       sumAllocatedAmountForVoucher: jest.fn(),
+      findByIdempotencyKey: jest.fn(),
     } as jest.Mocked<PaymentRepository>;
     const customerRepository = {
       create: jest.fn(),
@@ -323,6 +325,7 @@ describe('CreatePaymentUseCase', () => {
     paymentMethodRepository.findById.mockResolvedValue(makePaymentMethod());
     paymentRepository.sumAllocatedAmountForVoucher.mockResolvedValue('0');
     paymentRepository.create.mockResolvedValue(makePayment());
+    paymentRepository.findByIdempotencyKey.mockResolvedValue(null);
     voucherRepository.findById.mockResolvedValue(makeVoucher());
     cashSessionRepository.findById.mockResolvedValue(makeCashSession());
     cashRegisterRepository.findById.mockResolvedValue(makeCashRegister());
@@ -892,6 +895,64 @@ describe('CreatePaymentUseCase', () => {
         }),
         expect.anything(),
       );
+    });
+  });
+
+  describe('RN-PAY-11: idempotencia', () => {
+    it('sin idempotencyKey, no consulta findByIdempotencyKey y crea el pago normalmente', async () => {
+      const { useCase, paymentRepository } = makeSut();
+
+      await useCase.execute(baseInput);
+
+      expect(paymentRepository.findByIdempotencyKey).not.toHaveBeenCalled();
+      expect(paymentRepository.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('con idempotencyKey nueva (sin pago previo), crea el pago y lo persiste con esa clave', async () => {
+      const { useCase, paymentRepository } = makeSut();
+      paymentRepository.findByIdempotencyKey.mockResolvedValue(null);
+
+      await useCase.execute({ ...baseInput, idempotencyKey: 'intento-abc' });
+
+      expect(paymentRepository.findByIdempotencyKey).toHaveBeenCalledWith(
+        'company-1',
+        'intento-abc',
+      );
+      expect(paymentRepository.create).toHaveBeenCalledTimes(1);
+      expect(paymentRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({ idempotencyKey: 'intento-abc' }),
+        expect.anything(),
+      );
+    });
+
+    it('con idempotencyKey ya usada, devuelve el pago existente sin crear uno nuevo ni volver a validar nada', async () => {
+      const { useCase, paymentRepository, customerRepository } = makeSut();
+      const existingPayment = makePayment({ id: 'payment-existente', idempotencyKey: 'intento-abc' });
+      paymentRepository.findByIdempotencyKey.mockResolvedValue(existingPayment);
+
+      // Un input deliberadamente inválido (rol sin permiso ya se valida
+      // antes; acá probamos que ni siquiera se resuelve la contraparte)
+      // para confirmar que el reintento no re-ejecuta el resto del caso
+      // de uso — solo devuelve el pago ya existente.
+      const result = await useCase.execute({ ...baseInput, idempotencyKey: 'intento-abc' });
+
+      expect(result).toBe(existingPayment);
+      expect(paymentRepository.create).not.toHaveBeenCalled();
+      expect(customerRepository.findByPartyId).not.toHaveBeenCalled();
+    });
+
+    it('sigue exigiendo rol autorizado aun con idempotencyKey (no se salta la validación de permisos)', async () => {
+      const { useCase, paymentRepository } = makeSut();
+
+      await expect(
+        useCase.execute({
+          ...baseInput,
+          requestingRoleName: 'Empleado',
+          idempotencyKey: 'intento-abc',
+        }),
+      ).rejects.toThrow(RoleNotAuthorizedError);
+
+      expect(paymentRepository.findByIdempotencyKey).not.toHaveBeenCalled();
     });
   });
 });
