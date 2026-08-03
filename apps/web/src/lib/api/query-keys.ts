@@ -69,4 +69,15 @@ export const queryKeys = {
       filters: { itemId?: string; type?: string; from?: string; to?: string },
     ) => ['companies', companyId, 'warehouses', warehouseId, 'stock-movements', filters] as const,
   },
+  vouchers: {
+    pointsOfSaleByBranch: (companyId: string, branchId: string) =>
+      ['companies', companyId, 'branches', branchId, 'points-of-sale'] as const,
+    voucherTypes: () => ['voucher-types'] as const,
+    list: (
+      companyId: string,
+      filters: { partyId?: string; voucherTypeId?: string; from?: string; to?: string },
+    ) => ['companies', companyId, 'vouchers', filters] as const,
+    detail: (companyId: string, voucherId: string) =>
+      ['companies', companyId, 'vouchers', voucherId] as const,
+  },
 };

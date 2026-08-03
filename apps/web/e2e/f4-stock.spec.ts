@@ -67,9 +67,14 @@ test.describe('Sprint F4 — Stock', () => {
 
     // --- Verificar stock actual del depósito A ---
     await expect(page.getByText('Stock actual')).toBeVisible();
-    const stockTable = page.getByRole('table').first();
-    await expect(stockTable.getByText(itemName)).toBeVisible({ timeout: 10_000 });
-    await expect(stockTable.getByText('20')).toBeVisible();
+    // Filtra por un header exclusivo de "Stock actual" ("Costo promedio")
+    // en vez de .first() por posición: "Historial de movimientos" es
+    // también un <table> en la misma página y, bajo carga, puede
+    // renderizar primero en el DOM mientras "Stock actual" sigue
+    // "Cargando…" — .first() quedaría apuntando a la tabla equivocada.
+    const stockTable = page.getByRole('table').filter({ hasText: 'Costo promedio' });
+    await expect(stockTable.getByText(itemName)).toBeVisible({ timeout: 20_000 });
+    await expect(stockTable.getByText('20', { exact: true })).toBeVisible();
 
     // --- Rechazo de operación inválida: ajuste de salida sin stock suficiente ---
     await page.getByRole('button', { name: 'Ajustar stock' }).click();

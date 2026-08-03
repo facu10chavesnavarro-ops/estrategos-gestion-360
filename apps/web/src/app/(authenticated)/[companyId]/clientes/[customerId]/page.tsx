@@ -90,7 +90,11 @@ export default function CustomerDetailPage({
         </CardContent>
       </Card>
 
-      <CurrentAccountPanel account={currentAccount.data} isLoading={currentAccount.isLoading} />
+      <CurrentAccountPanel
+        companyId={params.companyId}
+        account={currentAccount.data}
+        isLoading={currentAccount.isLoading}
+      />
 
       <CustomerSheet
         companyId={params.companyId}

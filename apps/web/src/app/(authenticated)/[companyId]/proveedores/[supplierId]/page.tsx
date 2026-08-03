@@ -92,7 +92,11 @@ export default function SupplierDetailPage({
         </CardContent>
       </Card>
 
-      <CurrentAccountPanel account={currentAccount.data} isLoading={currentAccount.isLoading} />
+      <CurrentAccountPanel
+        companyId={params.companyId}
+        account={currentAccount.data}
+        isLoading={currentAccount.isLoading}
+      />
 
       <SupplierSheet
         companyId={params.companyId}

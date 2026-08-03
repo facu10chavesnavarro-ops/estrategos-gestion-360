@@ -5,17 +5,19 @@ const prisma = new PrismaClient();
 
 /**
  * Vacía los datos de negocio de la Empresa E2E (Sprint F4,
- * docs/frontend/07-sprint-f4-stock.md §3.7) antes de correr la suite
- * Playwright completa, para que cada corrida arranque sin la basura
- * acumulada de corridas anteriores (causa real de timeouts de
+ * docs/frontend/07-sprint-f4-stock.md §3.7; extendido en Sprint F5,
+ * docs/frontend/08-sprint-f5-comprobantes.md §3.8) antes de correr la
+ * suite Playwright completa, para que cada corrida arranque sin la
+ * basura acumulada de corridas anteriores (causa real de timeouts de
  * hidratación bajo carga en la suite completa).
  *
  * Scoped estrictamente por `companyId` — nunca por coincidencia de
  * texto ("E2E" en el nombre) — para que sea imposible tocar por error
  * otra empresa. Nunca borra `Company`, `Branch`, `CompanyUser`,
  * `Tenant` ni `User`: solo las tablas de negocio que las pantallas de
- * Clientes/Proveedores (F2), Catálogo (F3) y Stock (F4) crean durante
- * los tests.
+ * Clientes/Proveedores (F2), Catálogo (F3), Stock (F4) y Comprobantes
+ * (F5) crean durante los tests. `AccountingSettings`/`JournalEntry`
+ * quedan fuera: la suite E2E no activa Contabilidad todavía.
  */
 async function main() {
   const company = await prisma.company.findUnique({ where: { id: E2E_COMPANY_ID } });
@@ -26,6 +28,27 @@ async function main() {
   }
 
   const where = { companyId: E2E_COMPANY_ID };
+
+  // --- Comprobantes (F5) — primero de todo: Voucher referencia
+  // warehouseId/partyId/itemId de las tablas que se borran más abajo.
+  // Se anula relatedVoucherId (autorreferencia Voucher→Voucher) antes de
+  // borrar para no violar la FK. VoucherType y PaymentMethod son
+  // catálogos globales de plataforma (como Role) y nunca se tocan: no
+  // tienen companyId.
+  const vouchers = await prisma.voucher.findMany({ where, select: { id: true } });
+  const voucherIds = vouchers.map((v) => v.id);
+  await prisma.voucher.updateMany({ where, data: { relatedVoucherId: null } });
+  const voucherLines = await prisma.voucherLine.findMany({
+    where: { voucherId: { in: voucherIds } },
+    select: { id: true },
+  });
+  await prisma.voucherLineTax.deleteMany({
+    where: { voucherLineId: { in: voucherLines.map((l) => l.id) } },
+  });
+  await prisma.voucherLine.deleteMany({ where: { voucherId: { in: voucherIds } } });
+  await prisma.voucher.deleteMany({ where });
+  await prisma.voucherCounter.deleteMany({ where });
+  await prisma.pointOfSale.deleteMany({ where });
 
   // --- Inventario (F4) ---
   await prisma.stockMovement.deleteMany({ where });

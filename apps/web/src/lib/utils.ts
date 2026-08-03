@@ -15,3 +15,14 @@ export function cn(...inputs: ClassValue[]) {
 export function omitEmptyStrings<T extends Record<string, unknown>>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== '')) as Partial<T>
 }
+
+/**
+ * Los montos decimales del backend (Voucher.total, CustomerAccount.
+ * currentBalance, etc.) llegan como string y pueden no traer los 2
+ * decimales cuando no hay centavos (ej. "1000" en vez de "1000.00") —
+ * nunca asumir el formato ya presente en el string, formatear siempre.
+ */
+export function formatMoney(value: string): string {
+  const n = Number(value)
+  return Number.isNaN(n) ? value : n.toLocaleString('es-AR', { minimumFractionDigits: 2 })
+}

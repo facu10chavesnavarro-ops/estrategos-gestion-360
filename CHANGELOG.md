@@ -6,6 +6,90 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.7.0] - 2026-08-02
+
+**Frontend Sprint F5 — Comprobantes.** Quinto módulo de negocio
+(`docs/frontend/08-sprint-f5-comprobantes.md`): mapea el módulo
+`vouchers` del backend (Puntos de Venta, Tipos de Comprobante, Facturas
+de Venta/Compra, Notas de Crédito) integrando de forma transparente con
+Stock (F4), Clientes/Proveedores (F2) y Tesorería (ya operativa en el
+backend desde el Sprint 3.4, sin pantallas propias todavía). Escalado a
+tres decisiones de arquitectura antes de implementar (`AskUserQuestion`):
+mitigación de doble-submit solo en frontend, réplica en el cliente de la
+fórmula de cálculo de totales (sin endpoint de preview en el backend), y
+exclusión de líneas de comprobante sin ítem asociado.
+
+### Agregado
+
+- **Pantalla Puntos de Venta** (`/comprobantes/puntos-de-venta`): listado
+  de todos los puntos de venta (todas las sucursales, mismo criterio que
+  Depósitos en F4), alta con código (inmutable tras crear, identificador
+  fiscal) y nombre, edición de nombre, activar/desactivar. Necesario para
+  que el flujo de creación de comprobantes tenga de dónde elegir un
+  punto de venta — no listado explícitamente en el alcance del sprint,
+  pero estrictamente necesario para su coherencia (mismo caso que
+  Depósitos en F4).
+- **Listado de comprobantes** (`/comprobantes`): número con código de
+  tipo, tipo (con badge "Nota de Crédito"), contraparte, fecha, total;
+  filtros por tipo de comprobante y rango de fechas (server-side) más
+  búsqueda de texto por contraparte (client-side). Botones "+ Factura de
+  venta"/"+ Factura de compra" ocultos sin rol de gestión.
+- **Detalle de comprobante** (`/comprobantes/[voucherId]`): cabecera con
+  tipo, número, contraparte (enlaza a Clientes/Proveedores), punto de
+  venta, depósito (enlaza a Stock); tabla de líneas con ítem (enlaza a
+  Catálogo), cantidad, precio, descuento, impuestos y subtotal; totales
+  formateados. Botón "Emitir Nota de Crédito" en facturas de venta, que
+  precarga la contraparte y el comprobante relacionado en el formulario
+  de alta.
+- **Alta de comprobante** (`/comprobantes/nuevo/venta`,
+  `/comprobantes/nuevo/compra`): un mismo formulario (`VoucherForm`)
+  para Factura de Venta, Factura de Compra y Nota de Crédito, filtrado
+  por `flow` del tipo de comprobante. Selector de contraparte (cliente o
+  proveedor, solo activos — RN-VOU-04 espejado en el cliente), selector
+  de punto de venta (completa `branchId` automáticamente, sin pedir
+  sucursal por separado), líneas dinámicas (`useFieldArray`: ítem,
+  cantidad, precio prellenado desde `Item.costPrice`, descuento),
+  depósito exigido solo si alguna línea trackea stock (RN-VOU-07
+  espejada), selector de "comprobante a corregir" cuando el tipo elegido
+  es una Nota de Crédito. Totales estimados en vivo replicando la
+  fórmula documentada (RN-VOU-05/09) — el total real y definitivo es el
+  que confirma el backend en la respuesta. Botón de confirmar
+  deshabilitado durante el envío (mitigación de doble-submit, ver
+  decisiones).
+- `lib/api/vouchers/{point-of-sale,voucher-types,vouchers}.ts`: capa
+  centralizada de acceso al backend `vouchers`. `useAllPointsOfSale`
+  generaliza el mismo patrón de composición de dos etapas que
+  `useAllWarehouses` (F4). `useVouchersWithLabels` resuelve nombre de
+  contraparte y tipo de comprobante legibles cruzando `useCustomers`/
+  `useSuppliers`/`useVoucherTypes` contra el listado crudo de
+  comprobantes.
+- `formatMoney` extraído de `components/parties/current-account-panel.tsx`
+  (duplicado puntual desde F2) a `lib/utils.ts` como utilidad
+  compartida, ya necesaria en al menos 3 lugares nuevos de F5.
+- `CurrentAccountPanel` (Clientes/Proveedores, F2): la referencia de
+  cada movimiento de cuenta corriente con `voucherId` ahora enlaza al
+  detalle del comprobante en Comprobantes — antes no había pantalla de
+  destino.
+- Tests: componente (`PointsOfSaleTable`, mismos casos que
+  `WarehousesTable` en F4) y E2E dedicado (punto de venta + depósito →
+  Factura de Compra con línea de producto y de servicio → Factura de
+  Venta → verificar numeración consecutiva del mismo punto de venta y
+  tipo con una segunda venta → Nota de Crédito sobre la primera venta →
+  verificar reposición de stock → rechazo de stock insuficiente →
+  verificar que un cliente inactivo no aparece como opción de
+  contraparte → persistencia tras recargar).
+
+### Corregido
+
+- `e2e/f4-stock.spec.ts`: el locator `getByRole('table').first()` para
+  ubicar la tabla "Stock actual" podía, bajo carga, apuntar a la tabla
+  de "Historial de movimientos" (también un `<table>` en la misma
+  página) si esta terminaba de cargar primero — encontrado al
+  reproducirse el mismo patrón en el nuevo spec de F5 con más
+  movimientos acumulados. Se reemplazó por un filtro sobre un header
+  exclusivo de la tabla correcta ("Costo promedio"), inmune al orden de
+  carga.
+
 ## [web-0.6.0] - 2026-08-02
 
 **Frontend Sprint F4 — Stock.** Cuarto módulo de negocio

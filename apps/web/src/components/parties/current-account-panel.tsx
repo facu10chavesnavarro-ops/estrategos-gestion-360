@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import type { CurrentAccountView } from '@/lib/api/customers';
+import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -11,11 +13,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-function formatMoney(value: string) {
-  const n = Number(value);
-  return Number.isNaN(n) ? value : n.toLocaleString('es-AR', { minimumFractionDigits: 2 });
-}
-
 const MOVEMENT_TYPE_LABEL: Record<'DEBIT' | 'CREDIT', string> = {
   DEBIT: 'Debe',
   CREDIT: 'Haber',
@@ -25,14 +22,16 @@ const MOVEMENT_TYPE_LABEL: Record<'DEBIT' | 'CREDIT', string> = {
  * Cuenta corriente embebida en el detalle de Cliente/Proveedor — el
  * endpoint es de `treasury`, pero mostrarla acá es más intuitivo que un
  * módulo aparte (03-plan-de-implementacion.md, F2). Sin paginación: el
- * backend devuelve todos los movimientos (aceptable hasta que F5/F6
- * generen volumen real). `voucherId`/`paymentId` se muestran como
- * referencia sin link — todavía no existen esas pantallas de detalle.
+ * backend devuelve todos los movimientos (aceptable hasta que F6 genere
+ * volumen real). `voucherId` enlaza al detalle de Comprobantes (F5);
+ * `paymentId` sigue sin link — Pagos todavía no tiene pantalla propia.
  */
 export function CurrentAccountPanel({
+  companyId,
   account,
   isLoading,
 }: {
+  companyId: string;
   account?: CurrentAccountView;
   isLoading: boolean;
 }) {
@@ -73,11 +72,18 @@ export function CurrentAccountPanel({
                     <TableCell className="font-mono">{formatMoney(movement.amount)}</TableCell>
                     <TableCell className="font-mono">{formatMoney(movement.balanceAfter)}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {movement.voucherId
-                        ? `Comprobante ${movement.voucherId.slice(0, 8)}`
-                        : movement.paymentId
-                          ? `Pago ${movement.paymentId.slice(0, 8)}`
-                          : '—'}
+                      {movement.voucherId ? (
+                        <Link
+                          href={`/${companyId}/comprobantes/${movement.voucherId}`}
+                          className="hover:underline"
+                        >
+                          Ver comprobante
+                        </Link>
+                      ) : movement.paymentId ? (
+                        `Pago ${movement.paymentId.slice(0, 8)}`
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
