@@ -80,4 +80,18 @@ export const queryKeys = {
     detail: (companyId: string, voucherId: string) =>
       ['companies', companyId, 'vouchers', voucherId] as const,
   },
+  treasury: {
+    paymentMethods: () => ['payment-methods'] as const,
+    list: (
+      companyId: string,
+      filters: { partyId?: string; direction?: string; from?: string; to?: string },
+    ) => ['companies', companyId, 'payments', filters] as const,
+    detail: (companyId: string, paymentId: string) =>
+      ['companies', companyId, 'payments', paymentId] as const,
+    cashRegistersByBranch: (companyId: string, branchId: string) =>
+      ['companies', companyId, 'branches', branchId, 'cash-registers'] as const,
+    cashSessions: (companyId: string, branchId: string, cashRegisterId: string) =>
+      ['companies', companyId, 'branches', branchId, 'cash-registers', cashRegisterId, 'sessions'] as const,
+    bankAccounts: (companyId: string) => ['companies', companyId, 'bank-accounts'] as const,
+  },
 };

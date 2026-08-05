@@ -1199,7 +1199,7 @@ export interface paths {
         put?: never;
         /**
          * Registrar un cobro (COLLECTION) o un pago (PAYMENT)
-         * @description El monto total se calcula sumando los medios de pago informados. Genera el movimiento de cuenta corriente y, si algún medio lo requiere, el CashMovement/BankMovement correspondiente — y, con Contabilidad activa, su asiento. Todo en la misma transacción.
+         * @description El monto total se calcula sumando los medios de pago informados. Genera el movimiento de cuenta corriente y, si algún medio lo requiere, el CashMovement/BankMovement correspondiente — y, con Contabilidad activa, su asiento. Todo en la misma transacción. Si se informa idempotencyKey y ya existe un pago con esa clave para la empresa, se devuelve ese pago tal cual (no se duplica).
          */
         post: operations["PaymentsController_create"];
         delete?: never;
@@ -1979,6 +1979,13 @@ export interface components {
             cashSessionId?: string;
             /** @description RN-PAY-10: obligatorio si algún medio requiere movimiento bancario. */
             bankAccountId?: string;
+            /**
+             * @description RN-PAY-11: clave de idempotencia opcional generada por el cliente (un
+             *     valor por intento de envío, reutilizado en reintentos del mismo
+             *     intento). Si ya existe un pago con esta clave para la empresa, se
+             *     devuelve ese pago tal cual en vez de crear uno nuevo.
+             */
+            idempotencyKey?: string;
         };
         CashRegisterEntity: Record<string, never>;
         CreateCashRegisterRequestDto: {

@@ -6,6 +6,112 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.8.0] - 2026-08-05
+
+**Frontend Sprint F6 — Tesorería.** Sexto módulo de negocio
+(`docs/frontend/09-sprint-f6-tesoreria.md`): mapea el módulo `treasury`
+del backend (Payment, PaymentAllocation, PaymentMethodDetail,
+CustomerAccount/SupplierAccount, CashMovement, BankMovement) permitiendo
+registrar cobros y pagos con imputación a comprobantes pendientes,
+medios de pago mixtos y afectación automática de caja/banco. Escalado a
+dos decisiones de arquitectura antes de implementar (`AskUserQuestion`):
+alcance de la clave de idempotencia (acotada a `Payment`, resuelta a
+nivel backend — ver más abajo) y cálculo de comprobantes pendientes en
+el cliente (sin endpoint de preview en el backend, mismo criterio que
+F5 para totales estimados).
+
+### Agregado
+
+- **RN-PAY-11 (backend, v1.3.0)**: `Payment.idempotencyKey` opcional
+  (`@@unique([companyId, idempotencyKey])`). `CreatePaymentUseCase`
+  devuelve el `Payment` existente sin re-crear ni re-validar nada si ya
+  existe uno con la misma clave para la empresa — a diferencia de la
+  mitigación solo-frontend de F5 para comprobantes, acá la deuda
+  pendiente señalada en el brief del sprint quedó resuelta en el
+  backend, la única fuente de verdad real contra reintentos de red,
+  doble clic o envíos simultáneos.
+- **Pantalla Vista general** (`/tesoreria`): total a cobrar y a pagar
+  agregados por empresa (`useTreasuryOverview`, compone cuentas
+  corrientes activas de Clientes/Proveedores), accesos directos a
+  Nuevo cobro/Nuevo pago.
+- **Listado de cobros/pagos** (`/tesoreria/cobros-pagos`): tipo
+  (badge Cobro/Pago), contraparte, fecha, monto; filtros por dirección
+  y rango de fechas.
+- **Detalle de cobro/pago** (`/tesoreria/cobros-pagos/[paymentId]`):
+  medios de pago con detalle de cheque cuando corresponde, comprobantes
+  imputados (o aviso de que quedó como saldo a favor en la cuenta
+  corriente).
+- **Alta de cobro/pago** (`/tesoreria/nuevo/cobro`,
+  `/tesoreria/nuevo/pago`): un mismo formulario (`PaymentForm`) para
+  ambas direcciones. Selector de contraparte (solo activas), selector
+  de comprobantes pendientes con imputación total/parcial editable
+  (`usePendingVouchers`, calculado en el cliente con aritmética en
+  centavos para evitar arrastre de punto flotante — excluye Notas de
+  Crédito, que ya ajustan la cuenta corriente al emitirse), medios de
+  pago dinámicos (`useFieldArray`, Efectivo/Cheque/Transferencia/
+  Tarjeta/Cuenta corriente), selector de caja abierta y/o cuenta
+  bancaria activa cuando el medio elegido lo requiere (espejando
+  RN-PAY-10 del backend, que agrega el monto de todas las líneas en un
+  único `CashMovement`/`BankMovement`, nunca uno por línea). Resumen
+  antes de confirmar (deuda seleccionada, importe a imputar, saldo
+  restante, total a cobrar/pagar). Botón de confirmar deshabilitado
+  durante el envío (mismo patrón F5) más `idempotencyKey` generada una
+  vez por montaje del formulario y reutilizada en reintentos del mismo
+  intento (RN-PAY-11).
+- **`CurrentAccountPanel` (F2) extendido**: `PendingVouchersPanel` nuevo,
+  embebido en el detalle de Cliente/Proveedor justo antes de la cuenta
+  corriente — comprobantes pendientes/vencidos de esa contraparte con
+  acceso directo a "Registrar cobro"/"Registrar pago".
+- `lib/api/treasury/{payment-methods,payments,cash-bank,pending-vouchers,overview}.ts`:
+  capa centralizada de acceso al backend `treasury`. `useOpenCashSessions`
+  compone sucursales→cajas→sesiones (3 etapas) filtrando solo las
+  abiertas; `usePaymentsWithLabels` resuelve nombre de contraparte
+  cruzando `useCustomers`/`useSuppliers`, mismo patrón que
+  `useVouchersWithLabels` en F5.
+- Tests: componente (`PaymentSummary`) y E2E dedicado (cobro total,
+  cobro parcial, imputación múltiple con multi-medio Efectivo+
+  Transferencia Bancaria en una misma operación, pago total, pago
+  parcial, rechazo de importe inválido, rechazo de contraparte
+  inactiva, prevención de doble envío verificada a nivel UI —botón
+  deshabilitado durante el envío— y a nivel API —replay de la misma
+  `idempotencyKey`—, movimiento de caja y de banco verificados vía API,
+  saldo de cuenta corriente aislado por contraparte, persistencia tras
+  recargar).
+
+### Corregido
+
+- `apps/api/prisma/reset-e2e-company.ts`: extendido para vaciar
+  Tesorería (Payment y dependientes, CashRegister/CashSession/
+  CashMovement, BankAccount/BankMovement) antes de cada corrida
+  completa de Playwright. El bloque se insertó *antes* del de
+  Comprobantes, no después: `PaymentAllocation.voucherId` y
+  `payment_method_details.payment_id` son `ON DELETE RESTRICT`, así que
+  Payment y sus dependientes deben quedar borrados antes de tocar
+  Voucher (a diferencia de `CustomerAccountMovement.voucherId`, que es
+  `ON DELETE SET NULL` y por eso el orden anterior nunca lo necesitó).
+
+### Riesgos y deuda conocida
+
+- No existe caso de uso de reversión/anulación de `Payment` en el
+  backend — confirmado por relevamiento exhaustivo antes de programar.
+  Fuera de alcance de F6 y no forzado artificialmente.
+- El ciclo de vida de un cheque (depositar/cobrar/rechazar) no tiene
+  caso de uso propio — `CheckDetail.status` queda fijo en `EN_CARTERA`,
+  solo informativo en la UI.
+- La clave de idempotencia (RN-PAY-11) es específica de `Payment`, no
+  una solución genérica a nivel API — los comprobantes de F5 todavía
+  dependen solo de la mitigación frontend (botón deshabilitado)
+  señalada como deuda en el cierre de ese sprint.
+- Bug cosmético de Base UI Select (documentado desde F1): el trigger
+  muestra el valor crudo en vez de la etiqueta resuelta justo después de
+  seleccionar una opción poblada dinámicamente — confirmado de nuevo en
+  los selectores de Cliente y Medio de pago; no afecta la
+  funcionalidad ni lo que se envía al backend.
+- `e2e/auth.spec.ts` ("login exitoso...") sigue siendo intermitente bajo
+  carga (contención de arranque en frío al correr junto a otros specs
+  grandes) — confirmado ajeno a F6: pasa siempre en aislado, y ya estaba
+  señalado como pendiente de revisión antes de este sprint.
+
 ## [web-0.7.0] - 2026-08-02
 
 **Frontend Sprint F5 — Comprobantes.** Quinto módulo de negocio

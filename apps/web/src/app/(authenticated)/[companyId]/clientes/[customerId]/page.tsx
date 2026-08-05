@@ -8,6 +8,7 @@ import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/u
 import { ApiError } from '@/lib/api/http-client';
 import { CustomerSheet } from '@/components/clientes/customer-sheet';
 import { CurrentAccountPanel } from '@/components/parties/current-account-panel';
+import { PendingVouchersPanel } from '@/components/tesoreria/pending-vouchers-panel';
 import { ActiveStatusBadge } from '@/components/shared/status-badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -89,6 +90,14 @@ export default function CustomerDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      <PendingVouchersPanel
+        companyId={params.companyId}
+        partyId={data.partyId}
+        flow="SALE"
+        paymentTermDays={data.paymentTermDays}
+        canManage={canManage}
+      />
 
       <CurrentAccountPanel
         companyId={params.companyId}
