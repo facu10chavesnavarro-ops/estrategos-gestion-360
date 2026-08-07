@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -291,8 +292,11 @@ export function PaymentForm({
                     <FormLabel>Caja</FormLabel>
                     {!sessionsLoading && openSessions.length === 0 ? (
                       <p className="text-sm text-destructive">
-                        No hay ninguna caja abierta. Abrí una sesión de caja antes de registrar un
-                        cobro/pago en efectivo.
+                        No hay ninguna caja abierta.{' '}
+                        <Link href={`/${companyId}/caja-bancos/caja`} className="underline">
+                          Abrí una sesión de caja
+                        </Link>{' '}
+                        antes de registrar un cobro/pago en efectivo.
                       </p>
                     ) : (
                       <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>
@@ -325,8 +329,11 @@ export function PaymentForm({
                     <FormLabel>Cuenta bancaria</FormLabel>
                     {activeBankAccounts.length === 0 ? (
                       <p className="text-sm text-destructive">
-                        No hay ninguna cuenta bancaria activa. Dá de alta una cuenta antes de
-                        registrar un cobro/pago bancario.
+                        No hay ninguna cuenta bancaria activa.{' '}
+                        <Link href={`/${companyId}/caja-bancos/bancos`} className="underline">
+                          Dá de alta una cuenta
+                        </Link>{' '}
+                        antes de registrar un cobro/pago bancario.
                       </p>
                     ) : (
                       <Select value={field.value} onValueChange={(v) => v && field.onChange(v)}>

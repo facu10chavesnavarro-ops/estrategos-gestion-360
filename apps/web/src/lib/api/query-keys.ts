@@ -92,6 +92,10 @@ export const queryKeys = {
       ['companies', companyId, 'branches', branchId, 'cash-registers'] as const,
     cashSessions: (companyId: string, branchId: string, cashRegisterId: string) =>
       ['companies', companyId, 'branches', branchId, 'cash-registers', cashRegisterId, 'sessions'] as const,
+    cashMovements: (companyId: string, cashSessionId: string) =>
+      ['companies', companyId, 'cash-sessions', cashSessionId, 'movements'] as const,
     bankAccounts: (companyId: string) => ['companies', companyId, 'bank-accounts'] as const,
+    bankMovements: (companyId: string, bankAccountId: string) =>
+      ['companies', companyId, 'bank-accounts', bankAccountId, 'movements'] as const,
   },
 };

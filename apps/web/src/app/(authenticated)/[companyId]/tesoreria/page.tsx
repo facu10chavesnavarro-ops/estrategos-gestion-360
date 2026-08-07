@@ -53,6 +53,9 @@ export default function TesoreriaOverviewPage({ params }: { params: { companyId:
           <Button variant="outline" onClick={() => router.push(`/${params.companyId}/tesoreria/nuevo/pago`)}>
             + Nuevo pago
           </Button>
+          <Button variant="outline" onClick={() => router.push(`/${params.companyId}/caja-bancos/caja`)}>
+            Ir a Caja y Bancos
+          </Button>
         </div>
       )}
     </div>

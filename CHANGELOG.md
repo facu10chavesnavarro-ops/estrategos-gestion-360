@@ -6,6 +6,92 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.9.0] - 2026-08-07
+
+**Frontend Sprint F7 — Caja y Bancos.** Séptimo módulo de negocio
+(`docs/frontend/10-sprint-f7-caja-bancos.md`): administración completa de
+cajas (alta, apertura/cierre de turno con arqueo, movimientos manuales)
+y de cuentas bancarias (alta, movimientos manuales, transferencias),
+sobre entidades operativas de forma automática desde F6 (todo cobro/pago
+en efectivo o bancario ya generaba sus propios movimientos). Sprint
+100% frontend — no requirió cambios de backend, ya que `CashRegister`,
+`CashSession`, `CashMovement`, `BankAccount` y `BankMovement` (Sprint
+3.5) ya exponían el contrato completo necesario.
+
+### Agregado
+
+- **Pantallas de Caja**: vista general + listado (`/caja-bancos/caja`,
+  saldo total derivado de las sesiones abiertas), detalle de caja con
+  historial de sesiones y botón de apertura, detalle de sesión con
+  movimientos (manuales y automáticos mezclados, distinguibles por
+  origen), ingreso/egreso manual, y cierre de turno mostrando
+  inicial/ingresos/egresos/esperado/contado/diferencia — el esperado y
+  la diferencia siempre calculados por el backend
+  (`CloseCashSessionUseCase`), nunca por el cliente.
+- **Pantallas de Bancos**: vista general + listado (`/caja-bancos/bancos`,
+  saldo total sobre cuentas activas), detalle de cuenta con saldo,
+  movimientos, ingreso/egreso/transferencia manual. El saldo de banco y
+  el saldo corriente de una caja abierta se calculan en el cliente
+  (`computeBankAccountBalance`/`computeCashSessionBalance`) porque el
+  backend no los persiste fuera del cierre de una sesión — misma
+  fórmula que ya usa `CloseCashSessionUseCase`
+  (`openingBalance + Σ IN − Σ OUT`), aplicada también en vivo.
+- **Transferencia entre cuentas bancarias**: el backend no tiene ningún
+  concepto de transferencia, solo movimientos individuales — se
+  implementó como un formulario de conveniencia que dispara dos `POST`
+  independientes (egreso en origen + ingreso en destino), explícito
+  sobre su falta de atomicidad: si el segundo movimiento falla después
+  de que el primero tuvo éxito, se informa el estado parcial en vez de
+  ocultarlo.
+- `lib/api/treasury/cash-bank.ts` extendido: CRUD de `CashRegister`
+  (alta/edición/activar/desactivar, sin admitir cambiar la sucursal tras
+  crear), abrir/cerrar sesión, movimientos manuales de caja, CRUD de
+  `BankAccount` (sin admitir cambiar `accountType`/`currency` tras
+  crear), movimientos manuales de banco, `useCashBankOverview` (saldo
+  total de caja + banco, mismo patrón de composición vía `useQueries`
+  que `useTreasuryOverview` en F6).
+- Navegación cruzada: los mensajes de F6 ("no hay ninguna caja
+  abierta"/"no hay ninguna cuenta bancaria activa" en el formulario de
+  cobro/pago) ahora enlazan a `/caja-bancos/caja` y `/caja-bancos/bancos`
+  respectivamente — antes no podían, porque esas pantallas no existían
+  todavía. Los movimientos automáticos en el detalle de sesión/cuenta
+  enlazan de vuelta al cobro/pago de Tesorería que los generó.
+- Tests: unitarios de las funciones puras de cálculo de saldo
+  (`computeCashSessionBalance`/`computeBankAccountBalance`,
+  `cash-bank.test.ts`) y E2E dedicado (rechazo de cobro en efectivo sin
+  caja abierta → alta de caja → apertura de turno → ingreso/egreso
+  manual → rechazo de una segunda apertura sobre la misma caja
+  verificado a nivel API → movimiento automático de un cobro
+  efectivo+transferencia verificado a nivel API y UI en caja y banco →
+  cierre sin diferencia → reapertura y cierre con diferencia →
+  prevención de doble envío → transferencia entre cuentas bancarias →
+  persistencia tras recargar).
+
+### Riesgos y deuda conocida
+
+- Mapeo contable (`accountId`/`glAccountId` de caja/cuenta, exigido por
+  el backend solo cuando `AccountingSettings` está activo) queda fuera
+  de F7 — requeriría un selector de `ChartOfAccount` que pertenece a
+  F8 (Contabilidad). Confirmado en la verificación manual: una empresa
+  con Contabilidad ya activa (de pruebas de sprints anteriores) rechaza
+  un movimiento manual con `MissingCounterpartAccountError`, mostrado
+  tal cual sin romper la pantalla — pero F7 no ofrece manera de
+  resolverlo desde la UI todavía.
+- No existe reapertura de una sesión cerrada ni reversión de un
+  movimiento (manual o automático) en el backend — un error de carga se
+  corrige con un movimiento nuevo en sentido contrario.
+- Conciliación bancaria real no existe en el backend
+  (`BankMovement.isReconciled` siempre `false`) — se muestra el campo
+  ("Pendiente") sin ninguna acción para cambiarlo.
+- Auditoría: los ocho casos de uso de escritura de Caja/Bancos auditan
+  correctamente (confirmado leyendo cada uno), pero no existe ningún
+  endpoint de lectura de `AuditLog` — no verificable desde un E2E de
+  frontend, mismo criterio que permisos por rol/aislamiento entre
+  empresas (cubierto por tests de backend).
+- Campo "Titular" de cuenta bancaria pedido en el alcance mínimo no
+  existe en el backend (`BankAccount` no lo modela) — se omite, no se
+  agregó una migración para esto.
+
 ## [web-0.8.0] - 2026-08-05
 
 **Frontend Sprint F6 — Tesorería.** Sexto módulo de negocio
