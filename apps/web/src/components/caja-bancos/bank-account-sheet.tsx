@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,9 +10,12 @@ import {
   useCreateBankAccount,
   useUpdateBankAccount,
 } from '@/lib/api/treasury/cash-bank';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -60,7 +63,10 @@ export function BankAccountSheet({
 }) {
   const createBankAccount = useCreateBankAccount(companyId);
   const updateBankAccount = useUpdateBankAccount(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
   const isEditing = Boolean(bankAccount);
+
+  const [glAccountId, setGlAccountId] = useState<string | null>(null);
 
   const form = useForm<BankAccountFormValues>({
     resolver: zodResolver(bankAccountSchema),
@@ -84,6 +90,7 @@ export function BankAccountSheet({
         alias: bankAccount?.alias ?? '',
         currency: bankAccount?.currency ?? 'ARS',
       });
+      setGlAccountId(bankAccount?.glAccountId ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, bankAccount]);
@@ -98,6 +105,7 @@ export function BankAccountSheet({
             accountNumber: values.accountNumber || undefined,
             cbu: values.cbu || undefined,
             alias: values.alias || undefined,
+            glAccountId: glAccountId ?? undefined,
           },
         });
         toast.success('Cuenta actualizada');
@@ -221,6 +229,13 @@ export function BankAccountSheet({
                   </FormItem>
                 )}
               />
+            )}
+
+            {isEditing && accountingActive && (
+              <div className="grid gap-2">
+                <Label>Cuenta contable</Label>
+                <AccountSelect companyId={companyId} value={glAccountId} onChange={setGlAccountId} />
+              </div>
             )}
 
             <SheetFooter>

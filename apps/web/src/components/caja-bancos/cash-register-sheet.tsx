@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,9 +11,12 @@ import {
   useCreateCashRegister,
   useUpdateCashRegister,
 } from '@/lib/api/treasury/cash-bank';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -39,9 +42,10 @@ type CashRegisterFormValues = z.infer<typeof cashRegisterSchema>;
 
 /**
  * Alta/edición de caja. La sucursal solo se pide al crear — el backend
- * no admite cambiarla después (`PATCH` solo acepta `name`/`accountId`,
- * este último diferido a F8, ver 10-sprint-f7-caja-bancos.md §3.3) —
- * mismo criterio que `WarehouseSheet` (F4).
+ * no admite cambiarla después (`PATCH` solo acepta `name`/`accountId`)
+ * — mismo criterio que `WarehouseSheet` (F4). El mapeo contable
+ * (`accountId`) solo se ofrece al editar, y solo si Contabilidad está
+ * activa (§3.9, docs/frontend/11-sprint-f8-contabilidad.md).
  */
 export function CashRegisterSheet({
   companyId,
@@ -60,6 +64,7 @@ export function CashRegisterSheet({
   const branches = useBranches(companyId);
   const createCashRegister = useCreateCashRegister(companyId);
   const updateCashRegister = useUpdateCashRegister(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
   const isEditing = Boolean(cashRegister);
 
   const form = useForm<CashRegisterFormValues>({
@@ -67,12 +72,15 @@ export function CashRegisterSheet({
     defaultValues: { name: '', branchId: '' },
   });
 
+  const [accountId, setAccountId] = useState<string | null>(null);
+
   useEffect(() => {
     if (open) {
       form.reset({
         name: cashRegister?.name ?? '',
         branchId: cashRegister?.branchId ?? defaultBranchId ?? '',
       });
+      setAccountId(cashRegister?.accountId ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, cashRegister, defaultBranchId]);
@@ -83,7 +91,7 @@ export function CashRegisterSheet({
         await updateCashRegister.mutateAsync({
           branchId: cashRegister.branchId,
           cashRegisterId: cashRegister.id,
-          input: { name: values.name },
+          input: { name: values.name, accountId: accountId ?? undefined },
         });
         toast.success('Caja actualizada');
       } else {
@@ -146,6 +154,13 @@ export function CashRegisterSheet({
                   </FormItem>
                 )}
               />
+            )}
+
+            {isEditing && accountingActive && (
+              <div className="grid gap-2">
+                <Label>Cuenta contable</Label>
+                <AccountSelect companyId={companyId} value={accountId} onChange={setAccountId} />
+              </div>
             )}
 
             <SheetFooter>

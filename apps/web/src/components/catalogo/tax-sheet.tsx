@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { type Tax, type TaxType, useCreateTax, useUpdateTax } from '@/lib/api/catalog/taxes';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -60,6 +63,7 @@ export function TaxSheet({
 }) {
   const createTax = useCreateTax(companyId);
   const updateTax = useUpdateTax(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
   const isEditing = Boolean(tax);
   const schema = isEditing ? editSchema : createSchema;
 
@@ -68,9 +72,15 @@ export function TaxSheet({
     defaultValues: { name: '', type: 'VAT', rate: '' },
   });
 
+  // Mapeo contable (F8) — solo vía `update`, mismo criterio que Categorías.
+  const [salesAccountId, setSalesAccountId] = useState<string | null>(null);
+  const [purchasesAccountId, setPurchasesAccountId] = useState<string | null>(null);
+
   useEffect(() => {
     if (open) {
       form.reset({ name: tax?.name ?? '', type: tax?.type ?? 'VAT', rate: tax?.rate ?? '' });
+      setSalesAccountId(tax?.salesAccountId ?? null);
+      setPurchasesAccountId(tax?.purchasesAccountId ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, tax]);
@@ -78,7 +88,10 @@ export function TaxSheet({
   async function onSubmit(values: { name: string; type?: TaxType; rate?: string }) {
     try {
       if (tax) {
-        await updateTax.mutateAsync({ taxId: tax.id, input: { name: values.name } });
+        await updateTax.mutateAsync({
+          taxId: tax.id,
+          input: { name: values.name, salesAccountId, purchasesAccountId },
+        });
         toast.success('Impuesto actualizado');
       } else {
         await createTax.mutateAsync({
@@ -160,6 +173,29 @@ export function TaxSheet({
                   La tasa y la vigencia no se pueden editar después de crear el impuesto. Para
                   cambiarlas, cerrá este impuesto y creá uno nuevo.
                 </p>
+              </>
+            )}
+
+            {isEditing && accountingActive && (
+              <>
+                <div className="grid gap-2">
+                  <Label>Cuenta de ventas (débito fiscal)</Label>
+                  <AccountSelect
+                    companyId={companyId}
+                    value={salesAccountId}
+                    onChange={setSalesAccountId}
+                    allowNone
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Cuenta de compras (crédito fiscal)</Label>
+                  <AccountSelect
+                    companyId={companyId}
+                    value={purchasesAccountId}
+                    onChange={setPurchasesAccountId}
+                    allowNone
+                  />
+                </div>
               </>
             )}
 

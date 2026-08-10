@@ -6,6 +6,82 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/) y e
 versionado, [Versionado Semántico](https://semver.org/lang/es/). A partir de esta
 versión, cada módulo de sprint aprobado genera una nueva versión etiquetada.
 
+## [web-0.10.0] - 2026-08-10
+
+**Frontend Sprint F8 — Contabilidad.** Octavo y último módulo de negocio
+principal del frontend (`docs/frontend/11-sprint-f8-contabilidad.md`):
+activación opcional de Contabilidad por empresa, gestión completa del
+Plan de Cuentas, consulta y alta manual de asientos con reversión,
+Libro Diario, Libro Mayor, y el retrofit de F3 (Categorías/Impuestos) y
+F7 (Caja/Bancos) para exponer los mapeos contables que sus backends ya
+soportaban desde el Sprint 4 pero que habían quedado deliberadamente
+diferidos. Sprint 100% frontend — no requirió cambios de backend, ya
+que el módulo `accounting` (Sprint 4) expone el contrato completo
+necesario.
+
+### Agregado
+
+- **Configuración contable**: activación (clona el Plan de Cuentas
+  estándar de 18 cuentas + crea las cuentas de control de Deudores por
+  Ventas/Proveedores), edición de esas dos cuentas de control, mapeo de
+  medios de pago que no generan movimiento de caja/banco automático
+  (hoy, solo Cheque) por sentido (cobro/pago).
+- **Plan de Cuentas**: árbol armado en el cliente a partir de la lista
+  plana del backend (mismo patrón que Categorías, F3), alta/edición de
+  cuentas (código/tipo/imputable fijos tras crear), alta de subcuentas,
+  activar/desactivar (protegido para cuentas de sistema), detalle de
+  cuenta con su propio Libro Mayor.
+- **Asientos**: Libro Diario (listado cronológico, filtro de fecha
+  server-side + origen/cuenta client-side), detalle con líneas y enlace
+  al Comprobante/Cobro/Pago de origen cuando corresponde, alta manual
+  con flujo guiado de 9 pasos (diferencia Débitos−Créditos en vivo,
+  confirmar deshabilitado mientras no balancea), reversión con
+  advertencia explícita para asientos automáticos ("revertir corrige
+  solo la contabilidad, no anula la operación de negocio que lo
+  originó").
+- **Libro Mayor**: como destino propio (elegir cuenta → ver
+  movimientos) y embebido en el detalle de cada cuenta — el saldo
+  acumulado (`runningBalance`) se muestra tal cual lo calcula el
+  backend con la convención contable correcta según el tipo de cuenta,
+  sin ningún cálculo en el cliente (a diferencia de F7, donde el saldo
+  sí se derivaba en el cliente).
+- **Retrofit de Categorías/Impuestos (F3)**: selectores de cuenta de
+  ventas/compras en la edición (el backend ya los aceptaba desde el
+  Sprint 4, nunca expuestos en la UI hasta ahora).
+- **Retrofit de Caja y Bancos (F7)**: selector de cuenta contable en la
+  edición de caja/cuenta bancaria, y selector de cuenta contrapartida
+  en el alta de movimiento manual cuando Contabilidad está activa
+  (RN-ACC-06) — `lib/api/treasury/cash-bank.ts` extendido con
+  `accountId`/`glAccountId`/`counterpartAccountId`.
+- Navegación cruzada: los detalles de Comprobante (F5) y Cobro/Pago
+  (F6) enlazan al asiento automático que generaron; el detalle de
+  asiento enlaza de vuelta al Comprobante/Cobro/Pago de origen.
+- `lib/api/accounting/{settings,chart-of-accounts,journal-entries}.ts`
+  nuevos: activar/obtener/editar `AccountingSettings`, CRUD de
+  `ChartOfAccount` + Libro Mayor, crear/listar/obtener/revertir
+  `JournalEntry`, mapeo de medios de pago.
+- Tests: unitarios de las funciones puras de armado del árbol de
+  cuentas y cómputo de diferencia de asiento; E2E completo
+  (`f8-contabilidad.spec.ts`) cubriendo activación, rechazo de
+  reactivación, alta de cuenta/subcuenta con validación de jerarquía,
+  asiento manual balanceado y rechazo de uno desbalanceado, Libro
+  Diario/Mayor, reversión y rechazo de doble reversión, asientos
+  automáticos de venta/compra/cobro/pago con verificación de
+  Débitos=Créditos en todos los asientos de la empresa, y persistencia
+  tras recargar.
+
+### Deuda técnica documentada (§3.3/§8, no implementada en este sprint)
+
+- Sin filtro `sourceType`/`sourceId` ni flag `isReversed` en
+  `GET journal-entries` — "¿ya fue revertido?" y "¿qué asiento generó
+  este Comprobante/Pago?" se resuelven client-side sobre la lista
+  completa de asientos, aceptable hoy por el volumen bajo de una
+  empresa de prueba pero no escalable a un historial grande.
+- El backend no valida consistencia de tipo entre cuenta padre e hija
+  — la UI solo advierte visualmente, no bloquea.
+- Sin mapeo de cuenta contable por cliente/proveedor individual — solo
+  las dos cuentas de control genéricas de `AccountingSettings`.
+
 ## [web-0.9.0] - 2026-08-07
 
 **Frontend Sprint F7 — Caja y Bancos.** Séptimo módulo de negocio

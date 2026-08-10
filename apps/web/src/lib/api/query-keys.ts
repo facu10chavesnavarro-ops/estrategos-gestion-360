@@ -98,4 +98,19 @@ export const queryKeys = {
     bankMovements: (companyId: string, bankAccountId: string) =>
       ['companies', companyId, 'bank-accounts', bankAccountId, 'movements'] as const,
   },
+  accounting: {
+    settings: (companyId: string) => ['companies', companyId, 'accounting-settings'] as const,
+    paymentMethodMappings: (companyId: string) =>
+      ['companies', companyId, 'accounting-settings', 'payment-method-account-mappings'] as const,
+    chartOfAccounts: (companyId: string, isActive?: boolean) =>
+      ['companies', companyId, 'chart-of-accounts', { isActive }] as const,
+    accountDetail: (companyId: string, accountId: string) =>
+      ['companies', companyId, 'chart-of-accounts', accountId] as const,
+    accountLedger: (companyId: string, accountId: string) =>
+      ['companies', companyId, 'chart-of-accounts', accountId, 'ledger'] as const,
+    journalEntries: (companyId: string, filters: { from?: string; to?: string }) =>
+      ['companies', companyId, 'journal-entries', filters] as const,
+    journalEntryDetail: (companyId: string, journalEntryId: string) =>
+      ['companies', companyId, 'journal-entries', journalEntryId] as const,
+  },
 };

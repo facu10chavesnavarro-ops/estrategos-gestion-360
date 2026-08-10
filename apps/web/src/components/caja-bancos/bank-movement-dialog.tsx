@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { type BankMovementType, useCreateBankMovement } from '@/lib/api/treasury/cash-bank';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -51,6 +54,8 @@ export function BankMovementDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createBankMovement = useCreateBankMovement(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
+  const [counterpartAccountId, setCounterpartAccountId] = useState<string | null>(null);
 
   const form = useForm<MovementFormValues>({
     resolver: zodResolver(movementSchema),
@@ -58,9 +63,15 @@ export function BankMovementDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset({ amount: '', description: '', date: today() });
+    if (open) {
+      form.reset({ amount: '', description: '', date: today() });
+      setCounterpartAccountId(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  // RN-ACC-06 (F8): con Contabilidad activa, la contrapartida es obligatoria.
+  const missingCounterpart = accountingActive === true && !counterpartAccountId;
 
   async function onSubmit(values: MovementFormValues) {
     try {
@@ -70,6 +81,7 @@ export function BankMovementDialog({
         amount: values.amount,
         description: values.description,
         date: values.date,
+        counterpartAccountId: counterpartAccountId ?? undefined,
       });
       toast.success(type === 'DEPOSIT' ? 'Depósito registrado' : 'Extracción registrada');
       onOpenChange(false);
@@ -127,11 +139,22 @@ export function BankMovementDialog({
               )}
             />
 
+            {accountingActive && (
+              <div className="grid gap-2">
+                <Label>Cuenta contable contrapartida</Label>
+                <AccountSelect
+                  companyId={companyId}
+                  value={counterpartAccountId}
+                  onChange={setCounterpartAccountId}
+                />
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || missingCounterpart}>
                 {form.formState.isSubmitting ? 'Guardando…' : 'Confirmar'}
               </Button>
             </DialogFooter>

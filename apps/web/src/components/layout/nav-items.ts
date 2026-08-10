@@ -29,7 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Comprobantes", icon: FileText, href: "comprobantes" },
   { label: "Tesorería", icon: Landmark, href: "tesoreria" },
   { label: "Caja y Bancos", icon: Wallet, href: "caja-bancos/caja" },
-  { label: "Contabilidad", icon: BookOpen },
+  { label: "Contabilidad", icon: BookOpen, href: "contabilidad/configuracion" },
 ];
 
 export const CONFIG_NAV_ITEM: NavItem = {

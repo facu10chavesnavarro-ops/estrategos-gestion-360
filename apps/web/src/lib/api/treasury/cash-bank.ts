@@ -18,6 +18,8 @@ export interface CashRegisterWithBranch extends CashRegister {
 
 export interface CashRegisterInput {
   name: string;
+  /** Mapeo contable (F8) — solo tiene efecto en `update`, el alta no lo admite. */
+  accountId?: string;
 }
 
 export interface CashSession {
@@ -77,6 +79,8 @@ export interface BankAccountUpdateInput {
   accountNumber?: string;
   cbu?: string;
   alias?: string;
+  /** Mapeo contable (F8). */
+  glAccountId?: string;
 }
 
 export type BankMovementType = 'DEPOSIT' | 'WITHDRAWAL';
@@ -355,16 +359,19 @@ export function useCreateCashMovement(companyId: string) {
       type,
       amount,
       reason,
+      counterpartAccountId,
     }: {
       cashSessionId: string;
       type: CashMovementType;
       amount: string;
       reason: string;
+      /** Obligatoria con Contabilidad activa (RN-ACC-06, F8) — `MissingCounterpartAccountError` si falta. */
+      counterpartAccountId?: string;
     }) =>
       apiFetch<CashMovement>(
         `companies/${companyId}/cash-sessions/${cashSessionId}/movements`,
         companyId,
-        { method: 'POST', body: JSON.stringify({ type, amount, reason }) },
+        { method: 'POST', body: JSON.stringify({ type, amount, reason, counterpartAccountId }) },
       ),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
@@ -481,16 +488,19 @@ export function useCreateBankMovement(companyId: string) {
       amount,
       description,
       date,
+      counterpartAccountId,
     }: {
       bankAccountId: string;
       type: BankMovementType;
       amount: string;
       description: string;
       date?: string;
+      /** Obligatoria con Contabilidad activa (RN-ACC-06, F8) — `MissingCounterpartAccountError` si falta. */
+      counterpartAccountId?: string;
     }) =>
       apiFetch<BankMovement>(`companies/${companyId}/bank-accounts/${bankAccountId}/movements`, companyId, {
         method: 'POST',
-        body: JSON.stringify({ type, amount, description, date }),
+        body: JSON.stringify({ type, amount, description, date, counterpartAccountId }),
       }),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

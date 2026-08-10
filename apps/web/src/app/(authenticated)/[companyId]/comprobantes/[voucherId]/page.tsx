@@ -12,6 +12,7 @@ import { useSuppliers } from '@/lib/api/suppliers';
 import { useItems } from '@/lib/api/catalog/items';
 import { useTaxes } from '@/lib/api/catalog/taxes';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
+import { useAllJournalEntries, findJournalEntryBySource } from '@/lib/api/accounting/journal-entries';
 import { formatMoney } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -41,6 +42,8 @@ export default function VoucherDetailPage({
   const taxes = useTaxes(params.companyId);
   const { membership } = useCurrentMembership(params.companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
+  const journalEntries = useAllJournalEntries(params.companyId);
+  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'VOUCHER', params.voucherId);
 
   const isLoading =
     voucher.isLoading ||
@@ -99,6 +102,14 @@ export default function VoucherDetailPage({
             {voucherType?.code ?? '—'} N.º {v.number}
           </h1>
           {voucherType?.isCreditNote && <Badge variant="secondary">Nota de Crédito</Badge>}
+          {journalEntry && (
+            <Link
+              href={`/${params.companyId}/contabilidad/asientos/${journalEntry.id}`}
+              className="text-sm text-primary hover:underline"
+            >
+              Ver asiento contable →
+            </Link>
+          )}
         </div>
         {canManage && canIssueCreditNote && (
           <Button

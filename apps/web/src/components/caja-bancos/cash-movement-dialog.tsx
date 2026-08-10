@@ -1,14 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
 import { type CashMovementType, useCreateCashMovement } from '@/lib/api/treasury/cash-bank';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
@@ -46,6 +49,8 @@ export function CashMovementDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const createCashMovement = useCreateCashMovement(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
+  const [counterpartAccountId, setCounterpartAccountId] = useState<string | null>(null);
 
   const form = useForm<MovementFormValues>({
     resolver: zodResolver(movementSchema),
@@ -53,13 +58,25 @@ export function CashMovementDialog({
   });
 
   useEffect(() => {
-    if (open) form.reset({ amount: '', reason: '' });
+    if (open) {
+      form.reset({ amount: '', reason: '' });
+      setCounterpartAccountId(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // RN-ACC-06 (F8): con Contabilidad activa, la contrapartida es obligatoria.
+  const missingCounterpart = accountingActive === true && !counterpartAccountId;
+
   async function onSubmit(values: MovementFormValues) {
     try {
-      await createCashMovement.mutateAsync({ cashSessionId, type, amount: values.amount, reason: values.reason });
+      await createCashMovement.mutateAsync({
+        cashSessionId,
+        type,
+        amount: values.amount,
+        reason: values.reason,
+        counterpartAccountId: counterpartAccountId ?? undefined,
+      });
       toast.success(type === 'IN' ? 'Ingreso registrado' : 'Egreso registrado');
       onOpenChange(false);
     } catch (err) {
@@ -103,11 +120,22 @@ export function CashMovementDialog({
               )}
             />
 
+            {accountingActive && (
+              <div className="grid gap-2">
+                <Label>Cuenta contable contrapartida</Label>
+                <AccountSelect
+                  companyId={companyId}
+                  value={counterpartAccountId}
+                  onChange={setCounterpartAccountId}
+                />
+              </div>
+            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" disabled={form.formState.isSubmitting || missingCounterpart}>
                 {form.formState.isSubmitting ? 'Guardando…' : 'Confirmar'}
               </Button>
             </DialogFooter>

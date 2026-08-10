@@ -17,11 +17,14 @@ const prisma = new PrismaClient();
  * otra empresa. Nunca borra `Company`, `Branch`, `CompanyUser`,
  * `Tenant` ni `User`: solo las tablas de negocio que las pantallas de
  * Clientes/Proveedores (F2), Catálogo (F3), Stock (F4), Comprobantes
- * (F5) y Tesorería (F6) crean durante los tests. `CashRegister` y
- * `BankAccount` también se borran (son gestionados a nivel Empresa, no
- * solo sus movimientos) para que cada corrida los recree limpios.
- * `AccountingSettings`/`JournalEntry` quedan fuera: la suite E2E no
- * activa Contabilidad todavía.
+ * (F5), Tesorería (F6), Caja y Bancos (F7) y Contabilidad (F8) crean
+ * durante los tests. `CashRegister` y `BankAccount` también se borran
+ * (son gestionados a nivel Empresa, no solo sus movimientos) para que
+ * cada corrida los recree limpios. `ChartOfAccount`/
+ * `AccountingSettings`/`JournalEntry`/`JournalEntryLine`/
+ * `CompanyPaymentMethodAccount` se extendieron en Sprint F8
+ * (docs/frontend/11-sprint-f8-contabilidad.md §8), ya que la suite E2E
+ * ahora activa Contabilidad.
  */
 async function main() {
   const company = await prisma.company.findUnique({ where: { id: E2E_COMPANY_ID } });
@@ -145,6 +148,27 @@ async function main() {
 
   await prisma.category.deleteMany({ where });
   await prisma.tax.deleteMany({ where });
+
+  // --- Contabilidad (F8) — al final de todo: ChartOfAccount es
+  // referenciada por Category.salesAccountId/purchasesAccountId,
+  // Tax.salesAccountId/purchasesAccountId, CashRegister.accountId y
+  // BankAccount.glAccountId (todas ya borradas arriba), además de
+  // CompanyPaymentMethodAccount/AccountingSettings/JournalEntryLine
+  // (borradas acá mismo, antes). JournalEntryLine no tiene companyId
+  // propio: se resuelve vía los ids de JournalEntry de la empresa.
+  // JournalEntry.sourceId (Voucher/Payment) es un string informativo,
+  // sin FK real, así que no importa que esos ya estén borrados. Se
+  // anula reversalOfEntryId (autorreferencia) antes de borrar, mismo
+  // criterio que Voucher.relatedVoucherId.
+  const journalEntries = await prisma.journalEntry.findMany({ where, select: { id: true } });
+  await prisma.journalEntryLine.deleteMany({
+    where: { journalEntryId: { in: journalEntries.map((e) => e.id) } },
+  });
+  await prisma.journalEntry.updateMany({ where, data: { reversalOfEntryId: null } });
+  await prisma.journalEntry.deleteMany({ where });
+  await prisma.companyPaymentMethodAccount.deleteMany({ where });
+  await prisma.accountingSettings.deleteMany({ where });
+  await prisma.chartOfAccount.deleteMany({ where });
 
   // eslint-disable-next-line no-console
   console.log('[reset-e2e-company] Empresa E2E vaciada — lista para una corrida limpia.');

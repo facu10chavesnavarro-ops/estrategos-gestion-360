@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,9 +10,12 @@ import {
   useCreateCategory,
   useUpdateCategory,
 } from '@/lib/api/catalog/categories';
+import { useAccountingActive } from '@/lib/api/accounting/settings';
+import { AccountSelect } from '@/components/contabilidad/account-select';
 import { ApiError } from '@/lib/api/http-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Sheet,
   SheetContent,
@@ -98,6 +101,7 @@ export function CategorySheet({
 }) {
   const createCategory = useCreateCategory(companyId);
   const updateCategory = useUpdateCategory(companyId);
+  const { accountingActive } = useAccountingActive(companyId);
   const isEditing = Boolean(category);
 
   const form = useForm<CategoryFormValues>({
@@ -105,12 +109,19 @@ export function CategorySheet({
     defaultValues: { name: '', parentId: NO_PARENT },
   });
 
+  // Mapeo contable (F8) — el backend solo lo admite vía `update`, nunca
+  // en el alta (mismo criterio que `CashRegister.accountId` en F7).
+  const [salesAccountId, setSalesAccountId] = useState<string | null>(null);
+  const [purchasesAccountId, setPurchasesAccountId] = useState<string | null>(null);
+
   useEffect(() => {
     if (open) {
       form.reset({
         name: category?.name ?? '',
         parentId: (category?.parentId ?? defaultParentId) || NO_PARENT,
       });
+      setSalesAccountId(category?.salesAccountId ?? null);
+      setPurchasesAccountId(category?.purchasesAccountId ?? null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, category, defaultParentId]);
@@ -124,7 +135,12 @@ export function CategorySheet({
       if (category) {
         await updateCategory.mutateAsync({
           categoryId: category.id,
-          input: { name: values.name, parentId: parentId ?? null },
+          input: {
+            name: values.name,
+            parentId: parentId ?? null,
+            salesAccountId,
+            purchasesAccountId,
+          },
         });
         toast.success('Categoría actualizada');
       } else {
@@ -184,6 +200,29 @@ export function CategorySheet({
                 </FormItem>
               )}
             />
+
+            {isEditing && accountingActive && (
+              <>
+                <div className="grid gap-2">
+                  <Label>Cuenta de ventas</Label>
+                  <AccountSelect
+                    companyId={companyId}
+                    value={salesAccountId}
+                    onChange={setSalesAccountId}
+                    allowNone
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Cuenta de compras</Label>
+                  <AccountSelect
+                    companyId={companyId}
+                    value={purchasesAccountId}
+                    onChange={setPurchasesAccountId}
+                    allowNone
+                  />
+                </div>
+              </>
+            )}
 
             <SheetFooter>
               <Button type="submit" disabled={form.formState.isSubmitting}>

@@ -8,6 +8,7 @@ import { useCustomers } from '@/lib/api/customers';
 import { useSuppliers } from '@/lib/api/suppliers';
 import { useVouchers } from '@/lib/api/vouchers/vouchers';
 import { useVoucherTypes } from '@/lib/api/vouchers/voucher-types';
+import { useAllJournalEntries, findJournalEntryBySource } from '@/lib/api/accounting/journal-entries';
 import { formatMoney } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -40,6 +41,8 @@ export default function PaymentDetailPage({
     { enabled: Boolean(partyId) },
   );
   const voucherTypes = useVoucherTypes();
+  const journalEntries = useAllJournalEntries(params.companyId);
+  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'PAYMENT', params.paymentId);
 
   const isLoading =
     payment.isLoading ||
@@ -88,7 +91,7 @@ export default function PaymentDetailPage({
         Cobros y pagos
       </Link>
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-semibold">
           {DIRECTION_LABEL[p.direction]} a {partyHref ? (
             <Link href={partyHref} className="hover:underline">
@@ -98,6 +101,14 @@ export default function PaymentDetailPage({
             partyName
           )}
         </h1>
+        {journalEntry && (
+          <Link
+            href={`/${params.companyId}/contabilidad/asientos/${journalEntry.id}`}
+            className="text-sm text-primary hover:underline"
+          >
+            Ver asiento contable →
+          </Link>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">
