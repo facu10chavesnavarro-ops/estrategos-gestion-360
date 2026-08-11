@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './presentation/controllers/auth.controller';
 import { LoginUseCase } from './application/use-cases/login.use-case';
 import { RefreshSessionUseCase } from './application/use-cases/refresh-session.use-case';
@@ -20,7 +21,20 @@ import { UnitOfWork } from '../../common/domain/transaction/unit-of-work.port';
 import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma-unit-of-work';
 
 @Module({
-  imports: [CompaniesModule],
+  imports: [
+    CompaniesModule,
+    // Auditoría de seguridad (hallazgo A2): sin esto, POST /auth/login no
+    // tenía ninguna protección contra fuerza bruta / credential stuffing.
+    // Registrado acá (no en AppModule) para acotar el alcance al módulo de
+    // auth — no se toca el comportamiento de ningún otro endpoint.
+    ThrottlerModule.forRoot([
+      {
+        name: 'login',
+        ttl: 15 * 60 * 1000, // 15 minutos
+        limit: 5, // 5 intentos por IP en la ventana
+      },
+    ]),
+  ],
   controllers: [AuthController],
   providers: [
     PrismaService,

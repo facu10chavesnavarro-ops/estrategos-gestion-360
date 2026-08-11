@@ -6,7 +6,9 @@ import {
   HttpStatus,
   Post,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { LoginUseCase } from '../../application/use-cases/login.use-case';
 import { RefreshSessionUseCase } from '../../application/use-cases/refresh-session.use-case';
 import { LogoutUseCase } from '../../application/use-cases/logout.use-case';
@@ -37,6 +39,8 @@ export class AuthController {
   ) {}
 
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ login: { limit: 5, ttl: 15 * 60 * 1000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -45,10 +49,13 @@ export class AuthController {
       'Devuelve un access token (corta duración) y un refresh token ' +
       '(rotable) junto con los datos básicos del usuario. No requiere ' +
       'X-Company-Id: la selección de empresa es un paso posterior, vía ' +
-      'GET /companies para listar las empresas del usuario.',
+      'GET /companies para listar las empresas del usuario. Limitado a 5 ' +
+      'intentos cada 15 minutos por IP (auditoría de seguridad, hallazgo A2) ' +
+      'para mitigar fuerza bruta / credential stuffing.',
   })
   @ApiResponse({ status: 200, description: 'Credenciales válidas.' })
   @ApiResponse({ status: 401, description: 'Credenciales inválidas o usuario inactivo.' })
+  @ApiResponse({ status: 429, description: 'Demasiados intentos — reintentar más tarde.' })
   async login(@Body() body: LoginRequestDto) {
     try {
       return await this.loginUseCase.execute(body);
