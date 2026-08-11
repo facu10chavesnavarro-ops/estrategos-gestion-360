@@ -48,9 +48,9 @@ export class PrismaWarehouseRepository extends WarehouseRepository {
     return raw ? WarehouseMapper.toDomain(raw) : null;
   }
 
-  async findAllByBranch(branchId: string): Promise<WarehouseEntity[]> {
+  async findAllByBranch(branchId: string, companyId: string): Promise<WarehouseEntity[]> {
     const raws = await this.prisma.warehouse.findMany({
-      where: { branchId },
+      where: { branchId, companyId },
       orderBy: { name: 'asc' },
     });
     return raws.map(WarehouseMapper.toDomain);

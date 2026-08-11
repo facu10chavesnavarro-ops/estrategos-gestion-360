@@ -28,7 +28,15 @@ export abstract class CashSessionRepository {
     cashRegisterId: string,
     ctx?: TransactionContext,
   ): Promise<CashSessionEntity | null>;
-  abstract findAllByCashRegister(cashRegisterId: string): Promise<CashSessionEntity[]>;
+  /**
+   * Escaneado por `companyId` además de `cashRegisterId` (auditoría de
+   * seguridad, hallazgo A1): sin este filtro, un usuario de una empresa
+   * podía listar las sesiones de una caja de otra empresa pasando su id.
+   */
+  abstract findAllByCashRegister(
+    cashRegisterId: string,
+    companyId: string,
+  ): Promise<CashSessionEntity[]>;
   abstract close(
     id: string,
     input: CloseCashSessionInput,

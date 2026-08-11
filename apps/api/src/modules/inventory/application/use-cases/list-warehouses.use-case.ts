@@ -6,7 +6,7 @@ import { WarehouseEntity } from '../../domain/entities/warehouse.entity';
 export class ListWarehousesUseCase {
   constructor(private readonly warehouseRepository: WarehouseRepository) {}
 
-  async execute(branchId: string): Promise<WarehouseEntity[]> {
-    return this.warehouseRepository.findAllByBranch(branchId);
+  async execute(branchId: string, companyId: string): Promise<WarehouseEntity[]> {
+    return this.warehouseRepository.findAllByBranch(branchId, companyId);
   }
 }

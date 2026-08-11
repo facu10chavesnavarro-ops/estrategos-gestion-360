@@ -60,7 +60,7 @@ export class CashSessionsController {
     @CurrentCompanyId() contextCompanyId: string,
   ) {
     assertSameCompany(companyId, contextCompanyId);
-    return this.listCashMovementsUseCase.execute(cashSessionId);
+    return this.listCashMovementsUseCase.execute(cashSessionId, contextCompanyId);
   }
 
   @Post(':cashSessionId/movements')

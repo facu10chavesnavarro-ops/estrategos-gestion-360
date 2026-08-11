@@ -41,9 +41,10 @@ export class PrismaStockMovementRepository extends StockMovementRepository {
 
   async findAllByWarehouse(
     warehouseId: string,
+    companyId: string,
     filters: ListStockMovementsFilters,
   ): Promise<StockMovementEntity[]> {
-    const where: Prisma.StockMovementWhereInput = { warehouseId };
+    const where: Prisma.StockMovementWhereInput = { warehouseId, companyId };
     if (filters.itemId) {
       where.itemId = filters.itemId;
     }

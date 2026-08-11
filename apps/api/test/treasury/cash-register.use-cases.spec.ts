@@ -2,6 +2,7 @@ import { CreateCashRegisterUseCase } from '../../src/modules/treasury/applicatio
 import { UpdateCashRegisterUseCase } from '../../src/modules/treasury/application/use-cases/update-cash-register.use-case';
 import { DeactivateCashRegisterUseCase } from '../../src/modules/treasury/application/use-cases/deactivate-cash-register.use-case';
 import { ActivateCashRegisterUseCase } from '../../src/modules/treasury/application/use-cases/activate-cash-register.use-case';
+import { ListCashRegistersUseCase } from '../../src/modules/treasury/application/use-cases/list-cash-registers.use-case';
 import { CashRegisterEntity } from '../../src/modules/treasury/domain/entities/cash-register.entity';
 import { CashRegisterRepository } from '../../src/modules/treasury/domain/repositories/cash-register.repository';
 import { ChartOfAccountRepository } from '../../src/modules/accounting/domain/repositories/chart-of-account.repository';
@@ -191,6 +192,40 @@ describe('UpdateCashRegisterUseCase', () => {
         name: 'X',
       }),
     ).rejects.toThrow(CashRegisterNotFoundError);
+  });
+});
+
+// Auditoría de seguridad (hallazgo A1, IDOR): `findAllByBranch` ahora exige
+// companyId — el use case debe reenviar siempre el del contexto verificado.
+// La exclusión real de filas de otra empresa se prueba contra DB real en
+// test/security/multi-tenant-isolation.integration-spec.ts.
+describe('ListCashRegistersUseCase', () => {
+  it('lista las cajas de una sucursal', async () => {
+    const cashRegisterRepository = makeCashRegisterRepository();
+    cashRegisterRepository.findAllByBranch.mockResolvedValue([makeCashRegister()]);
+    const useCase = new ListCashRegistersUseCase(cashRegisterRepository);
+
+    const result = await useCase.execute('branch-1', 'company-1');
+
+    expect(result).toHaveLength(1);
+    expect(cashRegisterRepository.findAllByBranch).toHaveBeenCalledWith('branch-1', 'company-1');
+  });
+
+  it('reenvía el companyId del contexto al repositorio, nunca uno distinto', async () => {
+    const cashRegisterRepository = makeCashRegisterRepository();
+    cashRegisterRepository.findAllByBranch.mockResolvedValue([]);
+    const useCase = new ListCashRegistersUseCase(cashRegisterRepository);
+
+    await useCase.execute('branch-de-otra-empresa', 'company-1');
+
+    expect(cashRegisterRepository.findAllByBranch).toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'company-1',
+    );
+    expect(cashRegisterRepository.findAllByBranch).not.toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'otra-empresa',
+    );
   });
 });
 

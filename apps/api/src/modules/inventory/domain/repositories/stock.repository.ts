@@ -21,8 +21,14 @@ export abstract class StockRepository {
     warehouseId: string,
     ctx?: TransactionContext,
   ): Promise<StockEntity | null>;
+  /**
+   * Escaneado por `companyId` además de `warehouseId` (auditoría de
+   * seguridad, hallazgo A1): sin este filtro, un usuario de una empresa
+   * podía consultar el stock de un depósito de otra empresa pasando su id.
+   */
   abstract findAllByWarehouse(
     warehouseId: string,
+    companyId: string,
     filters: ListStockFilters,
   ): Promise<StockEntity[]>;
   abstract upsert(input: UpsertStockInput, ctx?: TransactionContext): Promise<StockEntity>;

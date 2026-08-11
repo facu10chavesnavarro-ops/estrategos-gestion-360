@@ -8,7 +8,7 @@ export class ListStockMovementsUseCase {
   constructor(private readonly stockMovementRepository: StockMovementRepository) {}
 
   async execute(input: ListStockMovementsUseCaseInput): Promise<StockMovementEntity[]> {
-    return this.stockMovementRepository.findAllByWarehouse(input.warehouseId, {
+    return this.stockMovementRepository.findAllByWarehouse(input.warehouseId, input.companyId, {
       itemId: input.itemId,
       type: input.type,
       from: input.from ? new Date(input.from) : undefined,

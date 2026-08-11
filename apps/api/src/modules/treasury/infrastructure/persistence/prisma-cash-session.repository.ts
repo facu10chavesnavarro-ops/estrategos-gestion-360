@@ -51,9 +51,12 @@ export class PrismaCashSessionRepository extends CashSessionRepository {
     return raw ? CashSessionMapper.toDomain(raw) : null;
   }
 
-  async findAllByCashRegister(cashRegisterId: string): Promise<CashSessionEntity[]> {
+  async findAllByCashRegister(
+    cashRegisterId: string,
+    companyId: string,
+  ): Promise<CashSessionEntity[]> {
     const raws = await this.prisma.cashSession.findMany({
-      where: { cashRegisterId },
+      where: { cashRegisterId, cashRegister: { companyId } },
       orderBy: { openedAt: 'desc' },
     });
     return raws.map(CashSessionMapper.toDomain);

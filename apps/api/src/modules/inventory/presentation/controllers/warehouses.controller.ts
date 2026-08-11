@@ -37,7 +37,7 @@ export class WarehousesController {
     @CurrentCompanyId() contextCompanyId: string,
   ) {
     assertSameCompany(companyId, contextCompanyId);
-    return this.listWarehousesUseCase.execute(branchId);
+    return this.listWarehousesUseCase.execute(branchId, contextCompanyId);
   }
 
   @Post()

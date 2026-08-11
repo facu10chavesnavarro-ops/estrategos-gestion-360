@@ -53,9 +53,9 @@ export class PrismaPointOfSaleRepository extends PointOfSaleRepository {
     return raw ? PointOfSaleMapper.toDomain(raw) : null;
   }
 
-  async findAllByBranch(branchId: string): Promise<PointOfSaleEntity[]> {
+  async findAllByBranch(branchId: string, companyId: string): Promise<PointOfSaleEntity[]> {
     const raws = await this.prisma.pointOfSale.findMany({
-      where: { branchId },
+      where: { branchId, companyId },
       orderBy: { code: 'asc' },
     });
     return raws.map(PointOfSaleMapper.toDomain);

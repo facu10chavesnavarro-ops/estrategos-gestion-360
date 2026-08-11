@@ -6,7 +6,7 @@ import { CashRegisterEntity } from '../../domain/entities/cash-register.entity';
 export class ListCashRegistersUseCase {
   constructor(private readonly cashRegisterRepository: CashRegisterRepository) {}
 
-  async execute(branchId: string): Promise<CashRegisterEntity[]> {
-    return this.cashRegisterRepository.findAllByBranch(branchId);
+  async execute(branchId: string, companyId: string): Promise<CashRegisterEntity[]> {
+    return this.cashRegisterRepository.findAllByBranch(branchId, companyId);
   }
 }

@@ -2,6 +2,7 @@ import { CreatePointOfSaleUseCase } from '../../src/modules/vouchers/application
 import { UpdatePointOfSaleUseCase } from '../../src/modules/vouchers/application/use-cases/update-point-of-sale.use-case';
 import { DeactivatePointOfSaleUseCase } from '../../src/modules/vouchers/application/use-cases/deactivate-point-of-sale.use-case';
 import { ActivatePointOfSaleUseCase } from '../../src/modules/vouchers/application/use-cases/activate-point-of-sale.use-case';
+import { ListPointsOfSaleUseCase } from '../../src/modules/vouchers/application/use-cases/list-points-of-sale.use-case';
 import { PointOfSaleEntity } from '../../src/modules/vouchers/domain/entities/point-of-sale.entity';
 import { PointOfSaleRepository } from '../../src/modules/vouchers/domain/repositories/point-of-sale.repository';
 import { BranchRepository } from '../../src/modules/companies/domain/repositories/branch.repository';
@@ -205,6 +206,40 @@ describe('UpdatePointOfSaleUseCase', () => {
         name: 'X',
       }),
     ).rejects.toThrow(PointOfSaleNotFoundError);
+  });
+});
+
+// Auditoría de seguridad (hallazgo A1, IDOR): `findAllByBranch` ahora exige
+// companyId — el use case debe reenviar siempre el del contexto verificado.
+// La exclusión real de filas de otra empresa se prueba contra DB real en
+// test/security/multi-tenant-isolation.integration-spec.ts.
+describe('ListPointsOfSaleUseCase', () => {
+  it('lista los puntos de venta de una sucursal', async () => {
+    const pointOfSaleRepository = makePointOfSaleRepository();
+    pointOfSaleRepository.findAllByBranch.mockResolvedValue([makePointOfSale()]);
+    const useCase = new ListPointsOfSaleUseCase(pointOfSaleRepository);
+
+    const result = await useCase.execute('branch-1', 'company-1');
+
+    expect(result).toHaveLength(1);
+    expect(pointOfSaleRepository.findAllByBranch).toHaveBeenCalledWith('branch-1', 'company-1');
+  });
+
+  it('reenvía el companyId del contexto al repositorio, nunca uno distinto', async () => {
+    const pointOfSaleRepository = makePointOfSaleRepository();
+    pointOfSaleRepository.findAllByBranch.mockResolvedValue([]);
+    const useCase = new ListPointsOfSaleUseCase(pointOfSaleRepository);
+
+    await useCase.execute('branch-de-otra-empresa', 'company-1');
+
+    expect(pointOfSaleRepository.findAllByBranch).toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'company-1',
+    );
+    expect(pointOfSaleRepository.findAllByBranch).not.toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'otra-empresa',
+    );
   });
 });
 

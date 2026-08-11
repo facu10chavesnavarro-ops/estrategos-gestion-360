@@ -42,7 +42,7 @@ export class CashRegistersController {
     @CurrentCompanyId() contextCompanyId: string,
   ) {
     assertSameCompany(companyId, contextCompanyId);
-    return this.listCashRegistersUseCase.execute(branchId);
+    return this.listCashRegistersUseCase.execute(branchId, contextCompanyId);
   }
 
   @Post()
@@ -165,7 +165,7 @@ export class CashRegistersController {
     @CurrentCompanyId() contextCompanyId: string,
   ) {
     assertSameCompany(companyId, contextCompanyId);
-    return this.listCashSessionsUseCase.execute(cashRegisterId);
+    return this.listCashSessionsUseCase.execute(cashRegisterId, contextCompanyId);
   }
 
   @Post(':cashRegisterId/sessions')

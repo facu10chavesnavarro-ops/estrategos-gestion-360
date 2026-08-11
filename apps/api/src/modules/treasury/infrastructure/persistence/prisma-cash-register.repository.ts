@@ -37,9 +37,9 @@ export class PrismaCashRegisterRepository extends CashRegisterRepository {
     return raw ? CashRegisterMapper.toDomain(raw) : null;
   }
 
-  async findAllByBranch(branchId: string): Promise<CashRegisterEntity[]> {
+  async findAllByBranch(branchId: string, companyId: string): Promise<CashRegisterEntity[]> {
     const raws = await this.prisma.cashRegister.findMany({
-      where: { branchId },
+      where: { branchId, companyId },
       orderBy: { name: 'asc' },
     });
     return raws.map(CashRegisterMapper.toDomain);

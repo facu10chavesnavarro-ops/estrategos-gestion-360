@@ -6,7 +6,7 @@ import { CashMovementEntity } from '../../domain/entities/cash-movement.entity';
 export class ListCashMovementsUseCase {
   constructor(private readonly cashMovementRepository: CashMovementRepository) {}
 
-  async execute(cashSessionId: string): Promise<CashMovementEntity[]> {
-    return this.cashMovementRepository.findAllBySession(cashSessionId);
+  async execute(cashSessionId: string, companyId: string): Promise<CashMovementEntity[]> {
+    return this.cashMovementRepository.findAllBySession(cashSessionId, companyId);
   }
 }

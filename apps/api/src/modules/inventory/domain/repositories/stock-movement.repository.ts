@@ -29,8 +29,15 @@ export abstract class StockMovementRepository {
     input: CreateStockMovementInput,
     ctx?: TransactionContext,
   ): Promise<StockMovementEntity>;
+  /**
+   * Escaneado por `companyId` además de `warehouseId` (auditoría de
+   * seguridad, hallazgo A1): sin este filtro, un usuario de una empresa
+   * podía consultar los movimientos de stock de un depósito de otra
+   * empresa pasando su id.
+   */
   abstract findAllByWarehouse(
     warehouseId: string,
+    companyId: string,
     filters: ListStockMovementsFilters,
   ): Promise<StockMovementEntity[]>;
 }

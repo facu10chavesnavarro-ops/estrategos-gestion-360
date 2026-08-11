@@ -26,7 +26,13 @@ export abstract class WarehouseRepository {
     name: string,
     ctx?: TransactionContext,
   ): Promise<WarehouseEntity | null>;
-  abstract findAllByBranch(branchId: string): Promise<WarehouseEntity[]>;
+  /**
+   * Escaneado por `companyId` además de `branchId` (auditoría de
+   * seguridad, hallazgo A1): `branchId` es un id enviado por el cliente,
+   * y sin este filtro un usuario de una empresa podía listar los
+   * depósitos de una sucursal de otra empresa pasando su id.
+   */
+  abstract findAllByBranch(branchId: string, companyId: string): Promise<WarehouseEntity[]>;
   abstract update(
     id: string,
     input: UpdateWarehouseInput,

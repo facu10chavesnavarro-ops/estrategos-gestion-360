@@ -53,9 +53,31 @@ describe('ListWarehousesUseCase', () => {
     warehouseRepository.findAllByBranch.mockResolvedValue([makeWarehouse()]);
     const useCase = new ListWarehousesUseCase(warehouseRepository);
 
-    const result = await useCase.execute('branch-1');
+    const result = await useCase.execute('branch-1', 'company-1');
 
     expect(result).toHaveLength(1);
-    expect(warehouseRepository.findAllByBranch).toHaveBeenCalledWith('branch-1');
+    expect(warehouseRepository.findAllByBranch).toHaveBeenCalledWith('branch-1', 'company-1');
+  });
+
+  // Auditoría de seguridad (hallazgo A1, IDOR): el use case debe reenviar
+  // siempre el companyId del contexto verificado al repositorio — es el
+  // repositorio (probado contra DB real en
+  // test/security/multi-tenant-isolation.integration-spec.ts) el que
+  // efectivamente excluye las filas de otra empresa.
+  it('reenvía el companyId del contexto al repositorio, nunca uno distinto', async () => {
+    const warehouseRepository = makeWarehouseRepository();
+    warehouseRepository.findAllByBranch.mockResolvedValue([]);
+    const useCase = new ListWarehousesUseCase(warehouseRepository);
+
+    await useCase.execute('branch-de-otra-empresa', 'company-1');
+
+    expect(warehouseRepository.findAllByBranch).toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'company-1',
+    );
+    expect(warehouseRepository.findAllByBranch).not.toHaveBeenCalledWith(
+      'branch-de-otra-empresa',
+      'otra-empresa',
+    );
   });
 });

@@ -22,7 +22,12 @@ export abstract class CashRegisterRepository {
     companyId: string,
     ctx?: TransactionContext,
   ): Promise<CashRegisterEntity | null>;
-  abstract findAllByBranch(branchId: string): Promise<CashRegisterEntity[]>;
+  /**
+   * Escaneado por `companyId` además de `branchId` (auditoría de
+   * seguridad, hallazgo A1): sin este filtro, un usuario de una empresa
+   * podía listar las cajas de una sucursal de otra empresa pasando su id.
+   */
+  abstract findAllByBranch(branchId: string, companyId: string): Promise<CashRegisterEntity[]>;
   abstract update(
     id: string,
     input: UpdateCashRegisterInput,

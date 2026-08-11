@@ -1,6 +1,8 @@
 import { OpenCashSessionUseCase } from '../../src/modules/treasury/application/use-cases/open-cash-session.use-case';
 import { CloseCashSessionUseCase } from '../../src/modules/treasury/application/use-cases/close-cash-session.use-case';
 import { CreateCashMovementUseCase } from '../../src/modules/treasury/application/use-cases/create-cash-movement.use-case';
+import { ListCashSessionsUseCase } from '../../src/modules/treasury/application/use-cases/list-cash-sessions.use-case';
+import { ListCashMovementsUseCase } from '../../src/modules/treasury/application/use-cases/list-cash-movements.use-case';
 import { CashRegisterEntity } from '../../src/modules/treasury/domain/entities/cash-register.entity';
 import { CashRegisterRepository } from '../../src/modules/treasury/domain/repositories/cash-register.repository';
 import { CashSessionEntity } from '../../src/modules/treasury/domain/entities/cash-session.entity';
@@ -188,6 +190,77 @@ describe('OpenCashSessionUseCase', () => {
         openingBalance: '100',
       }),
     ).rejects.toThrow(CashRegisterAlreadyHasOpenSessionError);
+  });
+});
+
+// Auditoría de seguridad (hallazgo A1, IDOR): `findAllByCashRegister` ahora
+// exige companyId — el use case debe reenviar siempre el del contexto
+// verificado. La exclusión real de filas de otra empresa se prueba contra
+// DB real en test/security/multi-tenant-isolation.integration-spec.ts.
+describe('ListCashSessionsUseCase', () => {
+  it('lista las sesiones de una caja', async () => {
+    const cashSessionRepository = makeCashSessionRepository();
+    cashSessionRepository.findAllByCashRegister.mockResolvedValue([makeCashSession()]);
+    const useCase = new ListCashSessionsUseCase(cashSessionRepository);
+
+    const result = await useCase.execute('register-1', 'company-1');
+
+    expect(result).toHaveLength(1);
+    expect(cashSessionRepository.findAllByCashRegister).toHaveBeenCalledWith(
+      'register-1',
+      'company-1',
+    );
+  });
+
+  it('reenvía el companyId del contexto al repositorio, nunca uno distinto', async () => {
+    const cashSessionRepository = makeCashSessionRepository();
+    cashSessionRepository.findAllByCashRegister.mockResolvedValue([]);
+    const useCase = new ListCashSessionsUseCase(cashSessionRepository);
+
+    await useCase.execute('register-de-otra-empresa', 'company-1');
+
+    expect(cashSessionRepository.findAllByCashRegister).toHaveBeenCalledWith(
+      'register-de-otra-empresa',
+      'company-1',
+    );
+    expect(cashSessionRepository.findAllByCashRegister).not.toHaveBeenCalledWith(
+      'register-de-otra-empresa',
+      'otra-empresa',
+    );
+  });
+});
+
+// Auditoría de seguridad (hallazgo A1, IDOR): `findAllBySession` ahora
+// exige companyId — mismo criterio que ListCashSessionsUseCase arriba.
+describe('ListCashMovementsUseCase', () => {
+  it('lista los movimientos de una sesión', async () => {
+    const cashMovementRepository = makeCashMovementRepository();
+    cashMovementRepository.findAllBySession.mockResolvedValue([]);
+    const useCase = new ListCashMovementsUseCase(cashMovementRepository);
+
+    await useCase.execute('session-1', 'company-1');
+
+    expect(cashMovementRepository.findAllBySession).toHaveBeenCalledWith(
+      'session-1',
+      'company-1',
+    );
+  });
+
+  it('reenvía el companyId del contexto al repositorio, nunca uno distinto', async () => {
+    const cashMovementRepository = makeCashMovementRepository();
+    cashMovementRepository.findAllBySession.mockResolvedValue([]);
+    const useCase = new ListCashMovementsUseCase(cashMovementRepository);
+
+    await useCase.execute('session-de-otra-empresa', 'company-1');
+
+    expect(cashMovementRepository.findAllBySession).toHaveBeenCalledWith(
+      'session-de-otra-empresa',
+      'company-1',
+    );
+    expect(cashMovementRepository.findAllBySession).not.toHaveBeenCalledWith(
+      'session-de-otra-empresa',
+      'otra-empresa',
+    );
   });
 });
 

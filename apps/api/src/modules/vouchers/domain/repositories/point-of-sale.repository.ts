@@ -27,7 +27,13 @@ export abstract class PointOfSaleRepository {
     code: string,
     ctx?: TransactionContext,
   ): Promise<PointOfSaleEntity | null>;
-  abstract findAllByBranch(branchId: string): Promise<PointOfSaleEntity[]>;
+  /**
+   * Escaneado por `companyId` además de `branchId` (auditoría de
+   * seguridad, hallazgo A1): sin este filtro, un usuario de una empresa
+   * podía listar los puntos de venta de una sucursal de otra empresa
+   * pasando su id.
+   */
+  abstract findAllByBranch(branchId: string, companyId: string): Promise<PointOfSaleEntity[]>;
   abstract update(
     id: string,
     input: UpdatePointOfSaleInput,

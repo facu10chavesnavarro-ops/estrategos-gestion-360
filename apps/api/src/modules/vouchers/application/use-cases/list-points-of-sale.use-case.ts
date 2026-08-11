@@ -6,7 +6,7 @@ import { PointOfSaleEntity } from '../../domain/entities/point-of-sale.entity';
 export class ListPointsOfSaleUseCase {
   constructor(private readonly pointOfSaleRepository: PointOfSaleRepository) {}
 
-  async execute(branchId: string): Promise<PointOfSaleEntity[]> {
-    return this.pointOfSaleRepository.findAllByBranch(branchId);
+  async execute(branchId: string, companyId: string): Promise<PointOfSaleEntity[]> {
+    return this.pointOfSaleRepository.findAllByBranch(branchId, companyId);
   }
 }

@@ -37,7 +37,7 @@ export class PointsOfSaleController {
     @CurrentCompanyId() contextCompanyId: string,
   ) {
     assertSameCompany(companyId, contextCompanyId);
-    return this.listPointsOfSaleUseCase.execute(branchId);
+    return this.listPointsOfSaleUseCase.execute(branchId, contextCompanyId);
   }
 
   @Post()
