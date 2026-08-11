@@ -8,10 +8,20 @@
  * Escapa un valor solo si contiene coma, comilla doble o salto de línea
  * (regla estándar RFC 4180): se envuelve en comillas dobles y las
  * comillas internas se duplican.
+ *
+ * Además neutraliza inyección de fórmulas CSV (auditoría de seguridad):
+ * un valor que empieza con `=`, `+`, `-`, `@` o tab se interpreta como
+ * fórmula al abrir el archivo en Excel/Sheets — un nombre de ítem como
+ * `=cmd|' /C calc'!A0` se ejecutaría. Se antepone un `'` (apóstrofe) para
+ * forzarlo a texto literal, mismo mecanismo que usa el propio Excel al
+ * pegar texto con ese prefijo.
  */
 function escapeCsvValue(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const str = String(value);
+  let str = String(value);
+  if (/^[=+\-@\t]/.test(str)) {
+    str = `'${str}`;
+  }
   if (/[",\n\r]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
