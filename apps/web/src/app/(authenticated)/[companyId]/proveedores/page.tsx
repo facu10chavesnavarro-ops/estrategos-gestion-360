@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useSuppliers, useImportSuppliers, type Supplier } from '@/lib/api/suppliers';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -25,20 +25,25 @@ const STATUS_TO_IS_ACTIVE: Record<StatusFilter, boolean | undefined> = {
   inactive: false,
 };
 
-export default function ProveedoresPage({ params }: { params: { companyId: string } }) {
+export default function ProveedoresPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const status = (searchParams.get('status') as StatusFilter | null) ?? 'all';
 
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
       : false;
 
-  const suppliers = useSuppliers(params.companyId, { isActive: STATUS_TO_IS_ACTIVE[status] });
-  const importSuppliers = useImportSuppliers(params.companyId);
+  const suppliers = useSuppliers(companyId, { isActive: STATUS_TO_IS_ACTIVE[status] });
+  const importSuppliers = useImportSuppliers(companyId);
 
   const [sheetTarget, setSheetTarget] = useState<{ open: boolean; supplier?: Supplier }>({
     open: false,
@@ -72,7 +77,7 @@ export default function ProveedoresPage({ params }: { params: { companyId: strin
         </div>
       ) : (
         <SuppliersTable
-          companyId={params.companyId}
+          companyId={companyId}
           suppliers={suppliers.data ?? []}
           canManage={canManage}
           onEdit={(supplier) => setSheetTarget({ open: true, supplier })}
@@ -102,7 +107,7 @@ export default function ProveedoresPage({ params }: { params: { companyId: strin
       )}
 
       <SupplierSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         supplier={sheetTarget.supplier}

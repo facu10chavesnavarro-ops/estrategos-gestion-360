@@ -8,8 +8,8 @@ import { getRefreshToken } from '@/lib/auth/cookies';
  * caso ya lo resuelve la renovación transparente del proxy de
  * /api/backend/* en la primera llamada que haga la página.
  */
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  if (!getRefreshToken()) {
+export default async function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  if (!(await getRefreshToken())) {
     redirect('/login');
   }
 

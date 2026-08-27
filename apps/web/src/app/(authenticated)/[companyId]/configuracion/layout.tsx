@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -10,18 +11,19 @@ export default function ConfiguracionLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
-  const { membership, isLoading } = useCurrentMembership(params.companyId);
+  const { membership, isLoading } = useCurrentMembership(companyId);
   // Mientras no se sepa el rol propio, "Usuarios" queda oculto (fail-closed) —
   // ver decisión 2.2 de docs/frontend/04-sprint-f1-configuracion.md.
   const canManage =
     !isLoading && membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
 
   const tabs = [
-    { href: `/${params.companyId}/configuracion/empresa`, label: 'Empresa', show: true },
-    { href: `/${params.companyId}/configuracion/usuarios`, label: 'Usuarios', show: canManage },
+    { href: `/${companyId}/configuracion/empresa`, label: 'Empresa', show: true },
+    { href: `/${companyId}/configuracion/usuarios`, label: 'Usuarios', show: canManage },
   ];
 
   return (

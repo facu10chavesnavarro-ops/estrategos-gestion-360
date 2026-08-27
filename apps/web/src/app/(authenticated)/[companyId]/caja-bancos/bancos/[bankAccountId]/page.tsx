@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import {
@@ -20,12 +20,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function BankAccountDetailPage({
   params,
 }: {
-  params: { companyId: string; bankAccountId: string };
+  params: Promise<{ companyId: string; bankAccountId: string }>;
 }) {
-  const { accounts, isLoading: accountsLoading } = useBankAccountsWithBalance(params.companyId);
-  const bankAccount = accounts.find((a) => a.id === params.bankAccountId);
-  const movements = useBankMovements(params.companyId, params.bankAccountId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { companyId, bankAccountId } = use(params);
+  const { accounts, isLoading: accountsLoading } = useBankAccountsWithBalance(companyId);
+  const bankAccount = accounts.find((a) => a.id === bankAccountId);
+  const movements = useBankMovements(companyId, bankAccountId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
 
   const [editOpen, setEditOpen] = useState(false);
@@ -40,7 +41,7 @@ export default function BankAccountDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Esta cuenta bancaria no existe.</p>
-        <Link href={`/${params.companyId}/caja-bancos/bancos`} className="text-sm underline">
+        <Link href={`/${companyId}/caja-bancos/bancos`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -52,7 +53,7 @@ export default function BankAccountDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/caja-bancos/bancos`}
+        href={`/${companyId}/caja-bancos/bancos`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -104,12 +105,12 @@ export default function BankAccountDetailPage({
           <CardTitle>Movimientos</CardTitle>
         </CardHeader>
         <CardContent>
-          <BankMovementsTable companyId={params.companyId} movements={movements.data ?? []} />
+          <BankMovementsTable companyId={companyId} movements={movements.data ?? []} />
         </CardContent>
       </Card>
 
       <BankAccountSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         bankAccount={bankAccount}
@@ -117,8 +118,8 @@ export default function BankAccountDetailPage({
 
       {movementDialog && (
         <BankMovementDialog
-          companyId={params.companyId}
-          bankAccountId={params.bankAccountId}
+          companyId={companyId}
+          bankAccountId={bankAccountId}
           type={movementDialog}
           open={Boolean(movementDialog)}
           onOpenChange={(open) => !open && setMovementDialog(null)}
@@ -126,7 +127,7 @@ export default function BankAccountDetailPage({
       )}
 
       <BankTransferDialog
-        companyId={params.companyId}
+        companyId={companyId}
         sourceAccount={bankAccount}
         otherAccounts={otherActiveAccounts}
         open={transferOpen}

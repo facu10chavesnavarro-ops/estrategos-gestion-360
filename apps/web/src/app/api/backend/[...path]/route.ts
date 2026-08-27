@@ -28,13 +28,13 @@ async function proxy(request: NextRequest, path: string[]): Promise<NextResponse
     return fetch(targetUrl, { method: request.method, headers, body });
   };
 
-  let accessToken = getAccessToken();
+  let accessToken = await getAccessToken();
   let backendRes = await forward(accessToken);
 
   if (backendRes.status === 401 && accessToken) {
     const refreshed = await refreshSession();
     if (refreshed) {
-      accessToken = getAccessToken();
+      accessToken = await getAccessToken();
       backendRes = await forward(accessToken);
     }
   }
@@ -48,20 +48,20 @@ async function proxy(request: NextRequest, path: string[]): Promise<NextResponse
   });
 }
 
-type RouteContext = { params: { path: string[] } };
+type RouteContext = { params: Promise<{ path: string[] }> };
 
 export async function GET(request: NextRequest, { params }: RouteContext) {
-  return proxy(request, params.path);
+  return proxy(request, (await params).path);
 }
 export async function POST(request: NextRequest, { params }: RouteContext) {
-  return proxy(request, params.path);
+  return proxy(request, (await params).path);
 }
 export async function PUT(request: NextRequest, { params }: RouteContext) {
-  return proxy(request, params.path);
+  return proxy(request, (await params).path);
 }
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  return proxy(request, params.path);
+  return proxy(request, (await params).path);
 }
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
-  return proxy(request, params.path);
+  return proxy(request, (await params).path);
 }

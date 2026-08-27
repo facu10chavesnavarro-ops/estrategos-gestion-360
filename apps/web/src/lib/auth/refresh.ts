@@ -10,7 +10,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
  * transparente ante un 401).
  */
 export async function refreshSession(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
+  const refreshToken = await getRefreshToken();
   if (!refreshToken) {
     return false;
   }
@@ -22,11 +22,11 @@ export async function refreshSession(): Promise<boolean> {
   });
 
   if (!res.ok) {
-    clearSessionCookies();
+    await clearSessionCookies();
     return false;
   }
 
   const data = (await res.json()) as { accessToken: string; refreshToken: string };
-  setSessionCookies(data.accessToken, data.refreshToken);
+  await setSessionCookies(data.accessToken, data.refreshToken);
   return true;
 }

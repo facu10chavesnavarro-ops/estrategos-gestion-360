@@ -32,6 +32,6 @@ export async function POST(request: NextRequest) {
   }
 
   // El JWT nunca llega al navegador: solo queda en cookies httpOnly.
-  setSessionCookies(data.accessToken, data.refreshToken);
+  await setSessionCookies(data.accessToken, data.refreshToken);
   return NextResponse.json({ user: data.user });
 }

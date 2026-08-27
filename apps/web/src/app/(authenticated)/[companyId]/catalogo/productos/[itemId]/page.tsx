@@ -1,9 +1,10 @@
 import { ItemDetailContent } from '@/components/catalogo/item-detail-content';
 
-export default function ProductoDetailPage({
+export default async function ProductoDetailPage({
   params,
 }: {
-  params: { companyId: string; itemId: string };
+  params: Promise<{ companyId: string; itemId: string }>;
 }) {
-  return <ItemDetailContent companyId={params.companyId} itemId={params.itemId} type="PRODUCT" />;
+  const { companyId, itemId } = await params;
+  return <ItemDetailContent companyId={companyId} itemId={itemId} type="PRODUCT" />;
 }

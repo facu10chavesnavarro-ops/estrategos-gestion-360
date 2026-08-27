@@ -1,4 +1,4 @@
-export default function InicioPage({ params }: { params: { companyId: string } }) {
+export default function InicioPage() {
   return (
     <div className="p-6">
       <h1 className="text-lg font-semibold">Inicio</h1>

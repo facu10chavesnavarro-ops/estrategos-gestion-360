@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useTaxes, type Tax } from '@/lib/api/catalog/taxes';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
 import { ApiError } from '@/lib/api/http-client';
@@ -8,9 +8,14 @@ import { TaxesTable } from '@/components/catalogo/taxes-table';
 import { TaxSheet } from '@/components/catalogo/tax-sheet';
 import { Button } from '@/components/ui/button';
 
-export default function ImpuestosPage({ params }: { params: { companyId: string } }) {
-  const taxes = useTaxes(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function ImpuestosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const taxes = useTaxes(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -38,7 +43,7 @@ export default function ImpuestosPage({ params }: { params: { companyId: string 
   return (
     <div className="space-y-4">
       <TaxesTable
-        companyId={params.companyId}
+        companyId={companyId}
         taxes={taxes.data ?? []}
         canManage={canManage}
         onEdit={(tax) => setSheetTarget({ open: true, tax })}
@@ -52,7 +57,7 @@ export default function ImpuestosPage({ params }: { params: { companyId: string 
       />
 
       <TaxSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         tax={sheetTarget.tax}

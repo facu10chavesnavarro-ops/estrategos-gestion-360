@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,16 +10,17 @@ export default function CatalogoLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
 
   const tabs = [
-    { href: `/${params.companyId}/catalogo/productos`, label: 'Productos' },
-    { href: `/${params.companyId}/catalogo/servicios`, label: 'Servicios' },
-    { href: `/${params.companyId}/catalogo/categorias`, label: 'Categorías' },
-    { href: `/${params.companyId}/catalogo/impuestos`, label: 'Impuestos' },
-    { href: `/${params.companyId}/catalogo/listas-de-precio`, label: 'Listas de precio' },
+    { href: `/${companyId}/catalogo/productos`, label: 'Productos' },
+    { href: `/${companyId}/catalogo/servicios`, label: 'Servicios' },
+    { href: `/${companyId}/catalogo/categorias`, label: 'Categorías' },
+    { href: `/${companyId}/catalogo/impuestos`, label: 'Impuestos' },
+    { href: `/${companyId}/catalogo/listas-de-precio`, label: 'Listas de precio' },
   ];
 
   return (

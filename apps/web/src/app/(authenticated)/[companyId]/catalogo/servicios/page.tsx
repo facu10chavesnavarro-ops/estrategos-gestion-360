@@ -1,5 +1,10 @@
 import { ItemsPageContent } from '@/components/catalogo/items-page-content';
 
-export default function ServiciosPage({ params }: { params: { companyId: string } }) {
-  return <ItemsPageContent companyId={params.companyId} type="SERVICE" />;
+export default async function ServiciosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = await params;
+  return <ItemsPageContent companyId={companyId} type="SERVICE" />;
 }

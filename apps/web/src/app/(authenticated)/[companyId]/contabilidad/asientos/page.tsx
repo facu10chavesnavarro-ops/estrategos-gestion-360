@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useJournalEntries,
@@ -24,10 +24,15 @@ import {
 type OriginFilter = 'all' | JournalEntryOrigin;
 
 /** Libro Diario / listado de asientos (F8 §5.4). */
-export default function AsientosPage({ params }: { params: { companyId: string } }) {
+export default function AsientosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
-  const settings = useAccountingSettings(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const settings = useAccountingSettings(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -37,15 +42,15 @@ export default function AsientosPage({ params }: { params: { companyId: string }
   const [to, setTo] = useState('');
   const [origin, setOrigin] = useState<OriginFilter>('all');
 
-  const entries = useJournalEntries(params.companyId, { from: from || undefined, to: to || undefined });
-  const allEntries = useAllJournalEntries(params.companyId);
+  const entries = useJournalEntries(companyId, { from: from || undefined, to: to || undefined });
+  const allEntries = useAllJournalEntries(companyId);
 
   if (settings.isLoading || membershipLoading) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
 
   if (!settings.isSuccess) {
-    return <AccountingActivationCard companyId={params.companyId} canManage={canManage} />;
+    return <AccountingActivationCard companyId={companyId} canManage={canManage} />;
   }
 
   if (entries.isLoading) {
@@ -58,7 +63,7 @@ export default function AsientosPage({ params }: { params: { companyId: string }
 
   return (
     <JournalEntriesTable
-      companyId={params.companyId}
+      companyId={companyId}
       entries={filtered}
       allEntries={allEntries.data ?? []}
       toolbar={
@@ -88,7 +93,7 @@ export default function AsientosPage({ params }: { params: { companyId: string }
             </SelectContent>
           </Select>
           {canManage && (
-            <Button onClick={() => router.push(`/${params.companyId}/contabilidad/asientos/nuevo`)}>
+            <Button onClick={() => router.push(`/${companyId}/contabilidad/asientos/nuevo`)}>
               + Nuevo asiento
             </Button>
           )}

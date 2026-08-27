@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   useAllCashRegisters,
@@ -26,12 +26,17 @@ import {
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 /** Vista general + listado de cajas (F7 §5.1). */
-export default function CajaPage({ params }: { params: { companyId: string } }) {
+export default function CajaPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
-  const { cashRegisters, isLoading } = useAllCashRegisters(params.companyId);
-  const { openSessions, isLoading: sessionsLoading } = useOpenCashSessions(params.companyId);
-  const { totalCash, isLoading: overviewLoading } = useCashBankOverview(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { cashRegisters, isLoading } = useAllCashRegisters(companyId);
+  const { openSessions, isLoading: sessionsLoading } = useOpenCashSessions(companyId);
+  const { totalCash, isLoading: overviewLoading } = useCashBankOverview(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -72,7 +77,7 @@ export default function CajaPage({ params }: { params: { companyId: string } }) 
       </div>
 
       <CashRegistersTable
-        companyId={params.companyId}
+        companyId={companyId}
         cashRegisters={filtered}
         openRegisterIds={openRegisterIds}
         canManage={canManage}
@@ -106,19 +111,19 @@ export default function CajaPage({ params }: { params: { companyId: string } }) 
       />
 
       <CashRegisterSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         cashRegister={sheetTarget.cashRegister}
       />
 
       <OpenSessionDialog
-        companyId={params.companyId}
+        companyId={companyId}
         open={openSessionDialog}
         onOpenChange={setOpenSessionDialog}
         cashRegisters={registersWithoutSession}
         onOpened={(sessionId, cashRegisterId) =>
-          router.push(`/${params.companyId}/caja-bancos/caja/${cashRegisterId}/sesiones/${sessionId}`)
+          router.push(`/${companyId}/caja-bancos/caja/${cashRegisterId}/sesiones/${sessionId}`)
         }
       />
     </div>

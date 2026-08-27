@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import {
   useAccountLedger,
@@ -26,11 +26,12 @@ const TYPE_LABELS: Record<string, string> = {
 export default function ChartOfAccountDetailPage({
   params,
 }: {
-  params: { companyId: string; accountId: string };
+  params: Promise<{ companyId: string; accountId: string }>;
 }) {
-  const ledger = useAccountLedger(params.companyId, params.accountId);
-  const accounts = useChartOfAccounts(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { companyId, accountId } = use(params);
+  const ledger = useAccountLedger(companyId, accountId);
+  const accounts = useChartOfAccounts(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -79,7 +80,7 @@ export default function ChartOfAccountDetailPage({
           <ActiveStatusBadge isActive={account.isActive} />
           {parent && (
             <Link
-              href={`/${params.companyId}/contabilidad/plan-de-cuentas/${parent.id}`}
+              href={`/${companyId}/contabilidad/plan-de-cuentas/${parent.id}`}
               className="text-sm text-muted-foreground hover:underline"
             >
               Padre: {parent.code} — {parent.name}
@@ -90,11 +91,11 @@ export default function ChartOfAccountDetailPage({
 
       <div>
         <h2 className="mb-2 text-sm font-medium text-muted-foreground">Libro Mayor</h2>
-        <AccountLedgerTable companyId={params.companyId} movements={movements} />
+        <AccountLedgerTable companyId={companyId} movements={movements} />
       </div>
 
       <ChartOfAccountSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         accounts={accounts.data ?? []}

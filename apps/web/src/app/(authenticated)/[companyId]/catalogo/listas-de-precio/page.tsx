@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { usePriceLists, type PriceList } from '@/lib/api/catalog/price-lists';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
 import { ApiError } from '@/lib/api/http-client';
@@ -8,9 +8,14 @@ import { PriceListsTable } from '@/components/catalogo/price-lists-table';
 import { PriceListSheet } from '@/components/catalogo/price-list-sheet';
 import { Button } from '@/components/ui/button';
 
-export default function ListasDePrecioPage({ params }: { params: { companyId: string } }) {
-  const priceLists = usePriceLists(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function ListasDePrecioPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const priceLists = usePriceLists(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -42,7 +47,7 @@ export default function ListasDePrecioPage({ params }: { params: { companyId: st
   return (
     <div className="space-y-4">
       <PriceListsTable
-        companyId={params.companyId}
+        companyId={companyId}
         priceLists={priceLists.data ?? []}
         canManage={canManage}
         onEdit={(priceList) => setSheetTarget({ open: true, priceList })}
@@ -56,7 +61,7 @@ export default function ListasDePrecioPage({ params }: { params: { companyId: st
       />
 
       <PriceListSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         priceList={sheetTarget.priceList}

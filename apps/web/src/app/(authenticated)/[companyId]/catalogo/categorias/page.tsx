@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useCategories, type Category } from '@/lib/api/catalog/categories';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
 import { ApiError } from '@/lib/api/http-client';
@@ -8,9 +8,14 @@ import { CategoryTree } from '@/components/catalogo/category-tree';
 import { CategorySheet } from '@/components/catalogo/category-sheet';
 import { Button } from '@/components/ui/button';
 
-export default function CategoriasPage({ params }: { params: { companyId: string } }) {
-  const categories = useCategories(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function CategoriasPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const categories = useCategories(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -50,7 +55,7 @@ export default function CategoriasPage({ params }: { params: { companyId: string
       )}
 
       <CategoryTree
-        companyId={params.companyId}
+        companyId={companyId}
         categories={categories.data ?? []}
         canManage={canManage}
         onEdit={(category) => setSheetTarget({ open: true, category })}
@@ -58,7 +63,7 @@ export default function CategoriasPage({ params }: { params: { companyId: string
       />
 
       <CategorySheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         categories={categories.data ?? []}

@@ -16,8 +16,8 @@ function baseCookieOptions() {
   };
 }
 
-export function setSessionCookies(accessToken: string, refreshToken: string) {
-  const store = cookies();
+export async function setSessionCookies(accessToken: string, refreshToken: string) {
+  const store = await cookies();
   store.set(ACCESS_TOKEN_COOKIE, accessToken, {
     ...baseCookieOptions(),
     maxAge: ACCESS_TOKEN_MAX_AGE,
@@ -28,16 +28,18 @@ export function setSessionCookies(accessToken: string, refreshToken: string) {
   });
 }
 
-export function clearSessionCookies() {
-  const store = cookies();
+export async function clearSessionCookies() {
+  const store = await cookies();
   store.delete(ACCESS_TOKEN_COOKIE);
   store.delete(REFRESH_TOKEN_COOKIE);
 }
 
-export function getAccessToken(): string | undefined {
-  return cookies().get(ACCESS_TOKEN_COOKIE)?.value;
+export async function getAccessToken(): Promise<string | undefined> {
+  const store = await cookies();
+  return store.get(ACCESS_TOKEN_COOKIE)?.value;
 }
 
-export function getRefreshToken(): string | undefined {
-  return cookies().get(REFRESH_TOKEN_COOKIE)?.value;
+export async function getRefreshToken(): Promise<string | undefined> {
+  const store = await cookies();
+  return store.get(REFRESH_TOKEN_COOKIE)?.value;
 }

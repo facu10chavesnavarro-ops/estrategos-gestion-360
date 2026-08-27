@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,14 +10,15 @@ export default function CajaBancosLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
 
-  const isBancos = pathname.startsWith(`/${params.companyId}/caja-bancos/bancos`);
+  const isBancos = pathname.startsWith(`/${companyId}/caja-bancos/bancos`);
   const tabs = [
-    { href: `/${params.companyId}/caja-bancos/caja`, label: 'Caja', active: !isBancos },
-    { href: `/${params.companyId}/caja-bancos/bancos`, label: 'Bancos', active: isBancos },
+    { href: `/${companyId}/caja-bancos/caja`, label: 'Caja', active: !isBancos },
+    { href: `/${companyId}/caja-bancos/bancos`, label: 'Bancos', active: isBancos },
   ];
 
   return (

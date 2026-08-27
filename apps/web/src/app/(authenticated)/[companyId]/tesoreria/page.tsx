@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTreasuryOverview } from '@/lib/api/treasury/overview';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -7,10 +8,15 @@ import { formatMoney } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default function TesoreriaOverviewPage({ params }: { params: { companyId: string } }) {
+export default function TesoreriaOverviewPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
-  const { totalReceivable, totalPayable, isLoading } = useTreasuryOverview(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { totalReceivable, totalPayable, isLoading } = useTreasuryOverview(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -47,13 +53,13 @@ export default function TesoreriaOverviewPage({ params }: { params: { companyId:
 
       {canManage && (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => router.push(`/${params.companyId}/tesoreria/nuevo/cobro`)}>
+          <Button onClick={() => router.push(`/${companyId}/tesoreria/nuevo/cobro`)}>
             + Nuevo cobro
           </Button>
-          <Button variant="outline" onClick={() => router.push(`/${params.companyId}/tesoreria/nuevo/pago`)}>
+          <Button variant="outline" onClick={() => router.push(`/${companyId}/tesoreria/nuevo/pago`)}>
             + Nuevo pago
           </Button>
-          <Button variant="outline" onClick={() => router.push(`/${params.companyId}/caja-bancos/caja`)}>
+          <Button variant="outline" onClick={() => router.push(`/${companyId}/caja-bancos/caja`)}>
             Ir a Caja y Bancos
           </Button>
         </div>

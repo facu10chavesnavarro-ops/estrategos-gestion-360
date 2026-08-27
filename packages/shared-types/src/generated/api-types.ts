@@ -15,7 +15,7 @@ export interface paths {
         put?: never;
         /**
          * Iniciar sesión
-         * @description Devuelve un access token (corta duración) y un refresh token (rotable) junto con los datos básicos del usuario. No requiere X-Company-Id: la selección de empresa es un paso posterior, vía GET /companies para listar las empresas del usuario.
+         * @description Devuelve un access token (corta duración) y un refresh token (rotable) junto con los datos básicos del usuario. No requiere X-Company-Id: la selección de empresa es un paso posterior, vía GET /companies para listar las empresas del usuario. Limitado a 5 intentos cada 15 minutos por IP (auditoría de seguridad, hallazgo A2) para mitigar fuerza bruta / credential stuffing.
          */
         post: operations["AuthController_login"];
         delete?: never;
@@ -50,7 +50,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * @description M01 del documento fuente: "cierre de sesión". Público como /refresh —
+         * M01 del documento fuente: "cierre de sesión". Público como /refresh —
          *     el access token puede haber expirado ya cuando el usuario cierra sesión.
          *     Siempre devuelve 200: para quien llama, "cerrar sesión" con un token
          *     viejo o inválido no es un error, es el resultado que ya buscaba.
@@ -89,10 +89,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /**
-         * Listar las empresas a las que accede el usuario autenticado
-         * @description GET /me/companies — empresas autorizadas del usuario logueado.
-         */
+        /** Listar las empresas a las que accede el usuario autenticado */
         get: operations["CompaniesController_listMyCompanies"];
         put?: never;
         post?: never;
@@ -111,10 +108,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Crear una empresa nueva dentro del tenant del usuario
-         * @description POST /companies — RN-EMP-03: requiere rol de tenant, no pasa por CompanyContextGuard (la empresa aún no existe).
-         */
+        /** Crear una empresa nueva dentro del tenant del usuario */
         post: operations["CompaniesController_create"];
         delete?: never;
         options?: never;
@@ -1697,6 +1691,7 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         LoginRequestDto: {
+            /** Format: email */
             email: string;
             password: string;
         };
@@ -1712,6 +1707,7 @@ export interface components {
             activity?: string;
             address?: string;
             contactName?: string;
+            /** Format: email */
             contactEmail?: string;
             contactPhone?: string;
             logoUrl?: string;
@@ -1725,6 +1721,7 @@ export interface components {
             activity?: string;
             address?: string;
             contactName?: string;
+            /** Format: email */
             contactEmail?: string;
             contactPhone?: string;
             logoUrl?: string;
@@ -1751,6 +1748,7 @@ export interface components {
             roleId: string;
         };
         CreateInvitationRequestDto: {
+            /** Format: email */
             email: string;
             roleId: string;
         };
@@ -1763,6 +1761,7 @@ export interface components {
             legalName: string;
             taxId?: string;
             taxCondition?: string;
+            /** Format: email */
             email?: string;
             phone?: string;
             address?: string;
@@ -1775,6 +1774,7 @@ export interface components {
             legalName?: string;
             taxId?: string;
             taxCondition?: string;
+            /** Format: email */
             email?: string;
             phone?: string;
             address?: string;
@@ -1793,6 +1793,7 @@ export interface components {
             legalName: string;
             taxId?: string;
             taxCondition?: string;
+            /** Format: email */
             email?: string;
             phone?: string;
             address?: string;
@@ -1807,6 +1808,7 @@ export interface components {
             legalName?: string;
             taxId?: string;
             taxCondition?: string;
+            /** Format: email */
             email?: string;
             phone?: string;
             address?: string;
@@ -2105,6 +2107,13 @@ export interface operations {
             };
             /** @description Credenciales inválidas o usuario inactivo. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Demasiados intentos — reintentar más tarde. */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2653,9 +2662,9 @@ export interface operations {
     };
     CustomersController_list: {
         parameters: {
-            query: {
-                search: string;
-                isActive: string;
+            query?: {
+                search?: string;
+                isActive?: string;
             };
             header?: never;
             path: {
@@ -2819,9 +2828,9 @@ export interface operations {
     };
     SuppliersController_list: {
         parameters: {
-            query: {
-                search: string;
-                isActive: string;
+            query?: {
+                search?: string;
+                isActive?: string;
             };
             header?: never;
             path: {
@@ -2985,8 +2994,8 @@ export interface operations {
     };
     CategoriesController_list: {
         parameters: {
-            query: {
-                isActive: string;
+            query?: {
+                isActive?: string;
             };
             header?: never;
             path: {
@@ -3125,11 +3134,11 @@ export interface operations {
     };
     ItemsController_list: {
         parameters: {
-            query: {
-                type: string;
-                categoryId: string;
-                isActive: string;
-                search: string;
+            query?: {
+                type?: string;
+                categoryId?: string;
+                isActive?: string;
+                search?: string;
             };
             header?: never;
             path: {
@@ -3176,11 +3185,11 @@ export interface operations {
     };
     ItemsController_export: {
         parameters: {
-            query: {
-                type: string;
-                categoryId: string;
-                isActive: string;
-                search: string;
+            query?: {
+                type?: string;
+                categoryId?: string;
+                isActive?: string;
+                search?: string;
             };
             header?: never;
             path: {
@@ -3317,8 +3326,8 @@ export interface operations {
     };
     TaxesController_list: {
         parameters: {
-            query: {
-                onlyCurrentlyValid: string;
+            query?: {
+                onlyCurrentlyValid?: string;
             };
             header?: never;
             path: {
@@ -3413,8 +3422,8 @@ export interface operations {
     };
     PriceListsController_list: {
         parameters: {
-            query: {
-                isActive: string;
+            query?: {
+                isActive?: string;
             };
             header?: never;
             path: {
@@ -3741,8 +3750,8 @@ export interface operations {
     };
     StockController_listStock: {
         parameters: {
-            query: {
-                itemId: string;
+            query?: {
+                itemId?: string;
             };
             header?: never;
             path: {
@@ -3765,11 +3774,11 @@ export interface operations {
     };
     StockController_listStockMovements: {
         parameters: {
-            query: {
-                itemId: string;
-                type: string;
-                from: string;
-                to: string;
+            query?: {
+                itemId?: string;
+                type?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {
@@ -4002,11 +4011,11 @@ export interface operations {
     };
     VouchersController_list: {
         parameters: {
-            query: {
-                partyId: string;
-                voucherTypeId: string;
-                from: string;
-                to: string;
+            query?: {
+                partyId?: string;
+                voucherTypeId?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {
@@ -4094,11 +4103,11 @@ export interface operations {
     };
     PaymentsController_list: {
         parameters: {
-            query: {
-                partyId: string;
-                direction: string;
-                from: string;
-                to: string;
+            query?: {
+                partyId?: string;
+                direction?: string;
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {
@@ -4659,8 +4668,8 @@ export interface operations {
     };
     ChartOfAccountsController_list: {
         parameters: {
-            query: {
-                isActive: string;
+            query?: {
+                isActive?: string;
             };
             header?: never;
             path: {
@@ -4934,9 +4943,9 @@ export interface operations {
     };
     JournalEntriesController_list: {
         parameters: {
-            query: {
-                from: string;
-                to: string;
+            query?: {
+                from?: string;
+                to?: string;
             };
             header?: never;
             path: {

@@ -94,7 +94,7 @@ export function PaymentForm({
   // Una clave por intento de envío (RN-PAY-11 en el backend) — se genera
   // una sola vez al montar el formulario y se reutiliza en cualquier
   // reintento de ESE mismo intento, nunca en un envío nuevo.
-  const idempotencyKeyRef = useRef<string>();
+  const idempotencyKeyRef = useRef<string | undefined>(undefined);
   if (!idempotencyKeyRef.current) {
     idempotencyKeyRef.current = crypto.randomUUID();
   }

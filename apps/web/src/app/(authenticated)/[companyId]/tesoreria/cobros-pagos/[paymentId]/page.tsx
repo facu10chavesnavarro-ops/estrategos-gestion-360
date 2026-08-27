@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { usePayment } from '@/lib/api/treasury/payments';
@@ -28,21 +29,22 @@ const DIRECTION_LABEL: Record<'COLLECTION' | 'PAYMENT', string> = {
 export default function PaymentDetailPage({
   params,
 }: {
-  params: { companyId: string; paymentId: string };
+  params: Promise<{ companyId: string; paymentId: string }>;
 }) {
-  const payment = usePayment(params.companyId, params.paymentId);
+  const { companyId, paymentId } = use(params);
+  const payment = usePayment(companyId, paymentId);
   const paymentMethods = usePaymentMethods();
-  const customers = useCustomers(params.companyId, {});
-  const suppliers = useSuppliers(params.companyId, {});
+  const customers = useCustomers(companyId, {});
+  const suppliers = useSuppliers(companyId, {});
   const partyId = payment.data?.partyId;
   const vouchers = useVouchers(
-    params.companyId,
+    companyId,
     { partyId },
     { enabled: Boolean(partyId) },
   );
   const voucherTypes = useVoucherTypes();
-  const journalEntries = useAllJournalEntries(params.companyId);
-  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'PAYMENT', params.paymentId);
+  const journalEntries = useAllJournalEntries(companyId);
+  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'PAYMENT', paymentId);
 
   const isLoading =
     payment.isLoading ||
@@ -60,7 +62,7 @@ export default function PaymentDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Este cobro/pago no existe.</p>
-        <Link href={`/${params.companyId}/tesoreria/cobros-pagos`} className="text-sm underline">
+        <Link href={`/${companyId}/tesoreria/cobros-pagos`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -71,9 +73,9 @@ export default function PaymentDetailPage({
   const customer = (customers.data ?? []).find((c) => c.partyId === p.partyId);
   const supplier = (suppliers.data ?? []).find((s) => s.partyId === p.partyId);
   const partyHref = customer
-    ? `/${params.companyId}/clientes/${customer.id}`
+    ? `/${companyId}/clientes/${customer.id}`
     : supplier
-      ? `/${params.companyId}/proveedores/${supplier.id}`
+      ? `/${companyId}/proveedores/${supplier.id}`
       : undefined;
   const partyName = customer?.legalName ?? supplier?.legalName ?? p.partyId;
 
@@ -84,7 +86,7 @@ export default function PaymentDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/tesoreria/cobros-pagos`}
+        href={`/${companyId}/tesoreria/cobros-pagos`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -103,7 +105,7 @@ export default function PaymentDetailPage({
         </h1>
         {journalEntry && (
           <Link
-            href={`/${params.companyId}/contabilidad/asientos/${journalEntry.id}`}
+            href={`/${companyId}/contabilidad/asientos/${journalEntry.id}`}
             className="text-sm text-primary hover:underline"
           >
             Ver asiento contable →
@@ -179,7 +181,7 @@ export default function PaymentDetailPage({
                       <TableRow key={allocation.voucherId}>
                         <TableCell>
                           <Link
-                            href={`/${params.companyId}/comprobantes/${allocation.voucherId}`}
+                            href={`/${companyId}/comprobantes/${allocation.voucherId}`}
                             className="hover:underline"
                           >
                             {voucherType?.code ?? '—'} N.º {voucher?.number ?? '—'}

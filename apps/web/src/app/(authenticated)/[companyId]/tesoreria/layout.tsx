@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,15 +10,16 @@ export default function TesoreriaLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
 
-  const isOverview = pathname === `/${params.companyId}/tesoreria`;
+  const isOverview = pathname === `/${companyId}/tesoreria`;
   const tabs = [
-    { href: `/${params.companyId}/tesoreria`, label: 'Vista general', active: isOverview },
+    { href: `/${companyId}/tesoreria`, label: 'Vista general', active: isOverview },
     {
-      href: `/${params.companyId}/tesoreria/cobros-pagos`,
+      href: `/${companyId}/tesoreria/cobros-pagos`,
       label: 'Cobros y pagos',
       active: !isOverview,
     },

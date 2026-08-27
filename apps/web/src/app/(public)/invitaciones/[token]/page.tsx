@@ -12,13 +12,14 @@ const STATUS_MESSAGE: Record<Exclude<InvitationPreview['status'], 'pending'>, st
 export default async function AcceptInvitationPage({
   params,
 }: {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }) {
+  const { token } = await params;
   let preview: InvitationPreview | null = null;
   let loadError: string | null = null;
 
   try {
-    preview = await fetchInvitationPreview(params.token);
+    preview = await fetchInvitationPreview(token);
   } catch (err) {
     loadError =
       err instanceof ApiError && err.status === 404
@@ -44,7 +45,7 @@ export default async function AcceptInvitationPage({
             Te invitaron a sumarte a <strong className="text-foreground">{preview.companyName}</strong>{' '}
             como <strong className="text-foreground">{preview.roleName}</strong>.
           </p>
-          <AcceptInvitationForm token={params.token} />
+          <AcceptInvitationForm token={token} />
         </>
       )}
     </LedgerAuthLayout>

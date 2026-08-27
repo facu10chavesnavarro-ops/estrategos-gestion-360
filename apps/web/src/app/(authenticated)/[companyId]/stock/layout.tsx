@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,15 +10,16 @@ export default function StockLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
 
   const tabs = [
-    { href: `/${params.companyId}/stock/general`, label: 'Vista general' },
-    { href: `/${params.companyId}/stock/productos`, label: 'Por producto' },
-    { href: `/${params.companyId}/stock/depositos`, label: 'Depósitos' },
-    { href: `/${params.companyId}/stock/transferencias`, label: 'Transferencias' },
+    { href: `/${companyId}/stock/general`, label: 'Vista general' },
+    { href: `/${companyId}/stock/productos`, label: 'Por producto' },
+    { href: `/${companyId}/stock/depositos`, label: 'Depósitos' },
+    { href: `/${companyId}/stock/transferencias`, label: 'Transferencias' },
   ];
 
   return (

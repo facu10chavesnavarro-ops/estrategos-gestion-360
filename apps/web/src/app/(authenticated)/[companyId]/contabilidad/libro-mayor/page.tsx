@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAccountLedger } from '@/lib/api/accounting/chart-of-accounts';
 import { useAccountingSettings } from '@/lib/api/accounting/settings';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -11,23 +11,28 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 
 /** Libro Mayor como destino propio: elegir cuenta → ver movimientos (F8 §4). */
-export default function LibroMayorPage({ params }: { params: { companyId: string } }) {
-  const settings = useAccountingSettings(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function LibroMayorPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const settings = useAccountingSettings(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
       : false;
 
   const [accountId, setAccountId] = useState<string | null>(null);
-  const ledger = useAccountLedger(params.companyId, accountId ?? '');
+  const ledger = useAccountLedger(companyId, accountId ?? '');
 
   if (settings.isLoading || membershipLoading) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
 
   if (!settings.isSuccess) {
-    return <AccountingActivationCard companyId={params.companyId} canManage={canManage} />;
+    return <AccountingActivationCard companyId={companyId} canManage={canManage} />;
   }
 
   return (
@@ -38,7 +43,7 @@ export default function LibroMayorPage({ params }: { params: { companyId: string
         </CardHeader>
         <CardContent className="grid gap-2 sm:max-w-sm">
           <Label>Cuenta imputable</Label>
-          <AccountSelect companyId={params.companyId} value={accountId} onChange={setAccountId} />
+          <AccountSelect companyId={companyId} value={accountId} onChange={setAccountId} />
         </CardContent>
       </Card>
 
@@ -47,7 +52,7 @@ export default function LibroMayorPage({ params }: { params: { companyId: string
           {ledger.isLoading ? (
             <p className="text-sm text-muted-foreground">Cargando…</p>
           ) : ledger.data ? (
-            <AccountLedgerTable companyId={params.companyId} movements={ledger.data.movements} />
+            <AccountLedgerTable companyId={companyId} movements={ledger.data.movements} />
           ) : null}
         </div>
       )}

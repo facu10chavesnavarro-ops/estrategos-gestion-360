@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,10 +10,11 @@ export default function ContabilidadLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
-  const base = `/${params.companyId}/contabilidad`;
+  const base = `/${companyId}/contabilidad`;
 
   const tabs = [
     { href: `${base}/plan-de-cuentas`, label: 'Plan de Cuentas', match: 'plan-de-cuentas' },

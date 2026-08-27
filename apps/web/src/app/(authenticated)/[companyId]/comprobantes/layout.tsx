@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -9,15 +10,16 @@ export default function ComprobantesLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
+  const { companyId } = use(params);
   const pathname = usePathname();
-  const isPuntosDeVenta = pathname.startsWith(`/${params.companyId}/comprobantes/puntos-de-venta`);
+  const isPuntosDeVenta = pathname.startsWith(`/${companyId}/comprobantes/puntos-de-venta`);
 
   const tabs = [
-    { href: `/${params.companyId}/comprobantes`, label: 'Comprobantes', active: !isPuntosDeVenta },
+    { href: `/${companyId}/comprobantes`, label: 'Comprobantes', active: !isPuntosDeVenta },
     {
-      href: `/${params.companyId}/comprobantes/puntos-de-venta`,
+      href: `/${companyId}/comprobantes/puntos-de-venta`,
       label: 'Puntos de venta',
       active: isPuntosDeVenta,
     },

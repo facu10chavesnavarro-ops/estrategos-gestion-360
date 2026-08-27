@@ -1,9 +1,10 @@
 import { ItemDetailContent } from '@/components/catalogo/item-detail-content';
 
-export default function ServicioDetailPage({
+export default async function ServicioDetailPage({
   params,
 }: {
-  params: { companyId: string; itemId: string };
+  params: Promise<{ companyId: string; itemId: string }>;
 }) {
-  return <ItemDetailContent companyId={params.companyId} itemId={params.itemId} type="SERVICE" />;
+  const { companyId, itemId } = await params;
+  return <ItemDetailContent companyId={companyId} itemId={itemId} type="SERVICE" />;
 }

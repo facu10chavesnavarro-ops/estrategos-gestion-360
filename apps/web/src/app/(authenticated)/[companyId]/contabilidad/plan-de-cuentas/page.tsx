@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useChartOfAccounts, type ChartOfAccount } from '@/lib/api/accounting/chart-of-accounts';
 import { useAccountingSettings } from '@/lib/api/accounting/settings';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -11,10 +11,15 @@ import { ChartOfAccountSheet } from '@/components/contabilidad/chart-of-account-
 import { Button } from '@/components/ui/button';
 
 /** Plan de Cuentas: árbol, alta/edición/activar/desactivar (F8 §5.2). */
-export default function PlanDeCuentasPage({ params }: { params: { companyId: string } }) {
-  const settings = useAccountingSettings(params.companyId);
-  const accounts = useChartOfAccounts(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function PlanDeCuentasPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const settings = useAccountingSettings(companyId);
+  const accounts = useChartOfAccounts(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -31,7 +36,7 @@ export default function PlanDeCuentasPage({ params }: { params: { companyId: str
   }
 
   if (!settings.isSuccess) {
-    return <AccountingActivationCard companyId={params.companyId} canManage={canManage} />;
+    return <AccountingActivationCard companyId={companyId} canManage={canManage} />;
   }
 
   if (accounts.isLoading) {
@@ -62,7 +67,7 @@ export default function PlanDeCuentasPage({ params }: { params: { companyId: str
       )}
 
       <ChartOfAccountsTree
-        companyId={params.companyId}
+        companyId={companyId}
         accounts={accounts.data ?? []}
         canManage={canManage}
         onEdit={(account) => setSheetTarget({ open: true, account })}
@@ -70,7 +75,7 @@ export default function PlanDeCuentasPage({ params }: { params: { companyId: str
       />
 
       <ChartOfAccountSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         accounts={accounts.data ?? []}

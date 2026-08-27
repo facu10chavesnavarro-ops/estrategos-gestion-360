@@ -4,7 +4,7 @@ import { clearSessionCookies, getRefreshToken } from '@/lib/auth/cookies';
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export async function POST() {
-  const refreshToken = getRefreshToken();
+  const refreshToken = await getRefreshToken();
 
   if (refreshToken) {
     // Best-effort: el backend siempre responde 200 (ver auth.controller.ts),
@@ -17,6 +17,6 @@ export async function POST() {
     }).catch(() => undefined);
   }
 
-  clearSessionCookies();
+  await clearSessionCookies();
   return NextResponse.json({ success: true });
 }

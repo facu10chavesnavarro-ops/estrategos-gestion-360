@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useItems } from '@/lib/api/catalog/items';
@@ -14,12 +15,17 @@ import {
 
 /** Stock por producto (F4 §5.2): elegir un ítem que controla stock y ver
  * su detalle en todos los depósitos — reutiliza ItemStockPanel de F3. */
-export default function StockPorProductoPage({ params }: { params: { companyId: string } }) {
+export default function StockPorProductoPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
   const itemId = searchParams.get('itemId') ?? '';
 
-  const items = useItems(params.companyId, { type: 'PRODUCT', isActive: true });
+  const items = useItems(companyId, { type: 'PRODUCT', isActive: true });
   const stockItems = (items.data ?? []).filter((i) => i.tracksStock);
   const selected = stockItems.find((i) => i.id === itemId);
 
@@ -53,13 +59,13 @@ export default function StockPorProductoPage({ params }: { params: { companyId: 
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold">{selected.name}</h2>
             <Link
-              href={`/${params.companyId}/catalogo/productos/${selected.id}`}
+              href={`/${companyId}/catalogo/productos/${selected.id}`}
               className="text-sm underline"
             >
               Ver ficha del producto
             </Link>
           </div>
-          <ItemStockPanel companyId={params.companyId} itemId={selected.id} />
+          <ItemStockPanel companyId={companyId} itemId={selected.id} />
         </div>
       )}
     </div>

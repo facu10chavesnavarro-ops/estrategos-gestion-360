@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { useCustomer, useCustomerCurrentAccount } from '@/lib/api/customers';
@@ -25,11 +25,12 @@ function Field({ label, value }: { label: string; value: string | number | null 
 export default function CustomerDetailPage({
   params,
 }: {
-  params: { companyId: string; customerId: string };
+  params: Promise<{ companyId: string; customerId: string }>;
 }) {
-  const customer = useCustomer(params.companyId, params.customerId);
-  const currentAccount = useCustomerCurrentAccount(params.companyId, params.customerId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { companyId, customerId } = use(params);
+  const customer = useCustomer(companyId, customerId);
+  const currentAccount = useCustomerCurrentAccount(companyId, customerId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
   const [editOpen, setEditOpen] = useState(false);
 
@@ -45,7 +46,7 @@ export default function CustomerDetailPage({
             ? customer.error.message
             : 'No se pudo cargar el cliente.'}
         </p>
-        <Link href={`/${params.companyId}/clientes`} className="text-sm underline">
+        <Link href={`/${companyId}/clientes`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -57,7 +58,7 @@ export default function CustomerDetailPage({
   return (
     <div className="space-y-4 p-6">
       <Link
-        href={`/${params.companyId}/clientes`}
+        href={`/${companyId}/clientes`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -92,7 +93,7 @@ export default function CustomerDetailPage({
       </Card>
 
       <PendingVouchersPanel
-        companyId={params.companyId}
+        companyId={companyId}
         partyId={data.partyId}
         flow="SALE"
         paymentTermDays={data.paymentTermDays}
@@ -100,13 +101,13 @@ export default function CustomerDetailPage({
       />
 
       <CurrentAccountPanel
-        companyId={params.companyId}
+        companyId={companyId}
         account={currentAccount.data}
         isLoading={currentAccount.isLoading}
       />
 
       <CustomerSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         customer={data}

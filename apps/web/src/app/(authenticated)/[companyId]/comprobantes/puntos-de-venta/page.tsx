@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAllPointsOfSale, type PointOfSaleWithBranch } from '@/lib/api/vouchers/point-of-sale';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
 import { PointsOfSaleTable } from '@/components/comprobantes/points-of-sale-table';
@@ -16,9 +16,14 @@ import {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-export default function PuntosDeVentaPage({ params }: { params: { companyId: string } }) {
-  const { pointsOfSale, isLoading } = useAllPointsOfSale(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function PuntosDeVentaPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const { pointsOfSale, isLoading } = useAllPointsOfSale(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -42,7 +47,7 @@ export default function PuntosDeVentaPage({ params }: { params: { companyId: str
   return (
     <div className="space-y-4">
       <PointsOfSaleTable
-        companyId={params.companyId}
+        companyId={companyId}
         pointsOfSale={filtered}
         canManage={canManage}
         onEdit={(pointOfSale) => setSheetTarget({ open: true, pointOfSale })}
@@ -68,7 +73,7 @@ export default function PuntosDeVentaPage({ params }: { params: { companyId: str
       />
 
       <PointOfSaleSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         pointOfSale={sheetTarget.pointOfSale}

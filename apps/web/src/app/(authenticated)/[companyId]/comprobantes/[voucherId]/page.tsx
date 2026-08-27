@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -29,21 +30,22 @@ import {
 export default function VoucherDetailPage({
   params,
 }: {
-  params: { companyId: string; voucherId: string };
+  params: Promise<{ companyId: string; voucherId: string }>;
 }) {
+  const { companyId, voucherId } = use(params);
   const router = useRouter();
-  const voucher = useVoucher(params.companyId, params.voucherId);
+  const voucher = useVoucher(companyId, voucherId);
   const voucherTypes = useVoucherTypes();
-  const { pointsOfSale } = useAllPointsOfSale(params.companyId);
-  const { warehouses } = useAllWarehouses(params.companyId);
-  const customers = useCustomers(params.companyId, {});
-  const suppliers = useSuppliers(params.companyId, {});
-  const items = useItems(params.companyId, {});
-  const taxes = useTaxes(params.companyId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { pointsOfSale } = useAllPointsOfSale(companyId);
+  const { warehouses } = useAllWarehouses(companyId);
+  const customers = useCustomers(companyId, {});
+  const suppliers = useSuppliers(companyId, {});
+  const items = useItems(companyId, {});
+  const taxes = useTaxes(companyId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
-  const journalEntries = useAllJournalEntries(params.companyId);
-  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'VOUCHER', params.voucherId);
+  const journalEntries = useAllJournalEntries(companyId);
+  const journalEntry = findJournalEntryBySource(journalEntries.data ?? [], 'VOUCHER', voucherId);
 
   const isLoading =
     voucher.isLoading ||
@@ -61,7 +63,7 @@ export default function VoucherDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Este comprobante no existe.</p>
-        <Link href={`/${params.companyId}/comprobantes`} className="text-sm underline">
+        <Link href={`/${companyId}/comprobantes`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -78,9 +80,9 @@ export default function VoucherDetailPage({
   const taxById = new Map((taxes.data ?? []).map((t) => [t.id, t]));
 
   const partyHref = customer
-    ? `/${params.companyId}/clientes/${customer.id}`
+    ? `/${companyId}/clientes/${customer.id}`
     : supplier
-      ? `/${params.companyId}/proveedores/${supplier.id}`
+      ? `/${companyId}/proveedores/${supplier.id}`
       : undefined;
   const partyName = customer?.legalName ?? supplier?.legalName ?? v.partyId;
 
@@ -89,7 +91,7 @@ export default function VoucherDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/comprobantes`}
+        href={`/${companyId}/comprobantes`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -104,7 +106,7 @@ export default function VoucherDetailPage({
           {voucherType?.isCreditNote && <Badge variant="secondary">Nota de Crédito</Badge>}
           {journalEntry && (
             <Link
-              href={`/${params.companyId}/contabilidad/asientos/${journalEntry.id}`}
+              href={`/${companyId}/contabilidad/asientos/${journalEntry.id}`}
               className="text-sm text-primary hover:underline"
             >
               Ver asiento contable →
@@ -116,7 +118,7 @@ export default function VoucherDetailPage({
             variant="outline"
             onClick={() =>
               router.push(
-                `/${params.companyId}/comprobantes/nuevo/venta?relatedVoucherId=${v.id}&partyId=${v.partyId}`,
+                `/${companyId}/comprobantes/nuevo/venta?relatedVoucherId=${v.id}&partyId=${v.partyId}`,
               )
             }
           >
@@ -151,7 +153,7 @@ export default function VoucherDetailPage({
           <dd>
             {warehouse ? (
               <Link
-                href={`/${params.companyId}/stock/depositos/${warehouse.id}`}
+                href={`/${companyId}/stock/depositos/${warehouse.id}`}
                 className="hover:underline"
               >
                 {warehouse.name}
@@ -188,7 +190,7 @@ export default function VoucherDetailPage({
                       <TableCell>
                         {item ? (
                           <Link
-                            href={`/${params.companyId}/catalogo/${item.type === 'PRODUCT' ? 'productos' : 'servicios'}/${item.id}`}
+                            href={`/${companyId}/catalogo/${item.type === 'PRODUCT' ? 'productos' : 'servicios'}/${item.id}`}
                             className="hover:underline"
                           >
                             {item.name}

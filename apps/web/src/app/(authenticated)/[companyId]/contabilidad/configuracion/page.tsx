@@ -1,5 +1,6 @@
 'use client';
 
+import { use } from 'react';
 import Link from 'next/link';
 import { useAccountingSettings } from '@/lib/api/accounting/settings';
 import { useChartOfAccounts } from '@/lib/api/accounting/chart-of-accounts';
@@ -11,24 +12,29 @@ import { PaymentMethodMappingsTable } from '@/components/contabilidad/payment-me
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 /** Vista general + activación + configuración contable (F8 §5.1). */
-export default function ConfiguracionContablePage({ params }: { params: { companyId: string } }) {
-  const settings = useAccountingSettings(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function ConfiguracionContablePage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const settings = useAccountingSettings(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
       : false;
 
   const accountingActive = settings.isSuccess;
-  const accounts = useChartOfAccounts(params.companyId, true);
-  const entries = useAllJournalEntries(params.companyId);
+  const accounts = useChartOfAccounts(companyId, true);
+  const entries = useAllJournalEntries(companyId);
 
   if (settings.isLoading || membershipLoading) {
     return <p className="text-sm text-muted-foreground">Cargando…</p>;
   }
 
   if (!accountingActive) {
-    return <AccountingActivationCard companyId={params.companyId} canManage={canManage} />;
+    return <AccountingActivationCard companyId={companyId} canManage={canManage} />;
   }
 
   return (
@@ -42,7 +48,7 @@ export default function ConfiguracionContablePage({ params }: { params: { compan
           </CardHeader>
           <CardContent>
             <Link
-              href={`/${params.companyId}/contabilidad/plan-de-cuentas`}
+              href={`/${companyId}/contabilidad/plan-de-cuentas`}
               className="text-2xl font-semibold hover:underline"
             >
               {accounts.isLoading ? '…' : accounts.data?.length ?? 0}
@@ -55,7 +61,7 @@ export default function ConfiguracionContablePage({ params }: { params: { compan
           </CardHeader>
           <CardContent>
             <Link
-              href={`/${params.companyId}/contabilidad/asientos`}
+              href={`/${companyId}/contabilidad/asientos`}
               className="text-2xl font-semibold hover:underline"
             >
               {entries.isLoading ? '…' : entries.data?.length ?? 0}
@@ -68,7 +74,7 @@ export default function ConfiguracionContablePage({ params }: { params: { compan
           </CardHeader>
           <CardContent>
             <Link
-              href={`/${params.companyId}/contabilidad/libro-mayor`}
+              href={`/${companyId}/contabilidad/libro-mayor`}
               className="text-sm font-medium hover:underline"
             >
               Consultar cuenta →
@@ -79,13 +85,13 @@ export default function ConfiguracionContablePage({ params }: { params: { compan
 
       {settings.data && (
         <AccountingSettingsForm
-          companyId={params.companyId}
+          companyId={companyId}
           settings={settings.data}
           canManage={canManage}
         />
       )}
 
-      <PaymentMethodMappingsTable companyId={params.companyId} canManage={canManage} />
+      <PaymentMethodMappingsTable companyId={companyId} canManage={canManage} />
     </div>
   );
 }

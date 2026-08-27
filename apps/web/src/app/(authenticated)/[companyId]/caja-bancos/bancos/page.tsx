@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import {
   useBankAccountsWithBalance,
   type BankAccountWithBalance,
@@ -22,9 +22,14 @@ import {
 type StatusFilter = 'all' | 'active' | 'inactive';
 
 /** Vista general + listado de cuentas bancarias (F7 §5.4). */
-export default function BancosPage({ params }: { params: { companyId: string } }) {
-  const { accounts, isLoading } = useBankAccountsWithBalance(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function BancosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const { accounts, isLoading } = useBankAccountsWithBalance(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -61,7 +66,7 @@ export default function BancosPage({ params }: { params: { companyId: string } }
       </Card>
 
       <BankAccountsTable
-        companyId={params.companyId}
+        companyId={companyId}
         bankAccounts={filtered}
         canManage={canManage}
         onEdit={(bankAccount) => setSheetTarget({ open: true, bankAccount })}
@@ -87,7 +92,7 @@ export default function BancosPage({ params }: { params: { companyId: string } }
       />
 
       <BankAccountSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         bankAccount={sheetTarget.bankAccount}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useVouchersWithLabels } from '@/lib/api/vouchers/vouchers';
 import { useVoucherTypes } from '@/lib/api/vouchers/voucher-types';
@@ -16,19 +16,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
-export default function ComprobantesPage({ params }: { params: { companyId: string } }) {
+export default function ComprobantesPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
   const [voucherTypeId, setVoucherTypeId] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
   const voucherTypes = useVoucherTypes();
-  const { rows, isLoading } = useVouchersWithLabels(params.companyId, {
+  const { rows, isLoading } = useVouchersWithLabels(companyId, {
     voucherTypeId: voucherTypeId === 'all' ? undefined : voucherTypeId,
     from: from || undefined,
     to: to || undefined,
   });
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -41,7 +46,7 @@ export default function ComprobantesPage({ params }: { params: { companyId: stri
   return (
     <div className="space-y-4">
       <VouchersTable
-        companyId={params.companyId}
+        companyId={companyId}
         rows={rows}
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
@@ -74,12 +79,12 @@ export default function ComprobantesPage({ params }: { params: { companyId: stri
             />
             {canManage && (
               <>
-                <Button onClick={() => router.push(`/${params.companyId}/comprobantes/nuevo/venta`)}>
+                <Button onClick={() => router.push(`/${companyId}/comprobantes/nuevo/venta`)}>
                   + Factura de venta
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => router.push(`/${params.companyId}/comprobantes/nuevo/compra`)}
+                  onClick={() => router.push(`/${companyId}/comprobantes/nuevo/compra`)}
                 >
                   + Factura de compra
                 </Button>

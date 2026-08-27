@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import {
@@ -22,14 +22,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function CashSessionDetailPage({
   params,
 }: {
-  params: { companyId: string; cashRegisterId: string; cashSessionId: string };
+  params: Promise<{ companyId: string; cashRegisterId: string; cashSessionId: string }>;
 }) {
-  const { cashRegisters, isLoading: registersLoading } = useAllCashRegisters(params.companyId);
-  const cashRegister = cashRegisters.find((r) => r.id === params.cashRegisterId);
-  const sessions = useCashSessions(params.companyId, cashRegister?.branchId ?? '', params.cashRegisterId);
-  const session = (sessions.data ?? []).find((s) => s.id === params.cashSessionId);
-  const movements = useCashMovements(params.companyId, params.cashSessionId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { companyId, cashRegisterId, cashSessionId } = use(params);
+  const { cashRegisters, isLoading: registersLoading } = useAllCashRegisters(companyId);
+  const cashRegister = cashRegisters.find((r) => r.id === cashRegisterId);
+  const sessions = useCashSessions(companyId, cashRegister?.branchId ?? '', cashRegisterId);
+  const session = (sessions.data ?? []).find((s) => s.id === cashSessionId);
+  const movements = useCashMovements(companyId, cashSessionId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
 
   const [movementDialog, setMovementDialog] = useState<'IN' | 'OUT' | null>(null);
@@ -43,7 +44,7 @@ export default function CashSessionDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Esta sesión no existe.</p>
-        <Link href={`/${params.companyId}/caja-bancos/caja`} className="text-sm underline">
+        <Link href={`/${companyId}/caja-bancos/caja`} className="text-sm underline">
           Volver a Caja
         </Link>
       </div>
@@ -56,7 +57,7 @@ export default function CashSessionDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/caja-bancos/caja/${params.cashRegisterId}`}
+        href={`/${companyId}/caja-bancos/caja/${cashRegisterId}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -133,14 +134,14 @@ export default function CashSessionDetailPage({
           <CardTitle>Movimientos</CardTitle>
         </CardHeader>
         <CardContent>
-          <CashMovementsTable companyId={params.companyId} movements={movements.data ?? []} />
+          <CashMovementsTable companyId={companyId} movements={movements.data ?? []} />
         </CardContent>
       </Card>
 
       {movementDialog && (
         <CashMovementDialog
-          companyId={params.companyId}
-          cashSessionId={params.cashSessionId}
+          companyId={companyId}
+          cashSessionId={cashSessionId}
           type={movementDialog}
           open={Boolean(movementDialog)}
           onOpenChange={(open) => !open && setMovementDialog(null)}
@@ -148,7 +149,7 @@ export default function CashSessionDetailPage({
       )}
 
       <CloseSessionDialog
-        companyId={params.companyId}
+        companyId={companyId}
         open={closeDialogOpen}
         onOpenChange={setCloseDialogOpen}
         session={session}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useAllWarehouses, type WarehouseWithBranch } from '@/lib/api/inventory/warehouses';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
 import { WarehousesTable } from '@/components/stock/warehouses-table';
@@ -16,9 +16,14 @@ import {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-export default function DepositosPage({ params }: { params: { companyId: string } }) {
-  const { warehouses, isLoading } = useAllWarehouses(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+export default function DepositosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
+  const { warehouses, isLoading } = useAllWarehouses(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -42,7 +47,7 @@ export default function DepositosPage({ params }: { params: { companyId: string 
   return (
     <div className="space-y-4">
       <WarehousesTable
-        companyId={params.companyId}
+        companyId={companyId}
         warehouses={filtered}
         canManage={canManage}
         onEdit={(warehouse) => setSheetTarget({ open: true, warehouse })}
@@ -68,7 +73,7 @@ export default function DepositosPage({ params }: { params: { companyId: string 
       />
 
       <WarehouseSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={sheetTarget.open}
         onOpenChange={(open) => setSheetTarget((s) => ({ ...s, open }))}
         warehouse={sheetTarget.warehouse}

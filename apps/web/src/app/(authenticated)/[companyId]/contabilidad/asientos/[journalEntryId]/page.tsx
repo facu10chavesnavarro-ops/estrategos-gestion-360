@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -32,13 +32,14 @@ const SOURCE_LABELS: Record<string, string> = {
 export default function JournalEntryDetailPage({
   params,
 }: {
-  params: { companyId: string; journalEntryId: string };
+  params: Promise<{ companyId: string; journalEntryId: string }>;
 }) {
+  const { companyId, journalEntryId } = use(params);
   const router = useRouter();
-  const entry = useJournalEntry(params.companyId, params.journalEntryId);
-  const allEntries = useAllJournalEntries(params.companyId);
-  const accounts = useChartOfAccounts(params.companyId);
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const entry = useJournalEntry(companyId, journalEntryId);
+  const allEntries = useAllJournalEntries(companyId);
+  const accounts = useChartOfAccounts(companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -84,7 +85,7 @@ export default function JournalEntryDetailPage({
           {alreadyReversed && <StatusBadge label="Revertido" tone="warning" />}
           {data.reversalOfEntryId && (
             <Link
-              href={`/${params.companyId}/contabilidad/asientos/${data.reversalOfEntryId}`}
+              href={`/${companyId}/contabilidad/asientos/${data.reversalOfEntryId}`}
               className="text-sm text-muted-foreground hover:underline"
             >
               Revierte a un asiento anterior →
@@ -92,7 +93,7 @@ export default function JournalEntryDetailPage({
           )}
           {data.sourceType && data.sourceId && (
             <Link
-              href={SOURCE_LINK[data.sourceType](params.companyId, data.sourceId)}
+              href={SOURCE_LINK[data.sourceType](companyId, data.sourceId)}
               className="text-sm font-medium text-primary hover:underline"
             >
               {SOURCE_LABELS[data.sourceType]} →
@@ -117,7 +118,7 @@ export default function JournalEntryDetailPage({
               <TableRow key={line.id}>
                 <TableCell>
                   <Link
-                    href={`/${params.companyId}/contabilidad/plan-de-cuentas/${line.accountId}`}
+                    href={`/${companyId}/contabilidad/plan-de-cuentas/${line.accountId}`}
                     className="hover:underline"
                   >
                     {account ? `${account.code} — ${account.name}` : line.accountId}
@@ -144,12 +145,12 @@ export default function JournalEntryDetailPage({
       </Table>
 
       <ReverseEntryDialog
-        companyId={params.companyId}
+        companyId={companyId}
         open={reverseOpen}
         onOpenChange={setReverseOpen}
         entry={data}
         onReversed={(newEntry) =>
-          router.push(`/${params.companyId}/contabilidad/asientos/${newEntry.id}`)
+          router.push(`/${companyId}/contabilidad/asientos/${newEntry.id}`)
         }
       />
     </div>

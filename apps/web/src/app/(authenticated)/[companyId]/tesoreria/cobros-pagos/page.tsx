@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePaymentsWithLabels, type PaymentDirection } from '@/lib/api/treasury/payments';
 import { useCurrentMembership, ROLES_THAT_CAN_MANAGE_COMPANY } from '@/lib/api/users';
@@ -17,18 +17,23 @@ import {
 
 type DirectionFilter = 'all' | PaymentDirection;
 
-export default function CobrosPagosPage({ params }: { params: { companyId: string } }) {
+export default function CobrosPagosPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const router = useRouter();
   const [direction, setDirection] = useState<DirectionFilter>('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
-  const { rows, isLoading } = usePaymentsWithLabels(params.companyId, {
+  const { rows, isLoading } = usePaymentsWithLabels(companyId, {
     direction: direction === 'all' ? undefined : direction,
     from: from || undefined,
     to: to || undefined,
   });
-  const { membership, isLoading: membershipLoading } = useCurrentMembership(params.companyId);
+  const { membership, isLoading: membershipLoading } = useCurrentMembership(companyId);
   const canManage =
     !membershipLoading && membership
       ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName)
@@ -41,7 +46,7 @@ export default function CobrosPagosPage({ params }: { params: { companyId: strin
   return (
     <div className="space-y-4">
       <PaymentsTable
-        companyId={params.companyId}
+        companyId={companyId}
         rows={rows}
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
@@ -71,12 +76,12 @@ export default function CobrosPagosPage({ params }: { params: { companyId: strin
             />
             {canManage && (
               <>
-                <Button onClick={() => router.push(`/${params.companyId}/tesoreria/nuevo/cobro`)}>
+                <Button onClick={() => router.push(`/${companyId}/tesoreria/nuevo/cobro`)}>
                   + Nuevo cobro
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => router.push(`/${params.companyId}/tesoreria/nuevo/pago`)}
+                  onClick={() => router.push(`/${companyId}/tesoreria/nuevo/pago`)}
                 >
                   + Nuevo pago
                 </Button>

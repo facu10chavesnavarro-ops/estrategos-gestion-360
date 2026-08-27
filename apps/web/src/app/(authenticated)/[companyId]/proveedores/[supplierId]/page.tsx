@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 import { useSupplier, useSupplierCurrentAccount } from '@/lib/api/suppliers';
@@ -25,11 +25,12 @@ function Field({ label, value }: { label: string; value: string | number | null 
 export default function SupplierDetailPage({
   params,
 }: {
-  params: { companyId: string; supplierId: string };
+  params: Promise<{ companyId: string; supplierId: string }>;
 }) {
-  const supplier = useSupplier(params.companyId, params.supplierId);
-  const currentAccount = useSupplierCurrentAccount(params.companyId, params.supplierId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { companyId, supplierId } = use(params);
+  const supplier = useSupplier(companyId, supplierId);
+  const currentAccount = useSupplierCurrentAccount(companyId, supplierId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
   const [editOpen, setEditOpen] = useState(false);
 
@@ -45,7 +46,7 @@ export default function SupplierDetailPage({
             ? supplier.error.message
             : 'No se pudo cargar el proveedor.'}
         </p>
-        <Link href={`/${params.companyId}/proveedores`} className="text-sm underline">
+        <Link href={`/${companyId}/proveedores`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -57,7 +58,7 @@ export default function SupplierDetailPage({
   return (
     <div className="space-y-4 p-6">
       <Link
-        href={`/${params.companyId}/proveedores`}
+        href={`/${companyId}/proveedores`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -94,7 +95,7 @@ export default function SupplierDetailPage({
       </Card>
 
       <PendingVouchersPanel
-        companyId={params.companyId}
+        companyId={companyId}
         partyId={data.partyId}
         flow="PURCHASE"
         paymentTermDays={data.paymentTermDays}
@@ -102,13 +103,13 @@ export default function SupplierDetailPage({
       />
 
       <CurrentAccountPanel
-        companyId={params.companyId}
+        companyId={companyId}
         account={currentAccount.data}
         isLoading={currentAccount.isLoading}
       />
 
       <SupplierSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         supplier={data}

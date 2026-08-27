@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -26,18 +26,19 @@ import {
 export default function DepositoDetailPage({
   params,
 }: {
-  params: { companyId: string; warehouseId: string };
+  params: Promise<{ companyId: string; warehouseId: string }>;
 }) {
+  const { companyId, warehouseId } = use(params);
   const router = useRouter();
   // No hay GET individual de depósito en el backend salvo bajo
   // branches/:branchId/warehouses/:warehouseId (branchId que acá todavía
   // no conocemos) — se busca en la lista ya cacheada de todos los
   // depósitos, mismo criterio que el detalle de lista de precios (F3).
-  const { warehouses, isLoading: warehousesLoading } = useAllWarehouses(params.companyId);
-  const warehouse = warehouses.find((w) => w.id === params.warehouseId);
-  const stock = useStock(params.companyId, params.warehouseId);
-  const items = useItems(params.companyId, { isActive: true });
-  const { membership } = useCurrentMembership(params.companyId);
+  const { warehouses, isLoading: warehousesLoading } = useAllWarehouses(companyId);
+  const warehouse = warehouses.find((w) => w.id === warehouseId);
+  const stock = useStock(companyId, warehouseId);
+  const items = useItems(companyId, { isActive: true });
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
 
   const [editOpen, setEditOpen] = useState(false);
@@ -51,7 +52,7 @@ export default function DepositoDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Este depósito no existe.</p>
-        <Link href={`/${params.companyId}/stock/depositos`} className="text-sm underline">
+        <Link href={`/${companyId}/stock/depositos`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -64,7 +65,7 @@ export default function DepositoDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/stock/depositos`}
+        href={`/${companyId}/stock/depositos`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -84,7 +85,7 @@ export default function DepositoDetailPage({
             <Button
               variant="outline"
               onClick={() =>
-                router.push(`/${params.companyId}/stock/transferencias?fromWarehouseId=${params.warehouseId}`)
+                router.push(`/${companyId}/stock/transferencias?fromWarehouseId=${warehouseId}`)
               }
             >
               Transferir a otro depósito
@@ -140,20 +141,20 @@ export default function DepositoDetailPage({
           <CardTitle>Historial de movimientos</CardTitle>
         </CardHeader>
         <CardContent>
-          <StockMovementsTable companyId={params.companyId} warehouseId={params.warehouseId} />
+          <StockMovementsTable companyId={companyId} warehouseId={warehouseId} />
         </CardContent>
       </Card>
 
       <WarehouseSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         warehouse={warehouse}
       />
 
       <StockAdjustmentSheet
-        companyId={params.companyId}
-        warehouseId={params.warehouseId}
+        companyId={companyId}
+        warehouseId={warehouseId}
         open={adjustOpen}
         onOpenChange={setAdjustOpen}
       />

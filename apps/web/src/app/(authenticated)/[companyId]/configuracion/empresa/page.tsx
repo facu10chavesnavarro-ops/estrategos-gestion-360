@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import { toast } from 'sonner';
 import type { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal } from 'lucide-react';
@@ -28,8 +28,12 @@ import {
 
 type ConfirmTarget = { branch: Branch; action: 'activate' | 'deactivate' };
 
-export default function EmpresaPage({ params }: { params: { companyId: string } }) {
-  const { companyId } = params;
+export default function EmpresaPage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = use(params);
   const company = useCompany(companyId);
   const branches = useBranches(companyId);
   const { membership } = useCurrentMembership(companyId);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -20,16 +20,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function CashRegisterDetailPage({
   params,
 }: {
-  params: { companyId: string; cashRegisterId: string };
+  params: Promise<{ companyId: string; cashRegisterId: string }>;
 }) {
+  const { companyId, cashRegisterId } = use(params);
   const router = useRouter();
   // Sin GET individual scoped a companyId (solo bajo branches/:branchId/...
   // con un branchId que acá todavía no conocemos) — se busca en la lista ya
   // cacheada, mismo criterio que el detalle de Depósito (F4).
-  const { cashRegisters, isLoading: registersLoading } = useAllCashRegisters(params.companyId);
-  const cashRegister = cashRegisters.find((r) => r.id === params.cashRegisterId);
-  const sessions = useCashSessions(params.companyId, cashRegister?.branchId ?? '', params.cashRegisterId);
-  const { membership } = useCurrentMembership(params.companyId);
+  const { cashRegisters, isLoading: registersLoading } = useAllCashRegisters(companyId);
+  const cashRegister = cashRegisters.find((r) => r.id === cashRegisterId);
+  const sessions = useCashSessions(companyId, cashRegister?.branchId ?? '', cashRegisterId);
+  const { membership } = useCurrentMembership(companyId);
   const canManage = membership ? ROLES_THAT_CAN_MANAGE_COMPANY.includes(membership.roleName) : false;
 
   const [editOpen, setEditOpen] = useState(false);
@@ -43,7 +44,7 @@ export default function CashRegisterDetailPage({
     return (
       <div className="space-y-3">
         <p className="text-sm text-destructive">Esta caja no existe.</p>
-        <Link href={`/${params.companyId}/caja-bancos/caja`} className="text-sm underline">
+        <Link href={`/${companyId}/caja-bancos/caja`} className="text-sm underline">
           Volver al listado
         </Link>
       </div>
@@ -55,7 +56,7 @@ export default function CashRegisterDetailPage({
   return (
     <div className="space-y-4">
       <Link
-        href={`/${params.companyId}/caja-bancos/caja`}
+        href={`/${companyId}/caja-bancos/caja`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ChevronLeft className="size-4" />
@@ -76,7 +77,7 @@ export default function CashRegisterDetailPage({
               <Button
                 onClick={() =>
                   router.push(
-                    `/${params.companyId}/caja-bancos/caja/${params.cashRegisterId}/sesiones/${openSession.id}`,
+                    `/${companyId}/caja-bancos/caja/${cashRegisterId}/sesiones/${openSession.id}`,
                   )
                 }
               >
@@ -100,8 +101,8 @@ export default function CashRegisterDetailPage({
             <p className="text-sm text-muted-foreground">Cargando…</p>
           ) : (
             <CashSessionsTable
-              companyId={params.companyId}
-              cashRegisterId={params.cashRegisterId}
+              companyId={companyId}
+              cashRegisterId={cashRegisterId}
               sessions={sessions.data ?? []}
             />
           )}
@@ -109,20 +110,20 @@ export default function CashRegisterDetailPage({
       </Card>
 
       <CashRegisterSheet
-        companyId={params.companyId}
+        companyId={companyId}
         open={editOpen}
         onOpenChange={setEditOpen}
         cashRegister={cashRegister}
       />
 
       <OpenSessionDialog
-        companyId={params.companyId}
+        companyId={companyId}
         open={openSessionDialog}
         onOpenChange={setOpenSessionDialog}
         cashRegisters={[cashRegister]}
         fixedCashRegister={cashRegister}
         onOpened={(sessionId) =>
-          router.push(`/${params.companyId}/caja-bancos/caja/${params.cashRegisterId}/sesiones/${sessionId}`)
+          router.push(`/${companyId}/caja-bancos/caja/${cashRegisterId}/sesiones/${sessionId}`)
         }
       />
     </div>

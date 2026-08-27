@@ -6,5 +6,5 @@ import { getAccessToken } from '@/lib/auth/cookies';
 // presencia de la cookie. La autoridad real sigue siendo cada respuesta
 // 401 del backend a través de /api/backend/*.
 export async function GET() {
-  return NextResponse.json({ authenticated: Boolean(getAccessToken()) });
+  return NextResponse.json({ authenticated: Boolean(await getAccessToken()) });
 }

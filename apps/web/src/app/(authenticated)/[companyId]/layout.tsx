@@ -1,11 +1,12 @@
 import { AppShell } from '@/components/layout/app-shell';
 
-export default function CompanyLayout({
+export default async function CompanyLayout({
   children,
   params,
 }: {
   children: React.ReactNode;
-  params: { companyId: string };
+  params: Promise<{ companyId: string }>;
 }) {
-  return <AppShell companyId={params.companyId}>{children}</AppShell>;
+  const { companyId } = await params;
+  return <AppShell companyId={companyId}>{children}</AppShell>;
 }
