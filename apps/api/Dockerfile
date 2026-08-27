@@ -9,9 +9,9 @@
 # Etapas:
 #   base       -> runtime mínimo (Debian slim + openssl para Prisma)
 #   deps       -> node_modules completo (incluye devDeps) para compilar
-#   build      -> `nest build` + `prisma generate`
-#   prod-deps  -> node_modules sólo de producción
-#   runner     -> imagen final: dist + node_modules de prod + CLI de Prisma
+#   build      -> `prisma generate` + `nest build`
+#   prod-deps  -> node_modules de producción + CLI de Prisma + cliente generado
+#   runner     -> imagen final: dist + node_modules de prod-deps (copia entera)
 
 ARG NODE_VERSION=20.18.1
 
@@ -43,6 +43,8 @@ RUN npm ci
 FROM deps AS build
 ENV NODE_ENV=development
 COPY apps/api ./apps/api
+# `prisma generate` antes de `nest build`: el tipado de los servicios depende
+# del cliente generado (modelos, Prisma.*).
 RUN npx prisma generate --schema apps/api/prisma/schema.prisma \
  && npm run build --workspace=apps/api
 
@@ -59,22 +61,26 @@ COPY apps/api/package.json               apps/api/package.json
 COPY apps/web/package.json               apps/web/package.json
 COPY packages/shared-types/package.json  packages/shared-types/package.json
 RUN npm ci --omit=dev
+# La CLI de Prisma es una devDependency, así que `npm ci --omit=dev` la deja
+# afuera. Se reinstala explícitamente en ESTE árbol de node_modules, con versión
+# fija y sin escribir en package.json/lock; npm resuelve sus deps transitivas.
+# Hace falta en runtime para `prisma migrate deploy`.
+RUN npm install --no-save --omit=dev prisma@5.22.0
+# Cliente de Prisma generado DENTRO de este mismo árbol: así el runner sólo
+# copia node_modules de un stage y no depende de dónde npm hoisteó `.prisma`.
+COPY apps/api/prisma ./apps/api/prisma
+RUN ./node_modules/.bin/prisma generate --schema apps/api/prisma/schema.prisma
 
 # --------------------------------------------------------------------------
 FROM base AS runner
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# node_modules de producción...
-COPY --from=prod-deps --chown=node:node /app/node_modules ./node_modules
-# ...más el cliente de Prisma generado y la CLI (para `migrate deploy` al
-# arrancar). La CLI de Prisma v5 se auto-contiene salvo por el scope @prisma.
-COPY --from=build --chown=node:node /app/node_modules/.prisma  ./node_modules/.prisma
-COPY --from=build --chown=node:node /app/node_modules/@prisma  ./node_modules/@prisma
-COPY --from=build --chown=node:node /app/node_modules/prisma   ./node_modules/prisma
-
-COPY --from=build --chown=node:node /app/apps/api/dist   ./apps/api/dist
-COPY --from=build --chown=node:node /app/apps/api/prisma ./apps/api/prisma
+# Copia entera de un único stage: node_modules de prod + CLI de Prisma +
+# cliente generado, todo resuelto de forma consistente por npm.
+COPY --from=prod-deps --chown=node:node /app/node_modules   ./node_modules
+COPY --from=build     --chown=node:node /app/apps/api/dist   ./apps/api/dist
+COPY --from=prod-deps --chown=node:node /app/apps/api/prisma ./apps/api/prisma
 COPY --chown=node:node apps/api/package.json ./apps/api/package.json
 COPY --chown=node:node package.json          ./package.json
 
