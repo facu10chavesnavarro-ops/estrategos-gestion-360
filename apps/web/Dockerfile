@@ -22,16 +22,19 @@ WORKDIR /app
 
 # --------------------------------------------------------------------------
 FROM base AS deps
-ENV NODE_ENV=development
+# --include=dev fuerza las devDependencies (nest/next/prisma/tsc) aunque el
+# stage herede NODE_ENV=production, que en npm implica omit=dev. NO se baja
+# NODE_ENV a development: `next build` con NODE_ENV=development carga a la vez
+# los runtimes dev y prod de Next y el prerender revienta con
+# "Cannot read properties of null (reading 'useContext')".
 COPY package.json package-lock.json ./
 COPY apps/api/package.json               apps/api/package.json
 COPY apps/web/package.json               apps/web/package.json
 COPY packages/shared-types/package.json  packages/shared-types/package.json
-RUN npm ci
+RUN npm ci --include=dev
 
 # --------------------------------------------------------------------------
 FROM deps AS build
-ENV NODE_ENV=development
 # NEXT_PUBLIC_* se hornea en el bundle en build-time. Para cambiarla: rebuild.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}

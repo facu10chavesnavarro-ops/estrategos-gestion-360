@@ -26,22 +26,23 @@ WORKDIR /app
 
 # --------------------------------------------------------------------------
 FROM base AS deps
-ENV NODE_ENV=development
 # Toolchain para compilar módulos nativos (argon2) si no hubiera prebuild.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 make g++ \
  && rm -rf /var/lib/apt/lists/*
 # Sólo los manifests primero: así la capa de `npm ci` se cachea mientras no
 # cambien los package.json. Hay que copiar TODOS los workspaces o npm falla.
+# --include=dev: instala las devDependencies (nest-cli, tsc, prisma) aunque el
+# stage herede NODE_ENV=production (que en npm implica omit=dev). No se baja
+# NODE_ENV a development para no arrastrar ese modo a los builds.
 COPY package.json package-lock.json ./
 COPY apps/api/package.json               apps/api/package.json
 COPY apps/web/package.json               apps/web/package.json
 COPY packages/shared-types/package.json  packages/shared-types/package.json
-RUN npm ci
+RUN npm ci --include=dev
 
 # --------------------------------------------------------------------------
 FROM deps AS build
-ENV NODE_ENV=development
 COPY apps/api ./apps/api
 # `prisma generate` antes de `nest build`: el tipado de los servicios depende
 # del cliente generado (modelos, Prisma.*).
