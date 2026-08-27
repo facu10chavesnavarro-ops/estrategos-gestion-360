@@ -1,0 +1,11 @@
+# Los archivos de infra se consumen en runners Linux (Docker, CI, Render, Fly):
+# forzamos LF para que no se cuele CRLF al commitear desde Windows.
+*.nvmrc      text eol=lf
+.nvmrc       text eol=lf
+Dockerfile   text eol=lf
+*.Dockerfile text eol=lf
+*.sh         text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+.dockerignore text eol=lf
+.env.*.example text eol=lf

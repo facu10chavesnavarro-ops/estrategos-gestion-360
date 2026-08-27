@@ -1,0 +1,30 @@
+# El build context de ambas imágenes es la raíz del monorepo. Todo lo que no
+# haga falta para instalar dependencias y compilar se excluye para acelerar el
+# build y evitar filtrar secretos a las capas de la imagen.
+
+**/node_modules
+**/dist
+**/.next
+**/out
+**/.turbo
+**/coverage
+**/.nyc_output
+**/test-results
+**/playwright-report
+**/blob-report
+
+.git
+.github
+.vscode
+.idea
+
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env*.example
+
+**/*.log
+**/npm-debug.log*
+*.md
+docs
+Git-*.exe
