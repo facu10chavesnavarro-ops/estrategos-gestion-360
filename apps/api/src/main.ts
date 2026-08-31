@@ -17,7 +17,20 @@ async function bootstrap() {
     }),
   );
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.enableCors({ origin: process.env.CORS_ORIGIN?.split(',') ?? '*' });
+
+  // Auditoría de seguridad (hallazgo Medio #5): antes caía a '*' (wildcard)
+  // si CORS_ORIGIN no estaba seteada — fail-open. Los llamados reales al
+  // API (BFF de apps/web) son server-to-server y no pasan por CORS del
+  // navegador, así que no depende de este valor; solo protege contra un
+  // acceso cross-origin directo desde el navegador (ej. Swagger UI, o un
+  // futuro cliente) si la env var se omite por error en producción.
+  if (!process.env.CORS_ORIGIN) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      'CORS_ORIGIN no está seteada — CORS queda deshabilitado (fail-closed) en vez de permitir cualquier origen.',
+    );
+  }
+  app.enableCors({ origin: process.env.CORS_ORIGIN?.split(',') ?? false });
   app.setGlobalPrefix('api/v1');
 
   // "Documentación de API" — entregable exigido explícitamente por el
