@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { RoleNotAuthorizedError } from '../../../common/domain/errors/authorization.error';
+import { ImportTooManyRowsError } from '../../../common/domain/errors/import.errors';
 import {
   CategoryNotFoundError,
   InvalidParentCategoryError,
@@ -55,6 +56,7 @@ const BAD_REQUEST_ERRORS = [
   PriceListAlreadyInTargetStateError,
   InvalidPriceError,
   InvalidAccountMappingError,
+  ImportTooManyRowsError,
 ];
 
 export function mapCatalogError(error: unknown): never {

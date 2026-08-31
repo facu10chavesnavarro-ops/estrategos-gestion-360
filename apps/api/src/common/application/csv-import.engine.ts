@@ -3,6 +3,7 @@ import { CsvParserPort } from '../domain/import/csv-parser.port';
 import { ImportRowProcessor } from '../domain/import/import-row-processor';
 import { ImportMode, ImportRowResult } from '../domain/import/import.types';
 import { ImportRowValidationError } from '../domain/import/import-row-validation.error';
+import { ImportTooManyRowsError } from '../domain/errors/import.errors';
 import { UnitOfWork } from '../domain/transaction/unit-of-work.port';
 import { TransactionContext } from '../domain/transaction/transaction-context';
 
@@ -20,6 +21,15 @@ import { TransactionContext } from '../domain/transaction/transaction-context';
  */
 @Injectable()
 export class CsvImportEngine {
+  /**
+   * Auditoría de seguridad (hallazgo Medio #1): cada fila corre en su propia
+   * transacción secuencial (ver docstring de clase), así que un archivo sin
+   * cota de filas es un vector de degradación de servicio. Rechazamos el
+   * archivo completo antes de procesar ninguna fila — mejor un error claro
+   * de entrada que una importación parcial silenciosa.
+   */
+  static readonly MAX_ROWS = 5000;
+
   constructor(
     private readonly csvParser: CsvParserPort,
     private readonly unitOfWork: UnitOfWork,
@@ -32,6 +42,9 @@ export class CsvImportEngine {
     processor: ImportRowProcessor<TRow, TEntity>,
   ): Promise<ImportRowResult[]> {
     const rawRows = this.csvParser.parse(csvContent);
+    if (rawRows.length > CsvImportEngine.MAX_ROWS) {
+      throw new ImportTooManyRowsError(rawRows.length, CsvImportEngine.MAX_ROWS);
+    }
     const results: ImportRowResult[] = [];
 
     for (let i = 0; i < rawRows.length; i++) {

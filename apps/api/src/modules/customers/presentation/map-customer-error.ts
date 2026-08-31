@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { RoleNotAuthorizedError } from '../../../common/domain/errors/authorization.error';
+import { ImportTooManyRowsError } from '../../../common/domain/errors/import.errors';
 import {
   InvalidTaxIdError,
   DuplicateCustomerError,
@@ -23,7 +24,8 @@ export function mapCustomerError(error: unknown): never {
     error instanceof InvalidTaxIdError ||
     error instanceof DuplicateCustomerError ||
     error instanceof InvalidCreditLimitError ||
-    error instanceof CustomerAlreadyInTargetStateError
+    error instanceof CustomerAlreadyInTargetStateError ||
+    error instanceof ImportTooManyRowsError
   ) {
     throw new BadRequestException(error.message);
   }

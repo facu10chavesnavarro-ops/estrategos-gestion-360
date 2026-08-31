@@ -128,4 +128,34 @@ describe('CsvImportEngine', () => {
       changedFields: ['value'],
     });
   });
+
+  it('rechaza el archivo completo (sin procesar ninguna fila) si excede CsvImportEngine.MAX_ROWS', async () => {
+    const tooManyRows = Array.from({ length: CsvImportEngine.MAX_ROWS + 1 }, (_, i) => ({
+      key: `k${i}`,
+      value: 'v',
+    }));
+    const parser = makeParser(tooManyRows);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
+    const processor = new FakeRowProcessor();
+
+    await expect(engine.run('csv', 'company-1', 'skip-new-only', processor)).rejects.toThrow(
+      `${CsvImportEngine.MAX_ROWS + 1} filas`,
+    );
+    await expect(processor.findExisting({ key: 'k0', value: '' })).resolves.toBeNull();
+  });
+
+  it('acepta un archivo con exactamente CsvImportEngine.MAX_ROWS filas', async () => {
+    const rows = Array.from({ length: CsvImportEngine.MAX_ROWS }, (_, i) => ({
+      key: `k${i}`,
+      value: 'v',
+    }));
+    const parser = makeParser(rows);
+    const engine = new CsvImportEngine(parser, createFakeUnitOfWork());
+    const processor = new FakeRowProcessor();
+
+    const results = await engine.run('csv', 'company-1', 'skip-new-only', processor);
+
+    expect(results).toHaveLength(CsvImportEngine.MAX_ROWS);
+    expect(results.every((r) => r.outcome === 'created')).toBe(true);
+  });
 });
