@@ -2,6 +2,9 @@
   "name": "@estrategos/api",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0 <21"
+  },
   "scripts": {
     "build": "nest build",
     "start": "node dist/main",
@@ -13,6 +16,7 @@
     "test:integration": "jest --config jest.integration.config.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
     "reset:e2e": "ts-node prisma/reset-e2e-company.ts"
   },

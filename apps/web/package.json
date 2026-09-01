@@ -2,6 +2,9 @@
   "name": "@estrategos/web",
   "version": "0.10.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0 <21"
+  },
   "scripts": {
     "predev": "npm run generate:types",
     "dev": "next dev",
