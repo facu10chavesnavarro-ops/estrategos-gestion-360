@@ -10,6 +10,22 @@ import { Response } from 'express';
 import { Prisma } from '@prisma/client';
 
 /**
+ * Auditoría de seguridad (hallazgo Medio #2): antes de loguear un error no
+ * controlado (500) se enmascaran patrones que parezcan credenciales o
+ * tokens, para que un mensaje/stack que por accidente los interpole (ej. un
+ * error de una librería de terceros que ecoa parte del input) no los deje en
+ * texto plano en los logs del servidor. Nunca llega al cliente — la
+ * respuesta HTTP ya usa un mensaje genérico para 5xx, esto es solo defensa
+ * en profundidad sobre lo que se persiste en logs.
+ */
+function redactSensitive(text: string): string {
+  return text
+    .replace(/Bearer\s+[\w-]+\.[\w-]+\.[\w-]+/gi, 'Bearer [REDACTED]')
+    .replace(/[\w-]+\.[\w-]+\.[\w-]{10,}/g, '[REDACTED_JWT]') // JWT sueltos sin "Bearer"
+    .replace(/("?(?:password|contraseña|token|secret|refreshToken|accessToken)"?\s*[:=]\s*)("[^"]*"|'[^']*'|\S+)/gi, '$1[REDACTED]');
+}
+
+/**
  * Errores de Prisma que no pasan por un caso de uso (ej. condición de
  * carrera: dos altas simultáneas del mismo CUIT pasan ambas el chequeo de
  * "no existe" en la aplicación, y la segunda choca recién contra la
@@ -69,8 +85,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         : exceptionResponse;
 
     if (status >= 500) {
-      // Solo se loguean con stack trace los errores no controlados.
-      this.logger.error(exception);
+      // Solo se loguean con stack trace los errores no controlados —
+      // redactados (ver redactSensitive) antes de persistirse en logs.
+      const rawMessage = exception instanceof Error ? exception.message : String(exception);
+      const rawStack = exception instanceof Error ? exception.stack : undefined;
+      this.logger.error(redactSensitive(rawMessage), rawStack ? redactSensitive(rawStack) : undefined);
     }
 
     response.status(status).json({
