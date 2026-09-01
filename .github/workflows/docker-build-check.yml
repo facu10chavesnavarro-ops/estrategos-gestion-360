@@ -3,13 +3,12 @@ name: Docker build check
 # Valida que las imágenes de producción de apps/api y apps/web compilen sin
 # errores. NO publica nada en ningún registry: es sólo un check de build.
 #
-# Se dispara al pushear la rama de andamiaje de deploy y en cualquier PR
-# (el filtro de pull_request es por rama BASE; se deja abierto porque la
-# troncal real todavía se está definiendo — ver nota en el PR).
+# Se dispara en cada push a master (ya mergeado el andamiaje de deploy) y
+# en cualquier PR (el filtro de pull_request es por rama BASE).
 
 on:
   push:
-    branches: [infra/deploy-scaffolding]
+    branches: [master]
   pull_request:
   workflow_dispatch:
 
