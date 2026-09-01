@@ -1,0 +1,46 @@
+name: Docker build check
+
+# Valida que las imágenes de producción de apps/api y apps/web compilen sin
+# errores. NO publica nada en ningún registry: es sólo un check de build.
+#
+# Se dispara al pushear la rama de andamiaje de deploy y en cualquier PR
+# (el filtro de pull_request es por rama BASE; se deja abierto porque la
+# troncal real todavía se está definiendo — ver nota en el PR).
+
+on:
+  push:
+    branches: [infra/deploy-scaffolding]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-images:
+    name: Build api & web images (no push)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image (apps/api/Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          tags: estrategos-api:ci
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build Web image (apps/web/Dockerfile)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          tags: estrategos-web:ci
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:3001
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web

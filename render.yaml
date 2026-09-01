@@ -1,0 +1,37 @@
+# Render Blueprint — despliega la API (NestJS) + Postgres gestionado.
+# El frontend (Next.js) va en Vercel, no acá (ver docs/deploy.md).
+#
+# Uso: en el dashboard de Render -> "New +" -> "Blueprint" -> apuntar a este repo.
+# Render lee este archivo y crea la base y el servicio. Después, en el servicio
+# `estrategos-api`, completar CORS_ORIGIN con el dominio real del frontend.
+
+databases:
+  - name: estrategos-db
+    databaseName: estrategos
+    user: estrategos
+    plan: free            # subir a "starter" para algo más que pruebas
+
+services:
+  - type: web
+    name: estrategos-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    autoDeploy: false      # poner true cuando el pipeline esté afianzado
+    # La imagen ya corre `prisma migrate deploy` en el CMD antes de arrancar,
+    # así que no hace falta preDeployCommand.
+    healthCheckPath: /api/docs-json
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: estrategos-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true          # Render genera un aleatorio y lo guarda
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        sync: false                  # se completa a mano tras crear el front

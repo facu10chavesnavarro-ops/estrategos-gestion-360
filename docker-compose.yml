@@ -1,0 +1,70 @@
+# docker-compose para levantar TODO el stack en local simulando producción:
+# Postgres + API (NestJS, imagen de prod) + Web (Next.js, imagen de prod).
+#
+#   cp .env.production.example .env   # y completar JWT_SECRET / JWT_REFRESH_SECRET
+#   docker compose up --build
+#
+#   Web  -> http://localhost:3000
+#   API  -> http://localhost:3001/api/v1   (docs en /api/docs)
+#
+# Las imágenes son las mismas que se despliegan en Render/Fly: NODE_ENV=production,
+# sin watch, sin devDependencies, y la API corre `prisma migrate deploy` al arrancar.
+
+name: estrategos
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-estrategos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-estrategos}
+      POSTGRES_DB: ${POSTGRES_DB:-estrategos}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-estrategos} -d ${POSTGRES_DB:-estrategos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      # Dentro de la red de compose el host de Postgres es "db", no localhost.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-estrategos}:${POSTGRES_PASSWORD:-estrategos}@db:5432/${POSTGRES_DB:-estrategos}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?falta JWT_SECRET (ver .env.production.example)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?falta JWT_REFRESH_SECRET (ver .env.production.example)}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    ports:
+      - "3001:3001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Se hornea en el bundle en build-time (ver Dockerfile de web).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3001}
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
