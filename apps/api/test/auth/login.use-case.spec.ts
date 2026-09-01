@@ -113,10 +113,24 @@ describe('LoginUseCase', () => {
 
   it('lanza InvalidCredentialsError si el usuario no existe', async () => {
     userRepository.findByEmail.mockResolvedValue(null);
+    passwordHasher.verify.mockResolvedValue(false);
 
     await expect(
       useCase.execute({ email: 'no-existe@x.com', password: 'x' }),
     ).rejects.toThrow(InvalidCredentialsError);
+  });
+
+  it('hallazgo Bajo #4 (timing side-channel): igual que con un usuario existente, llama a verify() aunque el email no exista — así el tiempo de respuesta no delata si la cuenta existe', async () => {
+    userRepository.findByEmail.mockResolvedValue(null);
+    passwordHasher.verify.mockResolvedValue(false);
+
+    await expect(
+      useCase.execute({ email: 'no-existe@x.com', password: 'x' }),
+    ).rejects.toThrow(InvalidCredentialsError);
+
+    expect(passwordHasher.verify).toHaveBeenCalledTimes(1);
+    // El hash real de un usuario nunca llega acá — se usa un hash dummy fijo.
+    expect(passwordHasher.verify).not.toHaveBeenCalledWith(undefined, 'x');
   });
 
   it('lanza InvalidCredentialsError si la contraseña no coincide', async () => {
@@ -128,14 +142,24 @@ describe('LoginUseCase', () => {
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
-  it('lanza UserInactiveError si el usuario está inactivo, sin llegar a validar password', async () => {
+  it('usuario inactivo + contraseña incorrecta: InvalidCredentialsError genérico, no revela que la cuenta existe', async () => {
     userRepository.findByEmail.mockResolvedValue(inactiveUser);
+    passwordHasher.verify.mockResolvedValue(false);
 
     await expect(
-      useCase.execute({ email: inactiveUser.email, password: 'x' }),
-    ).rejects.toThrow(UserInactiveError);
+      useCase.execute({ email: inactiveUser.email, password: 'mala' }),
+    ).rejects.toThrow(InvalidCredentialsError);
 
-    expect(passwordHasher.verify).not.toHaveBeenCalled();
+    expect(passwordHasher.verify).toHaveBeenCalledWith(inactiveUser.passwordHash, 'mala');
+  });
+
+  it('lanza UserInactiveError si el usuario está inactivo pero la contraseña sí coincide', async () => {
+    userRepository.findByEmail.mockResolvedValue(inactiveUser);
+    passwordHasher.verify.mockResolvedValue(true);
+
+    await expect(
+      useCase.execute({ email: inactiveUser.email, password: 'correcta' }),
+    ).rejects.toThrow(UserInactiveError);
   });
 
   it('RN-USR-08: audita user.first_access cuando lastLoginAt era null', async () => {

@@ -12,6 +12,16 @@ import {
 import { LoginInput, LoginOutput } from '../dto/login.dto';
 
 /**
+ * Auditoría de seguridad (hallazgo Bajo #4): hash argon2id válido pero sin
+ * contraseña real detrás — se usa para pagar el mismo costo de verify()
+ * cuando el email no existe, así el tiempo de respuesta no distingue
+ * "usuario inexistente" de "contraseña incorrecta" (enumeración de
+ * usuarios por timing side-channel).
+ */
+const DUMMY_PASSWORD_HASH =
+  '$argon2id$v=19$m=65536,t=3,p=4$4R8dTC3uNN9/oiKPRHa/OA$uznESUXzER+ZNjOGyE59S/i5xfWPEM5tqccLe6R/Md0';
+
+/**
  * Un caso de uso = una responsabilidad de negocio completa (principio S de SOLID).
  * No sabe qué framework HTTP lo llama ni qué ORM persiste los datos:
  * solo conoce las interfaces (puertos) que declara el dominio.
@@ -29,20 +39,23 @@ export class LoginUseCase {
 
   async execute(input: LoginInput): Promise<LoginOutput> {
     const user = await this.userRepository.findByEmail(input.email);
-    if (!user) {
+
+    // Auditoría de seguridad (hallazgo Bajo #4): verify() se llama siempre,
+    // exista o no el usuario, contra su hash real o contra DUMMY_PASSWORD_HASH.
+    // Como efecto adicional (más allá del timing), un email inexistente y uno
+    // inactivo con contraseña incorrecta ahora devuelven el mismo error
+    // genérico — antes un usuario inactivo revelaba "esta cuenta existe y
+    // está inactiva" sin siquiera validar la contraseña.
+    const passwordMatches = await this.passwordHasher.verify(
+      user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      input.password,
+    );
+    if (!user || !passwordMatches) {
       throw new InvalidCredentialsError();
     }
 
     if (!user.canAuthenticate()) {
       throw new UserInactiveError();
-    }
-
-    const passwordMatches = await this.passwordHasher.verify(
-      user.passwordHash,
-      input.password,
-    );
-    if (!passwordMatches) {
-      throw new InvalidCredentialsError();
     }
 
     const accessToken = this.tokenProvider.signAccessToken({
