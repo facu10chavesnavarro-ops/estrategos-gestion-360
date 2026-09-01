@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, main, develop]
+    branches: [main, develop]
   pull_request:
-    branches: [master, main, develop]
+    branches: [main, develop]
 
 jobs:
   api:
@@ -61,25 +61,3 @@ jobs:
         working-directory: apps/web
       - run: npm run build
         working-directory: apps/web
-
-  docker-build:
-    name: Docker (build both production images)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build API image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: false
-          tags: estrategos-api:ci
-      - name: Build Web image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          push: false
-          tags: estrategos-web:ci
-          build-args: |
-            NEXT_PUBLIC_API_URL=https://api.example.com
