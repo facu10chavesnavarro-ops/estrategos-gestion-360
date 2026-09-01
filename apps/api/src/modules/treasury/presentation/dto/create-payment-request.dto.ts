@@ -6,6 +6,7 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  MaxLength,
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethodDetailRequestDto } from './payment-method-detail-request.dto';
@@ -13,6 +14,7 @@ import { PaymentAllocationRequestDto } from './payment-allocation-request.dto';
 
 export class CreatePaymentRequestDto {
   @IsString()
+  @MaxLength(50)
   partyId: string;
 
   @IsIn(['COLLECTION', 'PAYMENT'], { message: 'direction debe ser COLLECTION o PAYMENT' })
@@ -24,10 +26,12 @@ export class CreatePaymentRequestDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   currency?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
   exchangeRate?: string;
 
   @IsArray()
@@ -45,11 +49,13 @@ export class CreatePaymentRequestDto {
   /** RN-PAY-10: obligatorio si algún medio requiere movimiento de caja. */
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   cashSessionId?: string;
 
   /** RN-PAY-10: obligatorio si algún medio requiere movimiento bancario. */
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   bankAccountId?: string;
 
   /**
@@ -60,5 +66,6 @@ export class CreatePaymentRequestDto {
    */
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   idempotencyKey?: string;
 }

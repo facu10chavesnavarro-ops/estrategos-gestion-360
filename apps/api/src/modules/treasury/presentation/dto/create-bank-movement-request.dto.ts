@@ -1,14 +1,16 @@
-import { IsIn, IsISO8601, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateBankMovementRequestDto {
   @IsIn(['DEPOSIT', 'WITHDRAWAL'], { message: 'type debe ser DEPOSIT o WITHDRAWAL' })
   type: 'DEPOSIT' | 'WITHDRAWAL';
 
   @IsString()
+  @MaxLength(30)
   amount: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(1000)
   description?: string;
 
   @IsOptional()
@@ -17,5 +19,6 @@ export class CreateBankMovementRequestDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(50)
   counterpartAccountId?: string;
 }
