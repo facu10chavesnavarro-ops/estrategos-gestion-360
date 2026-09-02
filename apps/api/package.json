@@ -17,7 +17,9 @@
     "test:integration": "jest --config jest.integration.config.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed:demo": "ts-node prisma/seed-demo.ts",
     "reset:e2e": "ts-node prisma/reset-e2e-company.ts"
   },
   "dependencies": {
