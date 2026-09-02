@@ -18,7 +18,7 @@ Tres opciones válidas — la diferencia real es el free tier, no el motor
 | | Render Postgres | Neon | Supabase |
 |---|---|---|---|
 | **Fricción de setup** | **La más baja** — `render.yaml` ya la crea y conecta sola (`DATABASE_URL` automática) | Manual: crear proyecto aparte, copiar connection string a mano | Manual: ídem |
-| **Free tier** | Expira a los ~90 días (hay que recrearla o pasar a plan pago) | **Persistente**, sin expiración forzada | Persistente, pero el proyecto se **pausa tras ~1 semana sin uso** (hay que "despertarlo" a mano) |
+| **Free tier** | Expira a los 30 días (hay que recrearla o pasar a plan pago) | **Persistente**, sin expiración forzada | Persistente, pero el proyecto se **pausa tras ~1 semana sin uso** (hay que "despertarlo" a mano) |
 | **Latencia con la API** | La mejor — misma región/plataforma que Render | Buena, un salto de red extra | Buena, un salto de red extra |
 | **Extras que no usamos acá** | — | Database branching (útil si más adelante querés un staging por feature) | Auth/Storage/Realtime incluidos (no los necesita este proyecto) |
 
@@ -26,7 +26,7 @@ Tres opciones válidas — la diferencia real es el free tier, no el motor
 `render.yaml` de este repo ya la crea y la conecta sin tocar nada — es
 literalmente un click menos y cero copy-paste de connection string. Si en
 unas semanas el staging sigue vivo y no querés lidiar con la expiración de
-90 días, migrar a Neon después es un `DATABASE_URL` nuevo, nada más — no
+30 días, migrar a Neon después es un `DATABASE_URL` nuevo, nada más — no
 hace falta decidirlo hoy.
 
 > Si preferís arrancar directamente con Neon o Supabase: creá la base ahí

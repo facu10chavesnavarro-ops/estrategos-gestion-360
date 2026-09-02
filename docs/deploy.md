@@ -36,7 +36,9 @@ cada `package.json`. Usá `nvm use` antes de trabajar localmente.
 ### Costo / límites del free tier
 
 - Render free: el servicio **se duerme tras ~15 min sin tráfico** (arranque frío
-  de ~30–60 s) y la Postgres free **expira a los ~90 días**. Para algo real,
+  de ~30–60 s) y la Postgres free **expira a los 30 días** (confirmado en el
+  dashboard de Render al crearla — no son 90 como decía una versión anterior
+  de esta nota). Para algo real,
   subir `api` a *Starter* y la base a un plan pago. No cambia nada del deploy,
   sólo el `plan:` en `render.yaml`.
 - Vercel free (plan Hobby): suficiente para staging y demos.
