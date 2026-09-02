@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAccessToken } from '@/lib/auth/cookies';
 import { refreshSession } from '@/lib/auth/refresh';
+import { assertSameOrigin } from '@/lib/auth/csrf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
@@ -15,9 +16,15 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
  * componente que llamó a apiFetch nunca ve el 401 intermedio.
  */
 async function proxy(request: NextRequest, path: string[]): Promise<NextResponse> {
+  const hasBody = !['GET', 'HEAD'].includes(request.method);
+
+  if (hasBody) {
+    const originError = assertSameOrigin(request);
+    if (originError) return originError;
+  }
+
   const targetUrl = `${API_URL}/api/v1/${path.join('/')}${request.nextUrl.search}`;
   const companyId = request.headers.get('x-company-id');
-  const hasBody = !['GET', 'HEAD'].includes(request.method);
   const body = hasBody ? await request.text() : undefined;
 
   const forward = (accessToken: string | undefined) => {

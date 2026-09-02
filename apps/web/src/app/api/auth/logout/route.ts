@@ -1,9 +1,13 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { clearSessionCookies, getRefreshToken } from '@/lib/auth/cookies';
+import { assertSameOrigin } from '@/lib/auth/csrf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const refreshToken = await getRefreshToken();
 
   if (refreshToken) {

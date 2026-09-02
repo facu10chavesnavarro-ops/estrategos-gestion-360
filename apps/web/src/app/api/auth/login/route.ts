@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { setSessionCookies } from '@/lib/auth/cookies';
+import { assertSameOrigin } from '@/lib/auth/csrf';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
 
 export async function POST(request: NextRequest) {
+  const originError = assertSameOrigin(request);
+  if (originError) return originError;
+
   const body = await request.json().catch(() => null);
 
   if (typeof body?.email !== 'string' || typeof body?.password !== 'string') {
