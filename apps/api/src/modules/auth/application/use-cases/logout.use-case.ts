@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TokenProviderPort } from '../../domain/repositories/token-provider.port';
 import { RefreshTokenRepository } from '../../domain/repositories/refresh-token.repository';
+import { UserRepository } from '../../domain/repositories/user.repository';
 
 export interface LogoutInput {
   refreshToken: string;
@@ -9,16 +10,20 @@ export interface LogoutInput {
 /**
  * M01 del documento fuente ("cierre de sesión") — hasta ahora solo existía
  * login/refresh. Revoca el refresh token para que no pueda usarse de nuevo,
- * aunque haya sido filtrado. No lanza error si el token ya era inválido o
- * no existía: cerrar sesión con un token viejo/inexistente no debe fallar
- * desde la perspectiva del usuario (el resultado que le importa —"ya no
- * estoy logueado"— ya se cumple).
+ * aunque haya sido filtrado, y además invalida todos los access tokens en
+ * circulación del usuario (hallazgo Bajo #7 de la auditoría de seguridad —
+ * antes seguían siendo válidos hasta su expiración natural de 15 min
+ * aunque el usuario ya hubiera cerrado sesión). No lanza error si el token
+ * ya era inválido o no existía: cerrar sesión con un token viejo/inexistente
+ * no debe fallar desde la perspectiva del usuario (el resultado que le
+ * importa —"ya no estoy logueado"— ya se cumple).
  */
 @Injectable()
 export class LogoutUseCase {
   constructor(
     private readonly tokenProvider: TokenProviderPort,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly userRepository: UserRepository,
   ) {}
 
   async execute(input: LogoutInput): Promise<void> {
@@ -37,5 +42,6 @@ export class LogoutUseCase {
     if (existing) {
       await this.refreshTokenRepository.revoke(existing.id);
     }
+    await this.userRepository.invalidateTokensNow(userId);
   }
 }

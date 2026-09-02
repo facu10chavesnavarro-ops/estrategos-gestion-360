@@ -49,7 +49,9 @@ import { PrismaUnitOfWork } from '../../common/infrastructure/persistence/prisma
     { provide: AuditLogRepository, useClass: PrismaAuditLogRepository },
     { provide: UnitOfWork, useClass: PrismaUnitOfWork },
   ],
-  // TokenProviderPort se exporta: el JwtAuthGuard global (en AppModule) lo necesita.
-  exports: [TokenProviderPort],
+  // TokenProviderPort y UserRepository se exportan: el JwtAuthGuard global
+  // (en AppModule) los necesita — este último desde el hallazgo Bajo #7
+  // (invalidación de access tokens en logout).
+  exports: [TokenProviderPort, UserRepository],
 })
 export class AuthModule {}

@@ -102,6 +102,11 @@ model User {
   fullName     String    @map("full_name")
   isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
+  /// Auditoría de seguridad (hallazgo Bajo #7): access tokens emitidos con
+  /// `iat` anterior a esta marca se rechazan aunque no hayan expirado
+  /// naturalmente todavía — logout invalidа todos los access tokens en
+  /// circulación del usuario, no solo el refresh token de esa sesión.
+  tokensInvalidatedAt DateTime? @map("tokens_invalidated_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 

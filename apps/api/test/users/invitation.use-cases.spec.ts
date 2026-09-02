@@ -339,6 +339,8 @@ describe('GetInvitationByTokenUseCase / AcceptInvitationUseCase', () => {
       create: jest.fn().mockResolvedValue(
         new UserEntity('user-new', 'nuevo@estrategos.com', 'hash', 'Usuario Nuevo', true),
       ),
+      getTokensInvalidatedAt: jest.fn(),
+      invalidateTokensNow: jest.fn(),
     } as jest.Mocked<UserRepository>;
 
     passwordHasher = {

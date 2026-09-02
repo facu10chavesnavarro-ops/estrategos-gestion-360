@@ -21,7 +21,10 @@ export class JwtTokenProvider extends TokenProviderPort {
   }
 
   signAccessToken(payload: AccessTokenPayload): string {
-    return jwt.sign(payload, this.getSecret(), {
+    // iatMs: ver comentario en AccessTokenPayload — el `iat` estándar (que
+    // jwt.sign agrega solo, con precisión de segundo) no alcanza para
+    // comparar sin ambigüedad contra tokensInvalidatedAt en el guard.
+    return jwt.sign({ ...payload, iatMs: Date.now() }, this.getSecret(), {
       expiresIn: ACCESS_TOKEN_TTL,
     });
   }

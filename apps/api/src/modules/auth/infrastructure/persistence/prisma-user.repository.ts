@@ -36,4 +36,19 @@ export class PrismaUserRepository extends UserRepository {
     const raw = await resolveClient(this.prisma, ctx).user.create({ data: input });
     return UserMapper.toDomain(raw);
   }
+
+  async getTokensInvalidatedAt(id: string, ctx?: TransactionContext): Promise<Date | null> {
+    const raw = await resolveClient(this.prisma, ctx).user.findUnique({
+      where: { id },
+      select: { tokensInvalidatedAt: true },
+    });
+    return raw?.tokensInvalidatedAt ?? null;
+  }
+
+  async invalidateTokensNow(id: string, ctx?: TransactionContext): Promise<void> {
+    await resolveClient(this.prisma, ctx).user.update({
+      where: { id },
+      data: { tokensInvalidatedAt: new Date() },
+    });
+  }
 }
